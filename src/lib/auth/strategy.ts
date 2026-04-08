@@ -7,5 +7,6 @@ export {
   PASSWORD_RULES,
 } from "@/lib/constants/auth";
 
+export { getDashboardRouteForRole } from "@/lib/auth/redirects";
 export { getCurrentSession, getCurrentUser, requireAuth } from "@/lib/auth/session";
 export { DEFAULT_SALT_ROUNDS, hashPassword, verifyPassword } from "@/lib/auth/password";
