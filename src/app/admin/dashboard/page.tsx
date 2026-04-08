@@ -1,32 +1,61 @@
-export default function AdminDashboardPage() {
+import { DashboardStatCard } from "@/components/dashboard/dashboard-stat-card";
+import { DashboardPlaceholderPage } from "@/components/dashboard/dashboard-placeholder-page";
+import { getAdminDashboardData } from "@/server/services/dashboard.service";
+
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+  }).format(date);
+}
+
+export default async function AdminDashboardPage() {
+  const data = await getAdminDashboardData();
+
   return (
     <>
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Dashboard overview
-        </p>
-        <h2 className="mt-3 text-3xl font-semibold text-slate-900">Admin Dashboard</h2>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-          The operational console now lives inside the shared shell and is ready for user oversight,
-          therapist management, bookings, and payment visibility.
-        </p>
-      </section>
+      <DashboardPlaceholderPage
+        eyebrow="Dashboard overview"
+        title="Admin Dashboard"
+        description="The operations console now reads live data from the database: account growth, therapist readiness, booking volume, and payment visibility."
+      />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
-          <h3 className="text-xl font-semibold text-slate-900">Platform monitoring</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Booking activity, audit logs, and email delivery checks will surface here in the next
-            dashboard iteration.
-          </p>
-        </section>
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
-          <h3 className="text-xl font-semibold text-slate-900">Management tools</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Therapist approvals, payout details, and manual booking actions will be added next.
-          </p>
-        </section>
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+        {data.stats.map((stat) => (
+          <DashboardStatCard key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} />
+        ))}
       </div>
+
+      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <h3 className="text-xl font-semibold text-slate-900">Recent accounts</h3>
+        {data.recentUsers.length ? (
+          <div className="mt-5 space-y-4">
+            {data.recentUsers.map((user) => (
+              <article
+                key={user.id}
+                className="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
+                  <p className="mt-1 text-sm text-slate-600">{user.email}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">{user.role}</span>
+                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">
+                    {user.isActive ? "Active" : "Inactive"}
+                  </span>
+                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">
+                    {formatDate(user.createdAt)}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-5 text-sm leading-6 text-slate-600">
+            No recent users yet. Once onboarding continues, the latest accounts will be listed here.
+          </p>
+        )}
+      </section>
     </>
   );
 }
