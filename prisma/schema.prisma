@@ -69,14 +69,15 @@ model User {
 
   @@index([role])
   @@index([isActive])
+  @@index([role, isActive])
 }
 
 model ClientProfile {
   id         String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([createdAt])
 }
@@ -90,16 +91,16 @@ model TherapistProfile {
   specialization        String?
   approvalStatus        TherapistApprovalStatus  @default(PENDING)
   isApproved            Boolean                  @default(false)
-  googleCalendarId      String?
-  googleCalendarEmail   String?
+  googleCalendarId      String?                  @unique
+  googleCalendarEmail   String?                  @unique
   payoutDetails         TherapistPayoutDetails?
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
   @@index([approvalStatus])
   @@index([isApproved])
-  @@index([googleCalendarEmail])
   @@index([createdAt])
+  @@index([approvalStatus, isApproved])
 }
 
 model Booking {
@@ -123,8 +124,13 @@ model Booking {
   @@index([clientId])
   @@index([therapistId])
   @@index([startsAt])
+  @@index([endsAt])
   @@index([bookingStatus])
   @@index([cancelledByUserId])
+  @@index([clientId, startsAt])
+  @@index([therapistId, startsAt])
+  @@index([bookingStatus, startsAt])
+  @@index([therapistId, bookingStatus])
 }
 
 model Session {
@@ -139,6 +145,8 @@ model Session {
 
   @@index([sessionStatus])
   @@index([createdAt])
+  @@index([completedAt])
+  @@index([sessionStatus, createdAt])
 }
 
 model Payment {
@@ -159,6 +167,10 @@ model Payment {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([currency])
+  @@index([paidAt])
+  @@index([failedAt])
+  @@index([refundedAt])
+  @@index([paymentStatus, createdAt])
 }
 
 model TherapistPayoutDetails {
@@ -177,6 +189,7 @@ model TherapistPayoutDetails {
   @@index([isVerified])
   @@index([country])
   @@index([createdAt])
+  @@index([isVerified, country])
 }
 
 model EmailLog {
@@ -197,6 +210,8 @@ model EmailLog {
   @@index([template])
   @@index([status])
   @@index([createdAt])
+  @@index([email, status])
+  @@index([template, createdAt])
 }
 
 model AuditLog {
@@ -215,4 +230,6 @@ model AuditLog {
   @@index([entityId])
   @@index([action])
   @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
 }
