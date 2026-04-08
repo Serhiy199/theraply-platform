@@ -220,6 +220,48 @@ Run seed manually:
 npx prisma db seed
 ```
 
+## Remote production / Vercel database
+
+To avoid changing the local `.env` and accidentally pointing away from the local WSL database, use a separate `.env.production.local` file.
+
+1. Copy the template:
+
+```bash
+cp .env.production.local.example .env.production.local
+```
+
+2. Paste the `DATABASE_URL` value from Vercel / Prisma Postgres into `.env.production.local`.
+
+3. Run the remote Prisma commands with the dedicated scripts:
+
+```bash
+npm run prisma:migrate:remote
+npm run prisma:seed:remote
+```
+
+These commands read `DATABASE_URL` only from `.env.production.local` and do not touch the local WSL database.
+
+## Remote production / Vercel database
+
+To avoid changing the local `.env` and accidentally pointing away from the local WSL database, use a separate `.env.production.local` file.
+
+1. Copy the template:
+
+```bash
+cp .env.production.local.example .env.production.local
+```
+
+2. Paste the `DATABASE_URL` value from Vercel / Prisma Postgres into `.env.production.local`.
+
+3. Run the remote Prisma commands with the dedicated scripts:
+
+```bash
+npm run prisma:migrate:remote
+npm run prisma:seed:remote
+```
+
+These commands read `DATABASE_URL` only from `.env.production.local` and do not touch the local WSL database.
+
 ## Seeded Test Accounts
 
 The local seed currently creates:
