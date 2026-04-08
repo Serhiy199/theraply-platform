@@ -45,7 +45,7 @@ export function RegisterForm() {
         ) : null}
       </Paragraph>
       <form action={formAction} className="w-full">
-        <Form layout="vertical" requiredMark={false}>
+        <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="First name"
             validateStatus={state.fieldErrors?.firstName ? "error" : undefined}
