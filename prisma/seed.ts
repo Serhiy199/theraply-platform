@@ -1,11 +1,7 @@
-import { PrismaClient, UserRole, TherapistApprovalStatus } from "@prisma/client";
-import { createHash } from "node:crypto";
+import { PrismaClient, TherapistApprovalStatus, UserRole } from "@prisma/client";
+import { hashPassword } from "@/lib/auth/password";
 
 const prisma = new PrismaClient();
-
-function makePasswordHash(password: string) {
-  return createHash("sha256").update(password).digest("hex");
-}
 
 async function upsertUser(params: {
   email: string;
@@ -14,6 +10,8 @@ async function upsertUser(params: {
   role: UserRole;
   password: string;
 }) {
+  const passwordHash = await hashPassword(params.password);
+
   return prisma.user.upsert({
     where: { email: params.email },
     update: {
@@ -21,7 +19,7 @@ async function upsertUser(params: {
       lastName: params.lastName,
       role: params.role,
       isActive: true,
-      passwordHash: makePasswordHash(params.password),
+      passwordHash,
     },
     create: {
       email: params.email,
@@ -29,7 +27,7 @@ async function upsertUser(params: {
       lastName: params.lastName,
       role: params.role,
       isActive: true,
-      passwordHash: makePasswordHash(params.password),
+      passwordHash,
     },
   });
 }

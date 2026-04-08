@@ -1,5 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { loginSchema } from "@/lib/validations/auth";
+import { authenticateWithCredentials } from "@/server/services/auth.service";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -13,9 +16,20 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize() {
-        // Phase 3 foundation only: real credential verification is added in the next steps.
-        return null;
+      async authorize(credentials) {
+        const parsed = loginSchema.safeParse(credentials);
+
+        if (!parsed.success) {
+          throw new Error(AUTH_MESSAGES.loginInvalid);
+        }
+
+        const user = await authenticateWithCredentials(parsed.data);
+
+        if (!user) {
+          throw new Error(AUTH_MESSAGES.loginInvalid);
+        }
+
+        return user;
       },
     }),
   ],
