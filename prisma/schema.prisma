@@ -50,22 +50,23 @@ enum EmailStatus {
 }
 
 model User {
-  id                    String            @id @default(cuid())
-  email                 String            @unique
+  id                    String               @id @default(cuid())
+  email                 String               @unique
   passwordHash          String
   firstName             String?
   lastName              String?
   role                  UserRole
-  isActive              Boolean           @default(true)
+  isActive              Boolean              @default(true)
   clientProfile         ClientProfile?
   therapistProfile      TherapistProfile?
-  clientBookings        Booking[]         @relation("ClientBookings")
-  therapistBookings     Booking[]         @relation("TherapistBookings")
-  cancelledBookings     Booking[]         @relation("CancelledBookings")
+  clientBookings        Booking[]            @relation("ClientBookings")
+  therapistBookings     Booking[]            @relation("TherapistBookings")
+  cancelledBookings     Booking[]            @relation("CancelledBookings")
   emailLogs             EmailLog[]
-  auditLogs             AuditLog[]        @relation("ActorAuditLogs")
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  auditLogs             AuditLog[]           @relation("ActorAuditLogs")
+  passwordResetTokens   PasswordResetToken[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   @@index([role])
   @@index([isActive])
@@ -74,10 +75,10 @@ model User {
 
 model ClientProfile {
   id         String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([createdAt])
 }
@@ -232,4 +233,19 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@index([actorUserId, createdAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@index([userId, expiresAt])
 }
