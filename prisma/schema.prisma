@@ -29,6 +29,12 @@ enum BookingStatus {
   COMPLETED
 }
 
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+  DONE
+}
+
 model User {
   id                    String            @id @default(cuid())
   email                 String            @unique
@@ -87,6 +93,7 @@ model Booking {
   notes              String?
   cancelledAt        DateTime?
   cancelledByUserId  String?
+  session            Session?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   client             User          @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
@@ -98,4 +105,18 @@ model Booking {
   @@index([startsAt])
   @@index([bookingStatus])
   @@index([cancelledByUserId])
+}
+
+model Session {
+  id             String        @id @default(cuid())
+  bookingId      String        @unique
+  sessionStatus  SessionStatus @default(SCHEDULED)
+  meetingUrl     String?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  booking        Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([sessionStatus])
+  @@index([createdAt])
 }
