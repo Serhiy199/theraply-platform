@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  THERAPIST
+  ADMIN
+}
+
+enum TherapistApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id                String            @id @default(cuid())
+  email             String            @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  role              UserRole
+  isActive          Boolean           @default(true)
+  clientProfile     ClientProfile?
+  therapistProfile  TherapistProfile?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model ClientProfile {
+  id        String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model TherapistProfile {
+  id                String                    @id @default(cuid())
+  userId            String                    @unique
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName       String?
+  bio               String?
+  specialization    String?
+  approvalStatus    TherapistApprovalStatus   @default(PENDING)
+  isApproved        Boolean                   @default(false)
+  calendlyLink      String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([approvalStatus])
+  @@index([isApproved])
+  @@index([createdAt])
+}
