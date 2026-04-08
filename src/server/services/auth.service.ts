@@ -3,7 +3,12 @@ import { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AUTH_MESSAGES, AUTH_ROUTES, PASSWORD_RESET_RULES } from "@/lib/constants/auth";
-import type { ForgotPasswordInput, LoginInput, RegisterInput } from "@/lib/validations/auth";
+import type {
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+} from "@/lib/validations/auth";
 
 export class AuthServiceError extends Error {
   constructor(
@@ -12,7 +17,9 @@ export class AuthServiceError extends Error {
       | "EMAIL_TAKEN"
       | "INVALID_CREDENTIALS"
       | "CREATE_FAILED"
-      | "PASSWORD_RESET_REQUEST_FAILED",
+      | "PASSWORD_RESET_REQUEST_FAILED"
+      | "PASSWORD_RESET_INVALID_TOKEN"
+      | "PASSWORD_RESET_FAILED",
   ) {
     super(message);
     this.name = "AuthServiceError";
@@ -25,6 +32,35 @@ function getPasswordResetExpiryDate() {
 
 function getPasswordResetBaseUrl() {
   return process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+}
+
+async function findPasswordResetToken(token: string) {
+  return prisma.passwordResetToken.findUnique({
+    where: { token },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+}
+
+type PasswordResetTokenRecord = NonNullable<Awaited<ReturnType<typeof findPasswordResetToken>>>;
+
+function isResetTokenUsable(tokenRecord: PasswordResetTokenRecord | null) {
+  if (!tokenRecord) {
+    return false;
+  }
+
+  return (
+    tokenRecord.usedAt === null &&
+    tokenRecord.expiresAt > new Date() &&
+    tokenRecord.user.isActive
+  );
 }
 
 export async function registerClientAccount(input: RegisterInput) {
@@ -140,5 +176,53 @@ export async function requestPasswordReset(input: ForgotPasswordInput) {
   if (process.env.NODE_ENV !== "production") {
     const resetLink = `${getPasswordResetBaseUrl()}${AUTH_ROUTES.resetPasswordBase}/${token}`;
     console.info(`[auth] Password reset link for ${user.email}: ${resetLink}`);
+  }
+}
+
+export async function validatePasswordResetToken(token: string) {
+  const tokenRecord = await findPasswordResetToken(token);
+  return isResetTokenUsable(tokenRecord);
+}
+
+export async function resetPasswordWithToken(input: ResetPasswordInput) {
+  const tokenRecord = await findPasswordResetToken(input.token);
+
+  if (!isResetTokenUsable(tokenRecord)) {
+    throw new AuthServiceError(
+      AUTH_MESSAGES.resetPasswordInvalidToken,
+      "PASSWORD_RESET_INVALID_TOKEN",
+    );
+  }
+
+  const activeTokenRecord = tokenRecord as PasswordResetTokenRecord;
+  const passwordHash = await hashPassword(input.password);
+  const now = new Date();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: {
+          id: activeTokenRecord.user.id,
+        },
+        data: {
+          passwordHash,
+        },
+      });
+
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: activeTokenRecord.user.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+    });
+  } catch {
+    throw new AuthServiceError(
+      AUTH_MESSAGES.resetPasswordGenericError,
+      "PASSWORD_RESET_FAILED",
+    );
   }
 }

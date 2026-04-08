@@ -47,6 +47,10 @@ export const AUTH_MESSAGES = {
   registerSuccess: "Account created successfully. You can now sign in.",
   registerEmailTaken: "An account with this email already exists.",
   registerGenericError: "Unable to create your account right now.",
-  forgotPasswordSuccess: "If an account with that email exists, we have generated a password reset link.",
+  forgotPasswordSuccess:
+    "If an account with that email exists, we have generated a password reset link.",
   forgotPasswordGenericError: "Unable to start password recovery right now.",
+  resetPasswordSuccess: "Password updated successfully. You can now sign in.",
+  resetPasswordInvalidToken: "This reset link is invalid or has expired.",
+  resetPasswordGenericError: "Unable to reset your password right now.",
 } as const;
