@@ -39,4 +39,7 @@ export const AUTH_MESSAGES = {
   firstNameRequired: "First name is required.",
   lastNameRequired: "Last name is required.",
   resetTokenRequired: "Reset token is required.",
+  registerSuccess: "Account created successfully. You can now sign in.",
+  registerEmailTaken: "An account with this email already exists.",
+  registerGenericError: "Unable to create your account right now.",
 } as const;
