@@ -40,6 +40,18 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       label: "Dashboard",
       description: "Overview, upcoming sessions, and payment summary.",
     },
+    {
+      key: "client-bookings",
+      href: "/client/bookings",
+      label: "Bookings",
+      description: "Track upcoming and past client sessions.",
+    },
+    {
+      key: "client-payments",
+      href: "/client/payments",
+      label: "Payments",
+      description: "Review payment status and checkout history.",
+    },
   ],
   THERAPIST: [
     {
@@ -48,6 +60,24 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       label: "Dashboard",
       description: "Overview, incoming requests, and schedule readiness.",
     },
+    {
+      key: "therapist-requests",
+      href: "/therapist/requests",
+      label: "Requests",
+      description: "Review and confirm incoming booking requests.",
+    },
+    {
+      key: "therapist-clients",
+      href: "/therapist/clients",
+      label: "Clients",
+      description: "Browse active and historical client relationships.",
+    },
+    {
+      key: "therapist-payout-details",
+      href: "/therapist/payout-details",
+      label: "Payout details",
+      description: "Manage payout setup and banking information.",
+    },
   ],
   ADMIN: [
     {
@@ -55,6 +85,30 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       href: "/admin/dashboard",
       label: "Dashboard",
       description: "Platform health, activity visibility, and management entry point.",
+    },
+    {
+      key: "admin-users",
+      href: "/admin/users",
+      label: "Users",
+      description: "Inspect user accounts and client records.",
+    },
+    {
+      key: "admin-therapists",
+      href: "/admin/therapists",
+      label: "Therapists",
+      description: "Review therapists, approvals, and availability readiness.",
+    },
+    {
+      key: "admin-bookings",
+      href: "/admin/bookings",
+      label: "Bookings",
+      description: "Monitor booking activity and manual interventions.",
+    },
+    {
+      key: "admin-payments",
+      href: "/admin/payments",
+      label: "Payments",
+      description: "Track payment state, refunds, and payout visibility.",
     },
   ],
 };
