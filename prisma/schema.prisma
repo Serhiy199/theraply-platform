@@ -20,29 +20,41 @@ enum TherapistApprovalStatus {
   SUSPENDED
 }
 
+enum BookingStatus {
+  PENDING_THERAPIST
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  AUTO_CANCELLED
+  COMPLETED
+}
+
 model User {
-  id                String            @id @default(cuid())
-  email             String            @unique
-  passwordHash      String
-  firstName         String?
-  lastName          String?
-  role              UserRole
-  isActive          Boolean           @default(true)
-  clientProfile     ClientProfile?
-  therapistProfile  TherapistProfile?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                    String            @id @default(cuid())
+  email                 String            @unique
+  passwordHash          String
+  firstName             String?
+  lastName              String?
+  role                  UserRole
+  isActive              Boolean           @default(true)
+  clientProfile         ClientProfile?
+  therapistProfile      TherapistProfile?
+  clientBookings        Booking[]         @relation("ClientBookings")
+  therapistBookings     Booking[]         @relation("TherapistBookings")
+  cancelledBookings     Booking[]         @relation("CancelledBookings")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([role])
   @@index([isActive])
 }
 
 model ClientProfile {
-  id        String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([createdAt])
 }
@@ -63,4 +75,27 @@ model TherapistProfile {
   @@index([approvalStatus])
   @@index([isApproved])
   @@index([createdAt])
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  clientId           String
+  therapistId        String
+  startsAt           DateTime
+  endsAt             DateTime
+  bookingStatus      BookingStatus @default(PENDING_THERAPIST)
+  notes              String?
+  cancelledAt        DateTime?
+  cancelledByUserId  String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  client             User          @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
+  therapist          User          @relation("TherapistBookings", fields: [therapistId], references: [id], onDelete: Restrict)
+  cancelledBy        User?         @relation("CancelledBookings", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([therapistId])
+  @@index([startsAt])
+  @@index([bookingStatus])
+  @@index([cancelledByUserId])
 }
