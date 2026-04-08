@@ -43,6 +43,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   id                    String            @id @default(cuid())
   email                 String            @unique
@@ -56,6 +62,8 @@ model User {
   clientBookings        Booking[]         @relation("ClientBookings")
   therapistBookings     Booking[]         @relation("TherapistBookings")
   cancelledBookings     Booking[]         @relation("CancelledBookings")
+  emailLogs             EmailLog[]
+  auditLogs             AuditLog[]        @relation("ActorAuditLogs")
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
@@ -168,5 +176,43 @@ model TherapistPayoutDetails {
 
   @@index([isVerified])
   @@index([country])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id            String      @id @default(cuid())
+  userId        String?
+  email         String
+  template      String
+  subject       String
+  status        EmailStatus @default(PENDING)
+  sentAt        DateTime?
+  failedAt      DateTime?
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([template])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  entityType   String
+  entityId     String
+  action       String
+  before       Json?
+  after        Json?
+  createdAt    DateTime @default(now())
+  actorUser    User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([action])
   @@index([createdAt])
 }
