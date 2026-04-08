@@ -1,6 +1,9 @@
 "use client";
 
-import { Button, Card, Form, Input, Layout, Space, Typography } from "antd";
+import Link from "next/link";
+import { Card, Layout, Space, Typography } from "antd";
+import { RegisterForm } from "@/components/forms/register-form";
+import { AUTH_ROUTES } from "@/lib/constants/auth";
 
 const { Content } = Layout;
 const { Paragraph, Title } = Typography;
@@ -14,26 +17,13 @@ export default function RegisterPage() {
             <div>
               <Title level={2}>Registration</Title>
               <Paragraph type="secondary">
-                Starter form shell for the Theraply onboarding journey.
+                Create your Theraply client account and continue to the booking flow.
               </Paragraph>
             </div>
-            <Form layout="vertical" disabled>
-              <Form.Item label="First name">
-                <Input placeholder="First name" />
-              </Form.Item>
-              <Form.Item label="Last name">
-                <Input placeholder="Last name" />
-              </Form.Item>
-              <Form.Item label="Email address">
-                <Input placeholder="name@example.com" />
-              </Form.Item>
-              <Form.Item label="Password">
-                <Input.Password placeholder="Create a password" />
-              </Form.Item>
-              <Button type="primary" block>
-                Create account
-              </Button>
-            </Form>
+            <RegisterForm />
+            <Paragraph type="secondary" className="!mb-0 text-center">
+              Already have an account? <Link href={AUTH_ROUTES.login}>Sign in</Link>
+            </Paragraph>
           </Space>
         </Card>
       </Content>
