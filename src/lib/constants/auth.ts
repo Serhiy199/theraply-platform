@@ -22,6 +22,10 @@ export const PASSWORD_RULES = {
   maxLength: 72,
 } as const;
 
+export const PASSWORD_RESET_RULES = {
+  tokenTtlHours: 2,
+} as const;
+
 export const PASSWORD_MESSAGES = {
   required: "Password is required.",
   minLength: `Password must be at least ${PASSWORD_RULES.minLength} characters long.`,
@@ -43,4 +47,6 @@ export const AUTH_MESSAGES = {
   registerSuccess: "Account created successfully. You can now sign in.",
   registerEmailTaken: "An account with this email already exists.",
   registerGenericError: "Unable to create your account right now.",
+  forgotPasswordSuccess: "If an account with that email exists, we have generated a password reset link.",
+  forgotPasswordGenericError: "Unable to start password recovery right now.",
 } as const;
