@@ -1,23 +1,28 @@
 # Theraply Platform
 
+Ukrainian version: [README.ua.md](./README.ua.md)
+
 Theraply Platform is a Next.js application for three core roles:
 - clients
 - therapists
 - admins
 
-The marketing website remains outside this repository. This project contains the application layer that will live on the dedicated platform subdomain.
+The marketing website remains outside this repository. This project contains the product application that will run on the dedicated platform subdomain.
 
 ## Current Status
 
-The project currently includes completed `Phase 1` and `Phase 2` work:
-- project scaffold on Next.js + TypeScript
-- UI foundation with Ant Design
-- Prisma + PostgreSQL local setup in WSL
-- first production-oriented domain schema
-- first migration applied to local database
-- seed script with test accounts
+Completed phases:
+- `Phase 1` ? project initialization
+- `Phase 2` ? database design and local PostgreSQL bootstrap
+- `Phase 3` ? authentication, password recovery, route protection, and base role dashboards
 
-`Phase 3` has not started yet.
+The current application already includes:
+- `register` for client accounts
+- `login` with `NextAuth` credentials
+- `forgot password`
+- `reset password`
+- protected role-based routes
+- base dashboard entry pages for `client`, `therapist`, and `admin`
 
 ## Tech Stack
 
@@ -26,17 +31,20 @@ The project currently includes completed `Phase 1` and `Phase 2` work:
 - TypeScript
 - Tailwind CSS 4
 - Ant Design
+- NextAuth v4
 - Prisma 6
 - PostgreSQL
+- bcryptjs
+- Zod
 
-## Implemented So Far
+## Implemented Phases
 
 ### Phase 1
 
 Completed foundation work:
 - initialized the application with Next.js App Router
 - connected Ant Design through a global provider
-- created base pages:
+- created base public pages:
   - `/`
   - `/login`
   - `/register`
@@ -51,13 +59,51 @@ Completed foundation work:
 
 Completed database design and local database bootstrap:
 - designed and implemented the Prisma schema
-- created and applied the first migration
+- created and applied the first domain migration
+- added auth support migration for password reset tokens
 - created and executed seed data for local development
 - verified database access through Prisma Client and Prisma Studio
 
+### Phase 3
+
+Completed authentication and authorization foundation:
+- configured `NextAuth` with `CredentialsProvider`
+- added password hashing with `bcryptjs`
+- implemented client self-signup
+- implemented credentials-based login
+- implemented forgot-password flow
+- implemented reset-password flow
+- added JWT session support
+- added route protection through middleware
+- added role-based redirects after login
+- created protected base dashboards for all three roles
+- verified registration, login, password reset token generation, and password update flow locally
+
+## Implemented Routes
+
+### Public routes
+
+- `/`
+- `/login`
+- `/register`
+- `/forgot-password`
+- `/reset-password/[token]`
+- `/403`
+
+### Protected routes
+
+- `/client/dashboard`
+- `/therapist/dashboard`
+- `/admin/dashboard`
+
+### Auth API
+
+- `/api/auth/[...nextauth]`
+
 ## Database Model
 
-The current schema includes these enums:
+### Enums
+
 - `UserRole`
 - `TherapistApprovalStatus`
 - `BookingStatus`
@@ -65,7 +111,8 @@ The current schema includes these enums:
 - `PaymentStatus`
 - `EmailStatus`
 
-The current schema includes these models:
+### Models
+
 - `User`
 - `ClientProfile`
 - `TherapistProfile`
@@ -75,14 +122,16 @@ The current schema includes these models:
 - `TherapistPayoutDetails`
 - `EmailLog`
 - `AuditLog`
+- `PasswordResetToken`
 
-### Important Domain Notes
+### Important domain notes
 
 - roles are stored in `User.role`
 - `ClientProfile` and `TherapistProfile` are separate one-to-one role profiles
 - `Booking` represents booking state and scheduling intent
 - `Session` represents the actual session entity and is linked one-to-one with `Booking`
 - `Payment` is stored separately from `Booking`
+- password recovery tokens are stored in `PasswordResetToken`
 - therapist availability is planned around Google Calendar
 - Google Calendar replaced Calendly in the updated requirements
 
@@ -98,23 +147,30 @@ theraply-platform/
 |- src/
 |  |- app/
 |  |- components/
-|  \- lib/
+|  |- lib/
+|  |- server/
+|  |- types/
+|  \- middleware.ts
 |- .env
 |- .env.example
 |- package.json
-\- README.md
+|- prisma.config.ts
+|- README.md
+\- README.ua.md
 ```
 
 ## Local Environment
 
-Current local database connection:
+Example local database connection:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 ```
 
-Other environment variables already prepared:
+Environment variables expected by the project:
+- `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
+- `APP_URL`
 - `AUTH_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
@@ -134,13 +190,19 @@ Run the app locally:
 npm run dev
 ```
 
+Build the project:
+
+```bash
+npm run build
+```
+
 Generate Prisma client:
 
 ```bash
 npm run prisma:generate
 ```
 
-Create/apply future migrations:
+Create and apply a migration:
 
 ```bash
 npm run prisma:migrate:dev -- --name your_migration_name
@@ -156,12 +218,6 @@ Run seed manually:
 
 ```bash
 npx prisma db seed
-```
-
-Build the project:
-
-```bash
-npm run build
 ```
 
 ## Seeded Test Accounts
@@ -192,38 +248,31 @@ The local seed currently creates:
 - email: `client.james@theraply.local`
 - password: `Client123!`
 
-## Migration Status
+## Verification Summary For Phase 3
 
-The first migration has already been created and applied locally.
-
-Migration folder:
-- `prisma/migrations/20260408132556_init_domain_schema`
-
-This migration creates:
-- enums
-- application tables
-- indexes
-- uniqueness constraints
-- Prisma migration tracking table
+Verified locally:
+- production build passes
+- client registration creates `User` + `ClientProfile`
+- credentials login works with hashed passwords
+- forgot-password creates a valid reset token
+- reset-password updates the stored password hash
+- old password stops working after reset
+- new password works after reset
+- used reset token is invalidated
 
 ## Notes
 
-- local password hashes in seed are temporary development placeholders for now
-- proper authentication hashing will be finalized during `Phase 3`
-- Prisma currently shows a warning that `package.json#prisma.seed` will be deprecated in Prisma 7
-- when we move forward, this can be migrated to `prisma.config.ts`
+- `middleware.ts` still works, but Next.js 16 warns that the file convention will later move to `proxy.ts`
+- transactional email sending is not connected yet; in development, password reset links are logged on the server
+- logout UI is not added yet, although the auth foundation is already in place
 
 ## Next Step
 
 The next planned phase is:
-- `Phase 3: Authentication and roles`
+- `Phase 4: Base dashboard experience and role-specific workspace expansion`
 
-That phase will include:
-- registration
-- login
-- forgot/reset password flow
-- protected routes
-- role-based access control
-- redirects into the correct dashboard
-
-
+That phase will focus on:
+- richer dashboard layouts
+- navigation between dashboard sections
+- first real content blocks for each role
+- preparation for booking and payment flows

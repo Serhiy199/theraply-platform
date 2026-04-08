@@ -1,5 +1,7 @@
 import type { UserRole } from "@prisma/client";
-import { requireAuth } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
+import { AUTH_ROUTES } from "@/lib/constants/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export function hasRole(userRole: string | undefined, allowedRoles: UserRole[]) {
   if (!userRole) {
@@ -10,10 +12,14 @@ export function hasRole(userRole: string | undefined, allowedRoles: UserRole[]) 
 }
 
 export async function requireRole(allowedRoles: UserRole[]) {
-  const user = await requireAuth();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect(AUTH_ROUTES.login);
+  }
 
   if (!hasRole(user.role, allowedRoles)) {
-    throw new Error("FORBIDDEN");
+    redirect("/403");
   }
 
   return user;
