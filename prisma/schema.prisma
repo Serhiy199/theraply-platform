@@ -35,6 +35,14 @@ enum SessionStatus {
   DONE
 }
 
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 model User {
   id                    String            @id @default(cuid())
   email                 String            @unique
@@ -57,29 +65,31 @@ model User {
 
 model ClientProfile {
   id         String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([createdAt])
 }
 
 model TherapistProfile {
-  id                String                    @id @default(cuid())
-  userId            String                    @unique
-  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName       String?
-  bio               String?
-  specialization    String?
-  approvalStatus    TherapistApprovalStatus   @default(PENDING)
-  isApproved        Boolean                   @default(false)
-  calendlyLink      String?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  id                    String                   @id @default(cuid())
+  userId                String                   @unique
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName           String?
+  bio                   String?
+  specialization        String?
+  approvalStatus        TherapistApprovalStatus  @default(PENDING)
+  isApproved            Boolean                  @default(false)
+  googleCalendarId      String?
+  googleCalendarEmail   String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   @@index([approvalStatus])
   @@index([isApproved])
+  @@index([googleCalendarEmail])
   @@index([createdAt])
 }
 
@@ -94,6 +104,7 @@ model Booking {
   cancelledAt        DateTime?
   cancelledByUserId  String?
   session            Session?
+  payment            Payment?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   client             User          @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
@@ -119,4 +130,24 @@ model Session {
 
   @@index([sessionStatus])
   @@index([createdAt])
+}
+
+model Payment {
+  id                      String        @id @default(cuid())
+  bookingId               String        @unique
+  stripeCheckoutSessionId String?       @unique
+  stripePaymentIntentId   String?       @unique
+  amount                  Int
+  currency                String        @default("usd")
+  paymentStatus           PaymentStatus @default(UNPAID)
+  paidAt                  DateTime?
+  failedAt                DateTime?
+  refundedAt              DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  booking                 Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([currency])
 }
