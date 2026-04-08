@@ -84,6 +84,7 @@ model TherapistProfile {
   isApproved            Boolean                  @default(false)
   googleCalendarId      String?
   googleCalendarEmail   String?
+  payoutDetails         TherapistPayoutDetails?
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
@@ -150,4 +151,22 @@ model Payment {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([currency])
+}
+
+model TherapistPayoutDetails {
+  id                   String            @id @default(cuid())
+  therapistProfileId   String            @unique
+  accountHolderName    String
+  bankName             String?
+  iban                 String?
+  swift                String?
+  country              String?
+  isVerified           Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  therapistProfile     TherapistProfile  @relation(fields: [therapistProfileId], references: [id], onDelete: Cascade)
+
+  @@index([isVerified])
+  @@index([country])
+  @@index([createdAt])
 }
