@@ -1,7 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
-import { getDashboardRouteForRole } from "@/lib/auth/redirects";
 import { loginSchema } from "@/lib/validations/auth";
 import { authenticateWithCredentials } from "@/server/services/auth.service";
 
@@ -35,8 +34,24 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      return getDashboardRouteForRole((user as { role?: string }).role);
+    async signIn() {
+      return true;
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+
+      try {
+        const targetUrl = new URL(url);
+        if (targetUrl.origin === baseUrl) {
+          return url;
+        }
+      } catch {
+        return baseUrl;
+      }
+
+      return baseUrl;
     },
     async jwt({ token, user }) {
       if (user) {

@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { Alert, Button, Form, Input, Space, Typography } from "antd";
+import { getDashboardRouteForRole } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { loginSchema } from "@/lib/validations/auth";
 
@@ -12,6 +13,11 @@ const { Paragraph } = Typography;
 type LoginFormProps = {
   callbackUrl?: string;
 };
+
+function normalizeRedirectTarget(url: string) {
+  const parsedUrl = new URL(url, window.location.origin);
+  return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+}
 
 export function LoginForm({ callbackUrl = "/" }: LoginFormProps) {
   const router = useRouter();
@@ -39,12 +45,19 @@ export function LoginForm({ callbackUrl = "/" }: LoginFormProps) {
         callbackUrl,
       });
 
-      if (!result || result.error || !result.url) {
+      if (!result || result.error) {
         setFormError(AUTH_MESSAGES.loginInvalid);
         return;
       }
 
-      router.push(result.url);
+      let nextRoute = result.url ? normalizeRedirectTarget(result.url) : null;
+
+      if (!nextRoute || nextRoute === "/") {
+        const session = await getSession();
+        nextRoute = getDashboardRouteForRole(session?.user?.role);
+      }
+
+      router.push(nextRoute);
       router.refresh();
     });
   };
