@@ -1,40 +1,32 @@
-import { UserRole } from "@prisma/client";
-import { Card, Space } from "antd";
-import { requireRole } from "@/lib/permissions";
-
-export default async function ClientDashboardPage() {
-  const user = await requireRole([UserRole.CLIENT]);
-
+export default function ClientDashboardPage() {
   return (
-    <main className="site-shell mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-6 py-16 md:px-10">
-      <Card className="soft-card w-full max-w-3xl" bordered={false}>
-        <Space direction="vertical" size="large" className="w-full">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Client area
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold text-slate-900">Client Dashboard</h1>
-            <p className="mt-3 text-base text-slate-600">
-              Signed in as {user.email}. This protected area will become the entry point for bookings,
-              sessions, and payments.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-3xl border border-slate-200/70 bg-white/60 p-5">
-              <h2 className="text-lg font-semibold text-slate-900">Upcoming sessions</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Phase 4 will show the client&rsquo;s next confirmed sessions here.
-              </p>
-            </section>
-            <section className="rounded-3xl border border-slate-200/70 bg-white/60 p-5">
-              <h2 className="text-lg font-semibold text-slate-900">Payments</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Payment status and checkout history will appear in this block.
-              </p>
-            </section>
-          </div>
-        </Space>
-      </Card>
-    </main>
+    <>
+      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+          Dashboard overview
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold text-slate-900">Client Dashboard</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
+          This protected area is now mounted inside the shared dashboard shell and is ready to grow
+          into the client workspace for bookings, sessions, and payments.
+        </p>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+          <h3 className="text-xl font-semibold text-slate-900">Upcoming sessions</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Phase 4 will show the client&apos;s next confirmed sessions here together with therapist
+            details, start times, and quick actions.
+          </p>
+        </section>
+        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+          <h3 className="text-xl font-semibold text-slate-900">Payments</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Payment status, checkout history, and invoice-ready data will appear in this block.
+          </p>
+        </section>
+      </div>
+    </>
   );
 }
