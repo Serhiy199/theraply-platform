@@ -2,10 +2,29 @@ import {
   BookingStatus,
   PaymentStatus,
   TherapistApprovalStatus,
+  UserRole,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const upcomingBookingStatuses = [BookingStatus.PENDING_THERAPIST, BookingStatus.CONFIRMED];
+
+type ClientDashboardStat = {
+  label: string;
+  value: number;
+  hint: string;
+};
+
+type TherapistDashboardStat = {
+  label: string;
+  value: number | string;
+  hint: string;
+};
+
+type AdminDashboardStat = {
+  label: string;
+  value: number;
+  hint: string;
+};
 
 export async function getClientDashboardData(userId: string) {
   const now = new Date();
@@ -43,7 +62,9 @@ export async function getClientDashboardData(userId: string) {
       }),
       prisma.payment.count({
         where: {
-          paymentStatus: { in: [PaymentStatus.UNPAID, PaymentStatus.PENDING, PaymentStatus.FAILED] },
+          paymentStatus: {
+            in: [PaymentStatus.UNPAID, PaymentStatus.PENDING, PaymentStatus.FAILED],
+          },
           booking: {
             clientId: userId,
           },
@@ -72,29 +93,31 @@ export async function getClientDashboardData(userId: string) {
       }),
     ]);
 
+  const stats: ClientDashboardStat[] = [
+    {
+      label: "Approved therapists",
+      value: approvedTherapists,
+      hint: "Available therapist profiles already prepared in the platform.",
+    },
+    {
+      label: "Upcoming sessions",
+      value: upcomingCount,
+      hint: "Confirmed or pending bookings scheduled in the future.",
+    },
+    {
+      label: "Payment actions",
+      value: openPayments,
+      hint: "Unpaid, pending, or failed payments that need attention.",
+    },
+    {
+      label: "Booking records",
+      value: totalBookings,
+      hint: "All booking requests linked to this client account.",
+    },
+  ];
+
   return {
-    stats: [
-      {
-        label: "Approved therapists",
-        value: approvedTherapists,
-        hint: "Available therapist profiles already prepared in the platform.",
-      },
-      {
-        label: "Upcoming sessions",
-        value: upcomingCount,
-        hint: "Confirmed or pending bookings scheduled in the future.",
-      },
-      {
-        label: "Payment actions",
-        value: openPayments,
-        hint: "Unpaid, pending, or failed payments that need attention.",
-      },
-      {
-        label: "Booking records",
-        value: totalBookings,
-        hint: "All booking requests linked to this client account.",
-      },
-    ],
+    stats,
     accountSummary: {
       memberSince: clientProfile?.createdAt ?? null,
       displayName:
@@ -103,6 +126,31 @@ export async function getClientDashboardData(userId: string) {
         null,
       email: clientProfile?.user.email ?? null,
     },
+    paymentSummary: {
+      openPayments,
+      healthy: openPayments === 0,
+      message:
+        openPayments === 0
+          ? "No outstanding payment actions right now."
+          : `${openPayments} payment item${openPayments === 1 ? "" : "s"} still need attention.`,
+    },
+    quickActions: [
+      {
+        label: "Open bookings",
+        href: "/client/bookings",
+        description: "Review the next sessions and booking history.",
+      },
+      {
+        label: "Review payments",
+        href: "/client/payments",
+        description: "Check payment state and resolve open billing items.",
+      },
+      {
+        label: "Reset password",
+        href: "/forgot-password",
+        description: "Start a password reset flow if account access needs refreshing.",
+      },
+    ],
     recentBookings: recentBookings.map((booking) => ({
       id: booking.id,
       startsAt: booking.startsAt,
@@ -178,29 +226,31 @@ export async function getTherapistDashboardData(userId: string) {
       }),
     ]);
 
+  const stats: TherapistDashboardStat[] = [
+    {
+      label: "Pending requests",
+      value: pendingRequests,
+      hint: "Booking requests waiting for therapist confirmation.",
+    },
+    {
+      label: "Upcoming sessions",
+      value: upcomingCount,
+      hint: "Confirmed sessions already scheduled in the future.",
+    },
+    {
+      label: "Client relationships",
+      value: totalClients,
+      hint: "Distinct clients already connected to this therapist profile.",
+    },
+    {
+      label: "Payout verified",
+      value: therapistProfile?.payoutDetails?.isVerified ? "Yes" : "No",
+      hint: "Whether payout details have been verified for operational use.",
+    },
+  ];
+
   return {
-    stats: [
-      {
-        label: "Pending requests",
-        value: pendingRequests,
-        hint: "Booking requests waiting for therapist confirmation.",
-      },
-      {
-        label: "Upcoming sessions",
-        value: upcomingCount,
-        hint: "Confirmed sessions already scheduled in the future.",
-      },
-      {
-        label: "Client relationships",
-        value: totalClients,
-        hint: "Distinct clients already connected to this therapist profile.",
-      },
-      {
-        label: "Payout verified",
-        value: therapistProfile?.payoutDetails?.isVerified ? "Yes" : "No",
-        hint: "Whether payout details have been verified for operational use.",
-      },
-    ],
+    stats,
     profileSummary: {
       displayName: therapistProfile?.displayName ?? null,
       specialization: therapistProfile?.specialization ?? null,
@@ -235,8 +285,8 @@ export async function getAdminDashboardData() {
     recentUsers,
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.user.count({ where: { role: "CLIENT" } }),
-    prisma.user.count({ where: { role: "THERAPIST" } }),
+    prisma.user.count({ where: { role: UserRole.CLIENT } }),
+    prisma.user.count({ where: { role: UserRole.THERAPIST } }),
     prisma.therapistProfile.count({
       where: { approvalStatus: TherapistApprovalStatus.PENDING },
     }),
@@ -268,49 +318,51 @@ export async function getAdminDashboardData() {
     }),
   ]);
 
+  const stats: AdminDashboardStat[] = [
+    {
+      label: "Users",
+      value: totalUsers,
+      hint: "All accounts currently stored in the platform.",
+    },
+    {
+      label: "Clients",
+      value: totalClients,
+      hint: "Client accounts available for booking workflows.",
+    },
+    {
+      label: "Therapists",
+      value: totalTherapists,
+      hint: "Therapist accounts inside the operations console.",
+    },
+    {
+      label: "Pending approvals",
+      value: pendingTherapists,
+      hint: "Therapist profiles still waiting for admin approval.",
+    },
+    {
+      label: "Booking records",
+      value: totalBookings,
+      hint: "All booking rows currently present in the system.",
+    },
+    {
+      label: "Upcoming bookings",
+      value: upcomingBookings,
+      hint: "Future bookings in pending or confirmed state.",
+    },
+    {
+      label: "Payments to review",
+      value: paymentsNeedingAttention,
+      hint: "Unpaid, pending, or failed payments needing admin visibility.",
+    },
+    {
+      label: "Verified payouts",
+      value: verifiedPayouts,
+      hint: "Therapist payout profiles that are already verified.",
+    },
+  ];
+
   return {
-    stats: [
-      {
-        label: "Users",
-        value: totalUsers,
-        hint: "All accounts currently stored in the platform.",
-      },
-      {
-        label: "Clients",
-        value: totalClients,
-        hint: "Client accounts available for booking workflows.",
-      },
-      {
-        label: "Therapists",
-        value: totalTherapists,
-        hint: "Therapist accounts inside the operations console.",
-      },
-      {
-        label: "Pending approvals",
-        value: pendingTherapists,
-        hint: "Therapist profiles still waiting for admin approval.",
-      },
-      {
-        label: "Booking records",
-        value: totalBookings,
-        hint: "All booking rows currently present in the system.",
-      },
-      {
-        label: "Upcoming bookings",
-        value: upcomingBookings,
-        hint: "Future bookings in pending or confirmed state.",
-      },
-      {
-        label: "Payments to review",
-        value: paymentsNeedingAttention,
-        hint: "Unpaid, pending, or failed payments needing admin visibility.",
-      },
-      {
-        label: "Verified payouts",
-        value: verifiedPayouts,
-        hint: "Therapist payout profiles that are already verified.",
-      },
-    ],
+    stats,
     recentUsers: recentUsers.map((user) => ({
       id: user.id,
       email: user.email,
