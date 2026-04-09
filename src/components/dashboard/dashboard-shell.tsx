@@ -33,7 +33,9 @@ export function DashboardShell({
           eyebrow={eyebrow}
           title={title}
           description={description}
+          roleLabel={roleLabel}
           items={navigationItems}
+          user={user}
         />
         <div className="flex min-w-0 flex-col gap-6">
           <DashboardHeader

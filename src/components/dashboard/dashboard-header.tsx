@@ -1,4 +1,5 @@
 import { LogoutButton } from "@/components/dashboard/logout-button";
+import { getUserDisplayName } from "@/lib/auth/session";
 
 type DashboardHeaderProps = {
   email: string | null | undefined;
@@ -7,17 +8,8 @@ type DashboardHeaderProps = {
   roleLabel: string;
 };
 
-function getDisplayName({ email, firstName, lastName }: Omit<DashboardHeaderProps, "roleLabel">) {
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  if (fullName) {
-    return fullName;
-  }
-
-  return email ?? "Theraply user";
-}
-
 export function DashboardHeader({ email, firstName, lastName, roleLabel }: DashboardHeaderProps) {
-  const displayName = getDisplayName({ email, firstName, lastName });
+  const displayName = getUserDisplayName({ email, firstName, lastName });
 
   return (
     <header className="soft-card rounded-[2rem] border border-slate-200/70 p-5 md:p-6">
@@ -30,11 +22,14 @@ export function DashboardHeader({ email, firstName, lastName, roleLabel }: Dashb
             {email ? ` Current account: ${email}.` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700">
             {roleLabel}
           </span>
-          <LogoutButton />
+          <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+            Session active
+          </span>
+          <LogoutButton size="large" />
         </div>
       </div>
     </header>
