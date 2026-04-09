@@ -2,27 +2,30 @@
 
 Ukrainian version: [README.ua.md](./README.ua.md)
 
-Theraply Platform is a Next.js application for three core roles:
+Theraply Platform is a Next.js product application for three core roles:
 - clients
 - therapists
 - admins
 
-The marketing website remains outside this repository. This project contains the product application that will run on the dedicated platform subdomain.
+The marketing website remains outside this repository. This codebase contains the platform application that will run on a dedicated product subdomain.
 
 ## Current Status
 
 Completed phases:
-- `Phase 1` ? project initialization
-- `Phase 2` ? database design and local PostgreSQL bootstrap
-- `Phase 3` ? authentication, password recovery, route protection, and base role dashboards
+- `Phase 1` - project initialization
+- `Phase 2` - database design and PostgreSQL bootstrap
+- `Phase 3` - authentication, password recovery, and route protection
+- `Phase 4` - private app shell, role dashboards, and navigation foundations
 
 The current application already includes:
-- `register` for client accounts
-- `login` with `NextAuth` credentials
-- `forgot password`
-- `reset password`
+- client self-signup
+- credentials-based login with `NextAuth`
+- forgot-password and reset-password flows
 - protected role-based routes
-- base dashboard entry pages for `client`, `therapist`, and `admin`
+- shared private dashboard shell
+- role-specific overview dashboards for `client`, `therapist`, and `admin`
+- child dashboard routes for the next business modules
+- server-side dashboard data layer powered by Prisma
 
 ## Tech Stack
 
@@ -77,7 +80,21 @@ Completed authentication and authorization foundation:
 - added route protection through middleware
 - added role-based redirects after login
 - created protected base dashboards for all three roles
-- verified registration, login, password reset token generation, and password update flow locally
+- verified registration, login, password reset token generation, and password update flow locally and on the deployed environment
+
+### Phase 4
+
+Completed private workspace foundation:
+- built a shared dashboard shell with header, sidebar, and sign-out controls
+- added role-aware layouts for `client`, `therapist`, and `admin`
+- configured live role navigation for private routes
+- created child routes for upcoming booking, payments, therapist, and admin modules
+- implemented role-specific overview dashboards:
+  - client workspace with upcoming sessions, payment summary, quick actions, and account summary
+  - therapist workspace with pending requests, client summary, and profile/payout completion
+  - admin workspace with users, approvals, bookings, payments, and recent activity
+- added a server-side dashboard data layer in `dashboard.service.ts`
+- made the private shell auth-aware by showing the signed-in user, current role, session state, and logout controls
 
 ## Implemented Routes
 
@@ -90,11 +107,26 @@ Completed authentication and authorization foundation:
 - `/reset-password/[token]`
 - `/403`
 
-### Protected routes
+### Protected client routes
 
 - `/client/dashboard`
+- `/client/bookings`
+- `/client/payments`
+
+### Protected therapist routes
+
 - `/therapist/dashboard`
+- `/therapist/requests`
+- `/therapist/clients`
+- `/therapist/payout-details`
+
+### Protected admin routes
+
 - `/admin/dashboard`
+- `/admin/users`
+- `/admin/therapists`
+- `/admin/bookings`
+- `/admin/payments`
 
 ### Auth API
 
@@ -144,6 +176,7 @@ theraply-platform/
 |  |- schema.prisma
 |  \- seed.ts
 |- public/
+|- scripts/
 |- src/
 |  |- app/
 |  |- components/
@@ -153,6 +186,7 @@ theraply-platform/
 |  \- middleware.ts
 |- .env
 |- .env.example
+|- .env.production.local.example
 |- package.json
 |- prisma.config.ts
 |- README.md
@@ -202,7 +236,7 @@ Generate Prisma client:
 npm run prisma:generate
 ```
 
-Create and apply a migration:
+Create and apply a local migration:
 
 ```bash
 npm run prisma:migrate:dev -- --name your_migration_name
@@ -241,30 +275,9 @@ npm run prisma:seed:remote
 
 These commands read `DATABASE_URL` only from `.env.production.local` and do not touch the local WSL database.
 
-## Remote production / Vercel database
+## Seed Test Accounts
 
-To avoid changing the local `.env` and accidentally pointing away from the local WSL database, use a separate `.env.production.local` file.
-
-1. Copy the template:
-
-```bash
-cp .env.production.local.example .env.production.local
-```
-
-2. Paste the `DATABASE_URL` value from Vercel / Prisma Postgres into `.env.production.local`.
-
-3. Run the remote Prisma commands with the dedicated scripts:
-
-```bash
-npm run prisma:migrate:remote
-npm run prisma:seed:remote
-```
-
-These commands read `DATABASE_URL` only from `.env.production.local` and do not touch the local WSL database.
-
-## Seeded Test Accounts
-
-The local seed currently creates:
+The seed currently creates:
 - 1 admin
 - 2 therapists
 - 2 clients
@@ -290,31 +303,29 @@ The local seed currently creates:
 - email: `client.james@theraply.local`
 - password: `Client123!`
 
-## Verification Summary For Phase 3
+## Verification Summary
 
-Verified locally:
-- production build passes
-- client registration creates `User` + `ClientProfile`
+Verified in the current state:
+- production build passes successfully
+- registration creates `User` + `ClientProfile`
 - credentials login works with hashed passwords
 - forgot-password creates a valid reset token
 - reset-password updates the stored password hash
-- old password stops working after reset
-- new password works after reset
-- used reset token is invalidated
+- role-based redirects work for `client`, `therapist`, and `admin`
+- the private shell loads with session-aware header and sidebar controls
+- the deployed database can be migrated and seeded through the remote Prisma workflow
 
 ## Notes
 
-- `middleware.ts` still works, but Next.js 16 warns that the file convention will later move to `proxy.ts`
-- transactional email sending is not connected yet; in development, password reset links are logged on the server
-- logout UI is not added yet, although the auth foundation is already in place
+- `middleware.ts` still works, but Next.js 16 warns that the file convention will move to `proxy.ts`
+- transactional email sending is not connected yet; in development, reset links are logged on the server
+- booking, payment, Google Calendar sync, and operational flows are still in upcoming phases
+- if any remote database secret was exposed outside the expected environment, rotate it in Prisma Postgres / Vercel
 
 ## Next Step
 
-The next planned phase is:
-- `Phase 4: Base dashboard experience and role-specific workspace expansion`
-
-That phase will focus on:
-- richer dashboard layouts
-- navigation between dashboard sections
-- first real content blocks for each role
-- preparation for booking and payment flows
+The next planned phase is focused on real business modules:
+- booking workflows
+- therapist request handling
+- payment flow preparation
+- deeper role-specific pages built on top of the private shell
