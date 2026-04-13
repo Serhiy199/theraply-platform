@@ -1,24 +1,23 @@
-import { DashboardPlaceholderPage } from "@/components/dashboard/dashboard-placeholder-page";
+﻿import { UserRole } from "@prisma/client";
+import { AdminAuditList } from "@/components/dashboard/admin/admin-audit-list";
+import { AdminPaymentsTable } from "@/components/dashboard/admin/admin-payments-table";
+import { requireRole } from "@/lib/permissions";
+import {
+  getAdminAuditLogs,
+  getAdminPayments,
+} from "@/server/services/admin-operations.service";
 
-export default function AdminPaymentsPage() {
+export default async function AdminPaymentsPage() {
+  await requireRole([UserRole.ADMIN]);
+  const [payments, auditLogs] = await Promise.all([
+    getAdminPayments(),
+    getAdminAuditLogs(),
+  ]);
+
   return (
-    <DashboardPlaceholderPage
-      eyebrow="Admin oversight"
-      title="Payments"
-      description="This page will centralize transaction visibility, refund state, and payout-related monitoring for admins."
-    >
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Transactions</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Successful, pending, failed, and refunded payments will be aggregated here.
-        </p>
-      </article>
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Payout visibility</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Therapist payout readiness and financial follow-up tasks will appear in this panel.
-        </p>
-      </article>
-    </DashboardPlaceholderPage>
+    <div className="grid gap-6">
+      <AdminPaymentsTable payments={payments} />
+      <AdminAuditList logs={auditLogs} />
+    </div>
   );
 }

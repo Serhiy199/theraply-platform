@@ -1,0 +1,107 @@
+﻿import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
+import {
+  formatBookingStatus,
+  formatPaymentStatus,
+  getBookingStatusBadgeClass,
+  getPaymentStatusBadgeClass,
+} from "@/lib/utils/format-booking";
+
+function formatDateTime(date: Date | null) {
+  if (!date) return "Not available";
+
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatAmount(amount: number, currency: string) {
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(amount / 100);
+}
+
+function getTherapistName(payment: PaymentSummaryItem) {
+  return (
+    payment.booking.therapist.therapistProfile?.displayName ||
+    [payment.booking.therapist.firstName, payment.booking.therapist.lastName].filter(Boolean).join(" ") ||
+    payment.booking.therapist.email
+  );
+}
+
+type AdminPaymentsTableProps = {
+  payments: PaymentSummaryItem[];
+};
+
+export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
+  return (
+    <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Admin oversight</p>
+          <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payments</h2>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
+            This table centralizes payment visibility for the operations team, including booking references, therapist context, and settlement status.
+          </p>
+        </div>
+        <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
+          <span className="font-semibold text-slate-900">{payments.length}</span> payment record{payments.length === 1 ? "" : "s"}
+        </div>
+      </div>
+
+      {payments.length ? (
+        <div className="mt-6 overflow-x-auto rounded-[1.5rem] border border-slate-200/70 bg-white/70">
+          <table className="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
+            <thead className="bg-slate-50/80 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <tr>
+                <th className="px-5 py-4">Booking</th>
+                <th className="px-5 py-4">Therapist</th>
+                <th className="px-5 py-4">Amount</th>
+                <th className="px-5 py-4">Payment</th>
+                <th className="px-5 py-4">Booking state</th>
+                <th className="px-5 py-4">Paid</th>
+                <th className="px-5 py-4">Refunded</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200/80">
+              {payments.map((payment) => (
+                <tr key={payment.id} className="align-top">
+                  <td className="px-5 py-4">
+                    <p className="font-semibold text-slate-900">{formatDateTime(payment.booking.startsAt)}</p>
+                    <p className="mt-1 text-slate-600">to {formatDateTime(payment.booking.endsAt)}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Booking {payment.booking.id}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <p className="font-semibold text-slate-900">{getTherapistName(payment)}</p>
+                    <p className="mt-1 text-slate-600">{payment.booking.therapist.email}</p>
+                  </td>
+                  <td className="px-5 py-4 font-semibold text-slate-900">
+                    {formatAmount(payment.amount, payment.currency)}
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(payment.paymentStatus)}`}>
+                      {formatPaymentStatus(payment.paymentStatus)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(payment.booking.bookingStatus)}`}>
+                      {formatBookingStatus(payment.booking.bookingStatus)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.paidAt)}</td>
+                  <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.refundedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <article className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
+          <h3 className="text-lg font-semibold text-slate-900">No payment records yet</h3>
+          <p className="mt-2">Payments will appear here as soon as booking records begin generating billing events or checkout activity.</p>
+        </article>
+      )}
+    </section>
+  );
+}
