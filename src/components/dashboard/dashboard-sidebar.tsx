@@ -49,7 +49,7 @@ export function DashboardSidebar({
 
       <section className="mt-8 rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary)] text-sm font-semibold text-white">
             {initials}
           </div>
           <div className="min-w-0">
@@ -78,8 +78,8 @@ export function DashboardSidebar({
               className={[
                 "rounded-3xl border px-4 py-4 transition",
                 active
-                  ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15"
-                  : "border-slate-200/70 bg-white/60 text-slate-900 hover:border-slate-300 hover:bg-white",
+                  ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-lg shadow-slate-900/15"
+                  : "border-slate-200/70 bg-white/60 text-slate-900 hover:border-[var(--primary)] hover:bg-white",
               ].join(" ")}
             >
               <span className="block text-sm font-semibold">{item.label}</span>

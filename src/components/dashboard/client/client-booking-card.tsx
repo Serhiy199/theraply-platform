@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { BookingListItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,
@@ -80,7 +80,7 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
         </p>
         <Link
           href={`/client/bookings/${booking.id}`}
-          className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400"
+          className="inline-flex items-center rounded-full border border-[var(--border-medium)] bg-white px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
         >
           View details
         </Link>

@@ -1,15 +1,37 @@
 @import "tailwindcss";
 
 :root {
+  /* Core colors - matching Theraply.online */
   --background: #f4efe6;
   --foreground: #1f2937;
   --surface: rgba(255, 255, 255, 0.72);
   --surface-border: rgba(148, 163, 184, 0.2);
+  
+  /* Primary colors - dark theme like Theraply */
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --primary-active: #020617;
+  
+  /* Accent colors */
+  --accent-gold: #d97706;
+  --accent-gold-light: #fef3c7;
+  --accent-emerald: #059669;
+  --accent-emerald-light: #d1fae5;
+  
+  /* Text colors */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  /* Border colors */
+  --border-light: rgba(148, 163, 184, 0.2);
+  --border-medium: rgba(148, 163, 184, 0.4);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
   --font-sans: var(--font-inter);
 }
 
@@ -28,9 +50,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), sans-serif;
   background-image:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 32%),
-    radial-gradient(circle at 85% 15%, rgba(217, 119, 6, 0.16), transparent 24%),
-    linear-gradient(180deg, #f8f4ed 0%, #eef3f9 100%);
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 32%),
+    radial-gradient(circle at 85% 15%, rgba(217, 119, 6, 0.10), transparent 24%),
+    linear-gradient(180deg, #f8f4ed 0%, #f4efe6 100%);
 }
 
 a {
@@ -50,4 +72,211 @@ a {
 
 .ant-layout {
   background: transparent;
+}
+
+/* ===== Ant Design Theme Overrides - Theraply Style ===== */
+
+/* Primary Buttons - Dark like Theraply.online */
+.ant-btn-primary {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.2) !important;
+}
+
+.ant-btn-primary:active {
+  background: var(--primary-active) !important;
+  border-color: var(--primary-active) !important;
+}
+
+.ant-btn-primary:disabled {
+  background: #94a3b8 !important;
+  border-color: #94a3b8 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Default Buttons - Light with dark border */
+.ant-btn-default {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: var(--border-medium) !important;
+  color: var(--text-primary) !important;
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-btn-default:hover,
+.ant-btn-default:focus {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+/* Large Buttons */
+.ant-btn-lg {
+  height: 48px !important;
+  padding: 0 24px !important;
+  font-size: 16px !important;
+  border-radius: 1rem !important;
+}
+
+/* Input Fields */
+.ant-input,
+.ant-input-affix-wrapper {
+  border-radius: 0.75rem !important;
+  border-color: var(--border-medium) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-input:hover,
+.ant-input-affix-wrapper:hover {
+  border-color: var(--primary) !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1) !important;
+}
+
+.ant-input-lg,
+.ant-input-affix-wrapper-lg {
+  border-radius: 1rem !important;
+  padding: 12px 16px !important;
+}
+
+/* Select */
+.ant-select-selector {
+  border-radius: 0.75rem !important;
+  border-color: var(--border-medium) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: var(--primary) !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Cards */
+.ant-card {
+  border-radius: 1.5rem !important;
+  border-color: var(--border-light) !important;
+  background: var(--surface) !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+.ant-card-head {
+  border-bottom-color: var(--border-light) !important;
+}
+
+/* Tags */
+.ant-tag-gold {
+  background: var(--accent-gold-light) !important;
+  border-color: var(--accent-gold) !important;
+  color: var(--accent-gold) !important;
+  border-radius: 9999px !important;
+  font-weight: 500 !important;
+}
+
+/* Alerts */
+.ant-alert {
+  border-radius: 1rem !important;
+}
+
+.ant-alert-error {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+.ant-alert-success {
+  background: var(--accent-emerald-light) !important;
+  border-color: var(--accent-emerald) !important;
+}
+
+/* Form Labels */
+.ant-form-item-label > label {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+/* Table */
+.ant-table {
+  background: transparent !important;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-bottom-color: var(--border-light) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.05em !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom-color: var(--border-light) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Pagination */
+.ant-pagination-item-active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.ant-pagination-item-active a {
+  color: #ffffff !important;
+}
+
+/* Modal */
+.ant-modal-content {
+  border-radius: 1.5rem !important;
+  background: var(--surface) !important;
+  backdrop-filter: blur(14px) !important;
+}
+
+/* Dropdown */
+.ant-dropdown-menu {
+  border-radius: 1rem !important;
+  background: var(--surface) !important;
+  backdrop-filter: blur(14px) !important;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Spin loading */
+.ant-spin-dot-item {
+  background: var(--primary) !important;
+}
+
+/* Links in forms */
+.ant-form a {
+  color: var(--primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-form a:hover {
+  color: var(--primary-hover) !important;
+  text-decoration: underline !important;
 }

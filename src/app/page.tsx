@@ -12,7 +12,7 @@ export default function Home() {
         <Row gutter={[24, 24]} className="w-full">
           <Col xs={24} lg={14}>
             <Space direction="vertical" size="large" className="w-full">
-              <Tag color="gold" className="w-fit px-3 py-1 text-sm">
+              <Tag className="w-fit rounded-full border-amber-600 bg-amber-50 px-4 py-1 text-sm font-medium text-amber-700">
                 Phase 1 Initialized
               </Tag>
               <Title className="!mb-0 !text-4xl !leading-tight md:!text-6xl">
@@ -35,7 +35,7 @@ export default function Home() {
           </Col>
           <Col xs={24} lg={10}>
             <Space direction="vertical" size="middle" className="w-full">
-              <Card title="Project stack" className="soft-card">
+              <Card title="Project stack" className="soft-card rounded-3xl">
                 <Space direction="vertical" size="small">
                   <Text>Next.js App Router with TypeScript</Text>
                   <Text>Ant Design for UI components and layouts</Text>
@@ -43,7 +43,7 @@ export default function Home() {
                   <Text>Feature-ready structure for client, therapist, admin</Text>
                 </Space>
               </Card>
-              <Card title="Next implementation steps" className="soft-card">
+              <Card title="Next implementation steps" className="soft-card rounded-3xl">
                 <Space direction="vertical" size="small">
                   <Text>Design the Prisma schema for roles and bookings</Text>
                   <Text>Wire up authentication and route protection</Text>

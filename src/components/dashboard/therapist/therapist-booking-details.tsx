@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import Link from "next/link";
@@ -47,7 +47,7 @@ function DecisionForm({ bookingId, intent, label }: { bookingId: string; intent:
       <button
         type="submit"
         disabled={pending}
-        className={`inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-300 ${intent === "confirm" ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"}`}
+        className={`inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-300 ${intent === "confirm" ? "bg-[var(--primary)] text-white shadow-md shadow-slate-900/15 hover:bg-[var(--primary-hover)]" : "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"}`}
       >
         {pending ? `${label}...` : label}
       </button>
@@ -163,7 +163,7 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
             </div>
           )}
           <div className="mt-5">
-            <Link href="/therapist/requests" className="text-sm font-medium text-slate-900 underline underline-offset-4">Back to requests</Link>
+            <Link href="/therapist/requests" className="text-sm font-medium text-[var(--primary)] underline underline-offset-4 hover:text-[var(--primary-hover)]">Back to requests</Link>
           </div>
         </article>
       </section>

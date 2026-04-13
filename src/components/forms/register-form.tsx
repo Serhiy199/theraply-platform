@@ -40,7 +40,7 @@ export function RegisterForm() {
         {state.status === "success" ? (
           <>
             {" "}
-            <Link href={AUTH_ROUTES.login}>Go to login.</Link>
+            <Link href={AUTH_ROUTES.login} className="font-medium text-[var(--primary)] hover:underline">Go to login.</Link>
           </>
         ) : null}
       </Paragraph>

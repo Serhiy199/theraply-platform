@@ -25,7 +25,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
           <LoginForm callbackUrl={callbackUrl} />
           <p className="text-center text-sm text-slate-600">
-            Need an account? <Link href={AUTH_ROUTES.register}>Register here</Link>
+            Need an account?{" "}
+            <Link href={AUTH_ROUTES.register} className="font-medium text-[var(--primary)] hover:underline">
+              Register here
+            </Link>
           </p>
         </Space>
       </Card>

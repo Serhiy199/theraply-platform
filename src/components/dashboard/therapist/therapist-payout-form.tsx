@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
@@ -37,32 +37,32 @@ export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
 
           <label className="grid gap-2 text-sm text-slate-700">
             <span className="font-medium">Account holder name</span>
-            <input name="accountHolderName" defaultValue={data.payoutDetails?.accountHolderName ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
+            <input name="accountHolderName" defaultValue={data.payoutDetails?.accountHolderName ?? ""} className="rounded-[1rem] border border-[var(--border-medium)] bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10" />
             {state.fieldErrors?.accountHolderName?.[0] ? <span className="text-rose-700">{state.fieldErrors.accountHolderName[0]}</span> : null}
           </label>
 
           <label className="grid gap-2 text-sm text-slate-700">
             <span className="font-medium">Bank name</span>
-            <input name="bankName" defaultValue={data.payoutDetails?.bankName ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
+            <input name="bankName" defaultValue={data.payoutDetails?.bankName ?? ""} className="rounded-[1rem] border border-[var(--border-medium)] bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10" />
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">IBAN</span>
-              <input name="iban" defaultValue={data.payoutDetails?.iban ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
+              <input name="iban" defaultValue={data.payoutDetails?.iban ?? ""} className="rounded-[1rem] border border-[var(--border-medium)] bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10" />
             </label>
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">SWIFT</span>
-              <input name="swift" defaultValue={data.payoutDetails?.swift ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
+              <input name="swift" defaultValue={data.payoutDetails?.swift ?? ""} className="rounded-[1rem] border border-[var(--border-medium)] bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10" />
             </label>
           </div>
 
           <label className="grid gap-2 text-sm text-slate-700">
             <span className="font-medium">Country</span>
-            <input name="country" defaultValue={data.payoutDetails?.country ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
+            <input name="country" defaultValue={data.payoutDetails?.country ?? ""} className="rounded-[1rem] border border-[var(--border-medium)] bg-white/80 px-4 py-3 text-slate-900 outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10" />
           </label>
 
-          <button type="submit" disabled={pending} className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={pending} className="inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/15 transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:bg-slate-400">
             {pending ? "Saving..." : "Save payout details"}
           </button>
         </form>

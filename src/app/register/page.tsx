@@ -18,7 +18,10 @@ export default function RegisterPage() {
           </div>
           <RegisterForm />
           <p className="text-center text-sm text-slate-600">
-            Already have an account? <Link href={AUTH_ROUTES.login}>Sign in</Link>
+            Already have an account?{" "}
+            <Link href={AUTH_ROUTES.login} className="font-medium text-[var(--primary)] hover:underline">
+              Sign in
+            </Link>
           </p>
         </Space>
       </Card>

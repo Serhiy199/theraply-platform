@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import Link from "next/link";
@@ -52,7 +52,7 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="inline-flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/15 transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         {pending ? "Cancelling..." : "Cancel booking"}
       </button>
@@ -176,7 +176,7 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
             </div>
           )}
           <div className="mt-5">
-            <Link href="/client/bookings" className="text-sm font-medium text-slate-900 underline underline-offset-4">
+            <Link href="/client/bookings" className="text-sm font-medium text-[var(--primary)] underline underline-offset-4 hover:text-[var(--primary-hover)]">
               Back to bookings
             </Link>
           </div>

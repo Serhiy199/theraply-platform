@@ -47,7 +47,9 @@ export default function ForgotPasswordPage() {
             ) : null}
             <Paragraph type="secondary" className="!mb-0">
               Enter the email linked to your account and we will prepare a password reset link.{" "}
-              <Link href={AUTH_ROUTES.login}>Back to login.</Link>
+              <Link href={AUTH_ROUTES.login} className="font-medium text-[var(--primary)] hover:underline">
+                Back to login.
+              </Link>
             </Paragraph>
             <form action={formAction} className="w-full">
               <Form layout="vertical" requiredMark={false}>
