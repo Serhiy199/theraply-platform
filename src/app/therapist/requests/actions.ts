@@ -1,14 +1,14 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
-  TherapistBookingsServiceError,
-  confirmTherapistBooking,
-  rejectTherapistBooking,
-} from "@/server/services/therapist-bookings.service";
+  BookingFlowServiceError,
+  confirmBookingRequest,
+  rejectBookingRequest,
+} from "@/server/services/booking-flow.service";
 
 export type RequestDecisionActionState = {
   status: "idle" | "success" | "error";
@@ -42,15 +42,21 @@ export async function requestDecisionAction(
     }
 
     if (intent === "confirm") {
-      await confirmTherapistBooking(user.id, bookingId);
+      await confirmBookingRequest(user.id, bookingId);
     } else {
-      await rejectTherapistBooking(user.id, bookingId);
+      await rejectBookingRequest(user.id, bookingId);
     }
 
     revalidatePath("/therapist/requests");
     revalidatePath(`/therapist/requests/${bookingId}`);
     revalidatePath("/therapist/dashboard");
     revalidatePath("/therapist/clients");
+    revalidatePath("/client/bookings");
+    revalidatePath(`/client/bookings/${bookingId}`);
+    revalidatePath("/client/dashboard");
+    revalidatePath("/admin/bookings");
+    revalidatePath(`/admin/bookings/${bookingId}`);
+    revalidatePath("/admin/dashboard");
 
     return {
       status: "success",
@@ -64,7 +70,7 @@ export async function requestDecisionAction(
       };
     }
 
-    if (error instanceof TherapistBookingsServiceError) {
+    if (error instanceof BookingFlowServiceError) {
       return {
         status: "error",
         message: error.message,
