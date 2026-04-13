@@ -1,24 +1,17 @@
-import { DashboardPlaceholderPage } from "@/components/dashboard/dashboard-placeholder-page";
+﻿import { UserRole } from "@prisma/client";
+import { ClientBookingsOverview } from "@/components/dashboard/client/client-bookings-overview";
+import { requireRole } from "@/lib/permissions";
+import {
+  getClientPastBookings,
+  getClientUpcomingBookings,
+} from "@/server/services/client-bookings.service";
 
-export default function ClientBookingsPage() {
-  return (
-    <DashboardPlaceholderPage
-      eyebrow="Client bookings"
-      title="Bookings"
-      description="This section will become the client booking timeline with upcoming sessions, historical sessions, and cancellation actions."
-    >
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Upcoming sessions</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Confirmed sessions, therapist names, and meeting details will be displayed here.
-        </p>
-      </article>
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">History</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Completed or cancelled sessions will move into this archive view.
-        </p>
-      </article>
-    </DashboardPlaceholderPage>
-  );
+export default async function ClientBookingsPage() {
+  const user = await requireRole([UserRole.CLIENT]);
+  const [upcomingBookings, pastBookings] = await Promise.all([
+    getClientUpcomingBookings(user.id),
+    getClientPastBookings(user.id),
+  ]);
+
+  return <ClientBookingsOverview upcomingBookings={upcomingBookings} pastBookings={pastBookings} />;
 }

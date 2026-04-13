@@ -1,14 +1,12 @@
 ﻿import {
   BookingStatus,
   SessionStatus,
-  type Prisma,
+  TherapistApprovalStatus,
 } from "@prisma/client";
 import {
   bookingDetailsSelect,
-  bookingListSelect,
   therapistRequestItemSelect,
   type BookingDetailsItem,
-  type BookingListItem,
   type TherapistRequestItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
@@ -40,6 +38,26 @@ export type TherapistClientListItem = {
   upcomingBookings: number;
 };
 
+export type TherapistPayoutDetailsView = {
+  profile: {
+    displayName: string | null;
+    specialization: string | null;
+    approvalStatus: TherapistApprovalStatus;
+    googleCalendarEmail: string | null;
+  };
+  payoutDetails: {
+    id: string;
+    accountHolderName: string;
+    bankName: string | null;
+    iban: string | null;
+    swift: string | null;
+    country: string | null;
+    isVerified: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+};
+
 export class TherapistBookingsServiceError extends Error {
   constructor(
     message: string,
@@ -68,6 +86,23 @@ async function getTherapistProfileOrThrow(userId: string) {
     select: {
       id: true,
       userId: true,
+      displayName: true,
+      specialization: true,
+      approvalStatus: true,
+      googleCalendarEmail: true,
+      payoutDetails: {
+        select: {
+          id: true,
+          accountHolderName: true,
+          bankName: true,
+          iban: true,
+          swift: true,
+          country: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
     },
   });
 
@@ -92,7 +127,7 @@ export async function getTherapistPendingRequests(userId: string): Promise<Thera
   });
 }
 
-export async function getTherapistUpcomingSessions(userId: string): Promise<BookingListItem[]> {
+export async function getTherapistUpcomingSessions(userId: string): Promise<TherapistRequestItem[]> {
   return prisma.booking.findMany({
     where: {
       therapistId: userId,
@@ -100,11 +135,11 @@ export async function getTherapistUpcomingSessions(userId: string): Promise<Book
       startsAt: { gte: getNow() },
     },
     orderBy: { startsAt: "asc" },
-    select: bookingListSelect,
+    select: therapistRequestItemSelect,
   });
 }
 
-export async function getTherapistPastSessions(userId: string): Promise<BookingListItem[]> {
+export async function getTherapistPastSessions(userId: string): Promise<TherapistRequestItem[]> {
   const now = getNow();
 
   return prisma.booking.findMany({
@@ -120,7 +155,7 @@ export async function getTherapistPastSessions(userId: string): Promise<BookingL
       ],
     },
     orderBy: { startsAt: "desc" },
-    select: bookingListSelect,
+    select: therapistRequestItemSelect,
   });
 }
 
@@ -341,6 +376,22 @@ export async function rejectTherapistBooking(
 
     return updatedBooking;
   });
+}
+
+export async function getTherapistPayoutDetails(
+  userId: string,
+): Promise<TherapistPayoutDetailsView> {
+  const therapistProfile = await getTherapistProfileOrThrow(userId);
+
+  return {
+    profile: {
+      displayName: therapistProfile.displayName,
+      specialization: therapistProfile.specialization,
+      approvalStatus: therapistProfile.approvalStatus,
+      googleCalendarEmail: therapistProfile.googleCalendarEmail,
+    },
+    payoutDetails: therapistProfile.payoutDetails,
+  };
 }
 
 export async function updateTherapistPayoutDetails(
