@@ -16,6 +16,7 @@ Theraply Platform — це продуктова частина платформ�
 - `Phase 2` - проєктування бази даних і запуск PostgreSQL
 - `Phase 3` - авторизація, відновлення пароля і захист маршрутів
 - `Phase 4` - приватний app shell, role dashboards і базова внутрішня навігація
+- `Етапи 5-7` - operational-модулі для client, therapist і admin
 
 Поточний стан застосунку вже включає:
 - самостійну реєстрацію клієнта
@@ -24,8 +25,12 @@ Theraply Platform — це продуктова частина платформ�
 - захищені маршрути за ролями
 - спільний private dashboard shell
 - role-specific overview dashboards для `client`, `therapist` і `admin`
-- дочірні dashboard-маршрути для наступних бізнес-модулів
-- server-side dashboard data layer на Prisma
+- реальний client module для booking-ів, деталей запису, payments і скасування
+- реальний therapist module для requests, sessions, clients і payout details
+- реальний admin module для users, therapists, bookings, payments, manual cancellation і audit visibility
+- жорсткі server-side role guards для mutation actions
+- спільні empty, loading, success і error states у приватній зоні
+- server-side Prisma service layer для dashboards, bookings, sessions, payments і admin operations
 
 ## Технічний стек
 
@@ -96,6 +101,42 @@ Theraply Platform — це продуктова частина платформ�
 - додано server-side dashboard data layer у `dashboard.service.ts`
 - приватний shell зроблено auth-aware: користувач бачить себе, роль, стан сесії і logout controls
 
+### Етапи 5-7
+
+Завершено перший operational-блок для всіх трьох ролей:
+- додано спільні booking/payment contracts у `src/lib/contracts/bookings.ts`
+- додано спільні labels, badge mappings і policy helpers для booking/payment статусів
+- створено role-specific service layer:
+  - `client-bookings.service.ts`
+  - `therapist-bookings.service.ts`
+  - `admin-operations.service.ts`
+- реалізовано client module:
+  - upcoming sessions
+  - past sessions
+  - booking details page
+  - payments page
+  - client cancellation flow
+  - попередження про late cancellation менше ніж за 24 години
+  - показ meeting link, якщо він уже існує
+- реалізовано therapist module:
+  - pending requests
+  - upcoming sessions
+  - session history
+  - clients list
+  - request detail page
+  - confirm / reject actions
+  - payout details view і update flow
+- реалізовано admin module:
+  - users list
+  - therapists list
+  - bookings list
+  - booking details page
+  - payments list
+  - manual admin cancellation
+  - audit trail visibility
+- server actions захищено спільними role guards, щоб кожна mutation дія валідувалась на сервері
+- у приватній зоні додано спільні empty, loading і status states
+
 ## Реалізовані маршрути
 
 ### Публічні маршрути
@@ -111,12 +152,14 @@ Theraply Platform — це продуктова частина платформ�
 
 - `/client/dashboard`
 - `/client/bookings`
+- `/client/bookings/[bookingId]`
 - `/client/payments`
 
 ### Захищені маршрути для therapist
 
 - `/therapist/dashboard`
 - `/therapist/requests`
+- `/therapist/requests/[bookingId]`
 - `/therapist/clients`
 - `/therapist/payout-details`
 
@@ -126,6 +169,7 @@ Theraply Platform — це продуктова частина платформ�
 - `/admin/users`
 - `/admin/therapists`
 - `/admin/bookings`
+- `/admin/bookings/[bookingId]`
 - `/admin/payments`
 
 ### Auth API
@@ -183,7 +227,7 @@ theraply-platform/
 |  |- lib/
 |  |- server/
 |  |- types/
-|  \- middleware.ts
+|  \- proxy.ts
 |- .env
 |- .env.example
 |- .env.production.local.example
@@ -254,6 +298,12 @@ npm run prisma:studio
 npx prisma db seed
 ```
 
+Запустити verification script для Етапів 5-7:
+
+```bash
+npx tsx scripts/verify-stages-5-7.ts
+```
+
 ## Віддалена production / Vercel база даних
 
 Щоб не змінювати локальний `.env` і випадково не перепідключити локальну WSL-базу, використовуй окремий `.env.production.local`.
@@ -314,18 +364,13 @@ npm run prisma:seed:remote
 - role-based redirects працюють для `client`, `therapist` і `admin`
 - private shell завантажується з session-aware header і sidebar
 - розгорнуту базу можна мігрувати й засівати через окремий remote Prisma workflow
+- operational-сценарії для Етапів 5-7:
+  - client bookings, payments, details і cancellation
+  - therapist requests, sessions, clients і payout update
+  - admin users, therapists, bookings, payments, manual cancellation і audit visibility
+- локальний smoke-test через `scripts/verify-stages-5-7.ts`
 
 ## Примітки
 
-- `middleware.ts` поки працює нормально, але Next.js 16 попереджає, що згодом file convention перейде на `proxy.ts`
-- відправка транзакційних email ще не підключена; у dev-середовищі reset link логуються на сервері
-- booking flow, payment flow, Google Calendar sync і deeper operational logic ще попереду
-- якщо якийсь секрет від віддаленої БД світився поза очікуваним середовищем, його потрібно ротувати у Prisma Postgres / Vercel
+- `proxy.ts` тепер замінює застарілий file convention `middleware.ts` у Next.js 16
 
-## Наступний крок
-
-Наступна логічна фаза — реальні бізнес-модулі:
-- booking workflows
-- therapist request handling
-- payment flow preparation
-- поглиблення role-specific pages на базі вже готового private shell

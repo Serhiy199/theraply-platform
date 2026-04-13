@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
@@ -25,7 +25,7 @@ function getRequiredRole(pathname: string) {
   return null;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requiredRole = getRequiredRole(pathname);
 

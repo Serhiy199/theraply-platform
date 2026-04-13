@@ -1,4 +1,4 @@
-# Theraply Platform
+﻿# Theraply Platform
 
 Ukrainian version: [README.ua.md](./README.ua.md)
 
@@ -16,6 +16,7 @@ Completed phases:
 - `Phase 2` - database design and PostgreSQL bootstrap
 - `Phase 3` - authentication, password recovery, and route protection
 - `Phase 4` - private app shell, role dashboards, and navigation foundations
+- `Stages 5-7` - operational client, therapist, and admin modules
 
 The current application already includes:
 - client self-signup
@@ -24,8 +25,12 @@ The current application already includes:
 - protected role-based routes
 - shared private dashboard shell
 - role-specific overview dashboards for `client`, `therapist`, and `admin`
-- child dashboard routes for the next business modules
-- server-side dashboard data layer powered by Prisma
+- real client module for bookings, booking details, payments, and cancellation
+- real therapist module for requests, session management, clients, and payout details
+- real admin module for users, therapists, bookings, payments, manual cancellation, and audit visibility
+- hardened server-side role guards for mutation actions
+- shared empty, loading, success, and error states across private screens
+- server-side Prisma service layer for dashboards, bookings, sessions, payments, and admin operations
 
 ## Tech Stack
 
@@ -96,6 +101,42 @@ Completed private workspace foundation:
 - added a server-side dashboard data layer in `dashboard.service.ts`
 - made the private shell auth-aware by showing the signed-in user, current role, session state, and logout controls
 
+### Stages 5-7
+
+Completed the first operational business block across all three roles:
+- added shared booking/payment contracts in `src/lib/contracts/bookings.ts`
+- added shared booking/payment labels, badge mappings, and policy helpers
+- created role-specific service layers:
+  - `client-bookings.service.ts`
+  - `therapist-bookings.service.ts`
+  - `admin-operations.service.ts`
+- implemented the client module:
+  - upcoming sessions
+  - past sessions
+  - booking details page
+  - payments page
+  - client cancellation flow
+  - late cancellation warning for sessions under 24 hours
+  - meeting link visibility when available
+- implemented the therapist module:
+  - pending requests
+  - upcoming sessions
+  - session history
+  - client list
+  - request detail page
+  - confirm / reject actions
+  - payout details view and update flow
+- implemented the admin module:
+  - users list
+  - therapists list
+  - bookings list
+  - booking details page
+  - payments list
+  - manual admin cancellation
+  - audit trail visibility
+- hardened server actions with shared role guards so each mutation flow is enforced on the server
+- added shared empty, loading, and status states for the private role areas
+
 ## Implemented Routes
 
 ### Public routes
@@ -111,12 +152,14 @@ Completed private workspace foundation:
 
 - `/client/dashboard`
 - `/client/bookings`
+- `/client/bookings/[bookingId]`
 - `/client/payments`
 
 ### Protected therapist routes
 
 - `/therapist/dashboard`
 - `/therapist/requests`
+- `/therapist/requests/[bookingId]`
 - `/therapist/clients`
 - `/therapist/payout-details`
 
@@ -126,6 +169,7 @@ Completed private workspace foundation:
 - `/admin/users`
 - `/admin/therapists`
 - `/admin/bookings`
+- `/admin/bookings/[bookingId]`
 - `/admin/payments`
 
 ### Auth API
@@ -183,7 +227,7 @@ theraply-platform/
 |  |- lib/
 |  |- server/
 |  |- types/
-|  \- middleware.ts
+|  \- proxy.ts
 |- .env
 |- .env.example
 |- .env.production.local.example
@@ -254,6 +298,12 @@ Run seed manually:
 npx prisma db seed
 ```
 
+Run the verification script for stages 5-7:
+
+```bash
+npx tsx scripts/verify-stages-5-7.ts
+```
+
 ## Remote production / Vercel database
 
 To avoid changing the local `.env` and accidentally pointing away from the local WSL database, use a separate `.env.production.local` file.
@@ -266,7 +316,7 @@ cp .env.production.local.example .env.production.local
 
 2. Paste the `DATABASE_URL` value from Vercel / Prisma Postgres into `.env.production.local`.
 
-3. Run the remote Prisma commands with the dedicated scripts:
+3. Run the remote Prisma commands through the dedicated scripts:
 
 ```bash
 npm run prisma:migrate:remote
@@ -277,7 +327,7 @@ These commands read `DATABASE_URL` only from `.env.production.local` and do not 
 
 ## Seed Test Accounts
 
-The seed currently creates:
+The current seed creates:
 - 1 admin
 - 2 therapists
 - 2 clients
@@ -305,27 +355,22 @@ The seed currently creates:
 
 ## Verification Summary
 
-Verified in the current state:
-- production build passes successfully
-- registration creates `User` + `ClientProfile`
-- credentials login works with hashed passwords
-- forgot-password creates a valid reset token
-- reset-password updates the stored password hash
-- role-based redirects work for `client`, `therapist`, and `admin`
-- the private shell loads with session-aware header and sidebar controls
-- the deployed database can be migrated and seeded through the remote Prisma workflow
+The current application has been verified for:
+- successful production build
+- client registration that creates `User` + `ClientProfile`
+- credentials login with hashed passwords
+- forgot-password reset token generation
+- reset-password password update flow
+- role-based redirects for `client`, `therapist`, and `admin`
+- session-aware private shell with shared header and sidebar
+- remote Vercel / Prisma Postgres migration and seed workflow
+- operational role flows for stages 5-7:
+  - client bookings, payments, details, and cancellation
+  - therapist requests, sessions, clients, and payout update
+  - admin users, therapists, bookings, payments, manual cancellation, and audit visibility
+- local smoke-test verification through `scripts/verify-stages-5-7.ts`
 
 ## Notes
 
-- `middleware.ts` still works, but Next.js 16 warns that the file convention will move to `proxy.ts`
-- transactional email sending is not connected yet; in development, reset links are logged on the server
-- booking, payment, Google Calendar sync, and operational flows are still in upcoming phases
-- if any remote database secret was exposed outside the expected environment, rotate it in Prisma Postgres / Vercel
+- `proxy.ts` now replaces the deprecated `middleware.ts` file convention for Next.js 16
 
-## Next Step
-
-The next planned phase is focused on real business modules:
-- booking workflows
-- therapist request handling
-- payment flow preparation
-- deeper role-specific pages built on top of the private shell
