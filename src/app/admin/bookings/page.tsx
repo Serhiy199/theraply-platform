@@ -1,24 +1,11 @@
-import { DashboardPlaceholderPage } from "@/components/dashboard/dashboard-placeholder-page";
+﻿import { UserRole } from "@prisma/client";
+import { AdminBookingsTable } from "@/components/dashboard/admin/admin-bookings-table";
+import { requireRole } from "@/lib/permissions";
+import { getAdminBookings } from "@/server/services/admin-operations.service";
 
-export default function AdminBookingsPage() {
-  return (
-    <DashboardPlaceholderPage
-      eyebrow="Admin oversight"
-      title="Bookings"
-      description="This section will become the operational table for all booking activity, cancellations, and manual interventions."
-    >
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Live booking stream</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Confirmed, pending, and cancelled bookings will be grouped here.
-        </p>
-      </article>
-      <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Manual actions</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Admin overrides and intervention tooling will be connected to this area later.
-        </p>
-      </article>
-    </DashboardPlaceholderPage>
-  );
+export default async function AdminBookingsPage() {
+  await requireRole([UserRole.ADMIN]);
+  const bookings = await getAdminBookings();
+
+  return <AdminBookingsTable bookings={bookings} />;
 }
