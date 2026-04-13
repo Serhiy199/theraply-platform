@@ -1,4 +1,5 @@
-﻿import type { AdminTherapistListItem } from "@/server/services/admin-operations.service";
+﻿import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import type { AdminTherapistListItem } from "@/server/services/admin-operations.service";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
@@ -73,10 +74,13 @@ export function AdminTherapistsTable({ therapists }: AdminTherapistsTableProps) 
           </table>
         </div>
       ) : (
-        <article className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-          <h3 className="text-lg font-semibold text-slate-900">No therapist profiles yet</h3>
-          <p className="mt-2">Therapist operational profiles will appear here once onboarding and approval activity begins.</p>
-        </article>
+        <div className="mt-6">
+          <DashboardEmptyState
+            meta="Admin oversight"
+            title="No therapist profiles yet"
+            description="Therapist operational profiles will appear here once onboarding and approval activity begins."
+          />
+        </div>
       )}
     </section>
   );

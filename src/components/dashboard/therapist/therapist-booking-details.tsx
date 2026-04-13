@@ -14,6 +14,7 @@ import {
   requestDecisionAction,
   type RequestDecisionActionState,
 } from "@/app/therapist/requests/actions";
+import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -39,9 +40,9 @@ function DecisionForm({ bookingId, intent, label }: { bookingId: string; intent:
       <input type="hidden" name="bookingId" value={bookingId} />
       <input type="hidden" name="intent" value={intent} />
       {state.message ? (
-        <div className={`rounded-[1.25rem] border px-4 py-3 text-sm ${state.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
           {state.message}
-        </div>
+        </DashboardStatusAlert>
       ) : null}
       <button
         type="submit"
@@ -155,8 +156,10 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
               <DecisionForm bookingId={booking.id} intent="reject" label="Reject booking" />
             </div>
           ) : (
-            <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              The current booking state is {formatBookingStatus(booking.bookingStatus).toLowerCase()}, so this workflow has already been resolved.
+            <div className="mt-5">
+              <DashboardStatusAlert tone="info">
+                The current booking state is {formatBookingStatus(booking.bookingStatus).toLowerCase()}, so this workflow has already been resolved.
+              </DashboardStatusAlert>
             </div>
           )}
           <div className="mt-5">

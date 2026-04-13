@@ -16,6 +16,7 @@ import {
   initialCancelBookingActionState,
   type CancelBookingActionState,
 } from "@/app/client/bookings/actions";
+import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -44,15 +45,9 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
     <form action={formAction} className="mt-5 grid gap-4">
       <input type="hidden" name="bookingId" value={booking.id} />
       {state.message ? (
-        <div
-          className={`rounded-[1.25rem] border px-4 py-3 text-sm ${
-            state.status === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
-          }`}
-        >
+        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
           {state.message}
-        </div>
+        </DashboardStatusAlert>
       ) : null}
       <button
         type="submit"
@@ -157,9 +152,9 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
           </p>
 
           {booking.session?.meetingUrl ? (
-            <div className="mt-5 rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
+            <DashboardStatusAlert tone="success" title="Meeting link ready">
               The meeting link is available. You can open it from this page whenever the session is ready to start.
-            </div>
+            </DashboardStatusAlert>
           ) : null}
         </article>
 
@@ -174,8 +169,10 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
           {canCancel ? (
             <CancelBookingForm booking={booking} />
           ) : (
-            <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              This booking can no longer be cancelled from the client area because its current state is already final or the session time has passed.
+            <div className="mt-5">
+              <DashboardStatusAlert tone="info">
+                This booking can no longer be cancelled from the client area because its current state is already final or the session time has passed.
+              </DashboardStatusAlert>
             </div>
           )}
           <div className="mt-5">

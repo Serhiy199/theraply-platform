@@ -1,4 +1,5 @@
-﻿import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
+﻿import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,
   formatPaymentStatus,
@@ -97,10 +98,13 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
           </table>
         </div>
       ) : (
-        <article className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-          <h3 className="text-lg font-semibold text-slate-900">No payment records yet</h3>
-          <p className="mt-2">Payments will appear here as soon as booking records begin generating billing events or checkout activity.</p>
-        </article>
+        <div className="mt-6">
+          <DashboardEmptyState
+            meta="Admin oversight"
+            title="No payment records yet"
+            description="Payments will appear here as soon as booking records begin generating billing events or checkout activity."
+          />
+        </div>
       )}
     </section>
   );

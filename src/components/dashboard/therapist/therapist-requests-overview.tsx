@@ -1,20 +1,12 @@
 ﻿import type { TherapistRequestItem } from "@/lib/contracts/bookings";
 import { TherapistRequestCard } from "@/components/dashboard/therapist/therapist-request-card";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
 type TherapistRequestsOverviewProps = {
   pendingRequests: TherapistRequestItem[];
   upcomingSessions: TherapistRequestItem[];
   pastSessions: TherapistRequestItem[];
 };
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <article className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mt-2">{description}</p>
-    </article>
-  );
-}
 
 export function TherapistRequestsOverview({ pendingRequests, upcomingSessions, pastSessions }: TherapistRequestsOverviewProps) {
   return (
@@ -33,7 +25,7 @@ export function TherapistRequestsOverview({ pendingRequests, upcomingSessions, p
           </div>
         </div>
         <div className="mt-6 grid gap-4">
-          {pendingRequests.length ? pendingRequests.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="pending" />) : <EmptyState title="No pending requests" description="As soon as new client requests arrive, they will land here for confirmation or rejection." />}
+          {pendingRequests.length ? pendingRequests.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="pending" />) : <DashboardEmptyState meta="Therapist requests" title="No pending requests" description="As soon as new client requests arrive, they will land here for confirmation or rejection." />}
         </div>
       </section>
 
@@ -51,7 +43,7 @@ export function TherapistRequestsOverview({ pendingRequests, upcomingSessions, p
           </div>
         </div>
         <div className="mt-6 grid gap-4">
-          {upcomingSessions.length ? upcomingSessions.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="upcoming" />) : <EmptyState title="No upcoming sessions" description="Confirmed sessions will appear here once bookings move out of the pending queue." />}
+          {upcomingSessions.length ? upcomingSessions.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="upcoming" />) : <DashboardEmptyState meta="Therapist schedule" title="No upcoming sessions" description="Confirmed sessions will appear here once bookings move out of the pending queue." />}
         </div>
       </section>
 
@@ -69,7 +61,7 @@ export function TherapistRequestsOverview({ pendingRequests, upcomingSessions, p
           </div>
         </div>
         <div className="mt-6 grid gap-4">
-          {pastSessions.length ? pastSessions.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="history" />) : <EmptyState title="No session history yet" description="Historical bookings and declined requests will be grouped here once therapist activity grows." />}
+          {pastSessions.length ? pastSessions.map((booking) => <TherapistRequestCard key={booking.id} booking={booking} variant="history" />) : <DashboardEmptyState meta="Therapist archive" title="No session history yet" description="Historical bookings and declined requests will be grouped here once therapist activity grows." />}
         </div>
       </section>
     </div>

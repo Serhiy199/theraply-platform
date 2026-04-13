@@ -1,19 +1,11 @@
 ﻿import type { BookingListItem } from "@/lib/contracts/bookings";
 import { ClientBookingCard } from "@/components/dashboard/client/client-booking-card";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
 type ClientBookingsOverviewProps = {
   upcomingBookings: BookingListItem[];
   pastBookings: BookingListItem[];
 };
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <article className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mt-2">{description}</p>
-    </article>
-  );
-}
 
 export function ClientBookingsOverview({ upcomingBookings, pastBookings }: ClientBookingsOverviewProps) {
   return (
@@ -21,9 +13,7 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
       <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Client bookings
-            </p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Client bookings</p>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">Upcoming sessions</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Review the next sessions, watch booking status changes, and open each record for meeting access or cancellation decisions.
@@ -38,9 +28,10 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
           {upcomingBookings.length ? (
             upcomingBookings.map((booking) => <ClientBookingCard key={booking.id} booking={booking} />)
           ) : (
-            <EmptyState
+            <DashboardEmptyState
+              meta="Client bookings"
               title="No upcoming sessions yet"
-              description="As soon as confirmed or pending requests exist for this account, they will appear here with therapist details and payment status." 
+              description="As soon as confirmed or pending requests exist for this account, they will appear here with therapist details and payment status."
             />
           )}
         </div>
@@ -64,9 +55,10 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
           {pastBookings.length ? (
             pastBookings.map((booking) => <ClientBookingCard key={booking.id} booking={booking} />)
           ) : (
-            <EmptyState
+            <DashboardEmptyState
+              meta="Client archive"
               title="No historical sessions yet"
-              description="Past sessions and cancelled requests will move into this archive automatically once activity starts flowing through the platform." 
+              description="Past sessions and cancelled requests will move into this archive automatically once activity starts flowing through the platform."
             />
           )}
         </div>

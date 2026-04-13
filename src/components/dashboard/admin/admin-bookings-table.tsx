@@ -6,6 +6,7 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -100,10 +101,7 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                     </td>
                     <td className="px-5 py-4 text-slate-600">{formatDateTime(booking.updatedAt)}</td>
                     <td className="px-5 py-4">
-                      <Link
-                        href={`/admin/bookings/${booking.id}`}
-                        className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400"
-                      >
+                      <Link href={`/admin/bookings/${booking.id}`} className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400">
                         View details
                       </Link>
                     </td>
@@ -113,12 +111,7 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
             </tbody>
           </table>
         </div>
-      ) : (
-        <article className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-          <h3 className="text-lg font-semibold text-slate-900">No bookings yet</h3>
-          <p className="mt-2">Booking traffic will appear here as soon as client requests and therapist scheduling activity begin flowing through the platform.</p>
-        </article>
-      )}
+      ) : <DashboardEmptyState meta="Admin bookings" title="No bookings yet" description="Booking traffic will appear here as soon as client requests and therapist scheduling activity begin flowing through the platform." />}
     </section>
   );
 }

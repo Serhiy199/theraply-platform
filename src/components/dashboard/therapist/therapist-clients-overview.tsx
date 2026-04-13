@@ -1,4 +1,5 @@
 ﻿import type { TherapistClientListItem } from "@/server/services/therapist-bookings.service";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
@@ -55,12 +56,7 @@ export function TherapistClientsOverview({ clients }: TherapistClientsOverviewPr
               </div>
             </div>
           </article>
-        )) : (
-          <article className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-            <h3 className="text-lg font-semibold text-slate-900">No client relationships yet</h3>
-            <p className="mt-2">Clients will appear here automatically as soon as bookings start connecting them to this therapist profile.</p>
-          </article>
-        )}
+        )) : <DashboardEmptyState meta="Therapist clients" title="No client relationships yet" description="Clients will appear here automatically as soon as bookings start connecting them to this therapist profile." />}
       </div>
     </section>
   );

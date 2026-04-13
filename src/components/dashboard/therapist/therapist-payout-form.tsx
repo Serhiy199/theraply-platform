@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useActionState } from "react";
+import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import {
   initialPayoutDetailsActionState,
   payoutDetailsAction,
@@ -29,9 +30,9 @@ export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
 
         <form action={formAction} className="mt-6 grid gap-4">
           {state.message ? (
-            <div className={`rounded-[1.25rem] border px-4 py-3 text-sm ${state.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+            <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"} title={state.status === "success" ? "Saved" : "Unable to save"}>
               {state.message}
-            </div>
+            </DashboardStatusAlert>
           ) : null}
 
           <label className="grid gap-2 text-sm text-slate-700">
@@ -92,8 +93,10 @@ export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
           <h3 className="text-xl font-semibold text-slate-900">Verification state</h3>
-          <div className={`mt-5 rounded-[1.5rem] border px-4 py-4 text-sm ${data.payoutDetails?.isVerified ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-            {data.payoutDetails?.isVerified ? "Payout details have already been verified by the operational team." : "Payout details are not verified yet. Complete the profile to prepare for admin review."}
+          <div className="mt-5">
+            <DashboardStatusAlert tone={data.payoutDetails?.isVerified ? "success" : "warning"} title={data.payoutDetails?.isVerified ? "Verified" : "Review pending"}>
+              {data.payoutDetails?.isVerified ? "Payout details have already been verified by the operational team." : "Payout details are not verified yet. Complete the profile to prepare for admin review."}
+            </DashboardStatusAlert>
           </div>
           <p className="mt-4 text-sm leading-6 text-slate-600">
             Once this information is complete, the admin panel can review it and mark the payout profile as ready for operations.

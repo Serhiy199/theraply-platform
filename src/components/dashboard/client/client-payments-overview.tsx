@@ -1,5 +1,6 @@
 ﻿import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import { ClientPaymentCard } from "@/components/dashboard/client/client-payment-card";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
 type ClientPaymentsOverviewProps = {
   payments: PaymentSummaryItem[];
@@ -25,12 +26,11 @@ export function ClientPaymentsOverview({ payments }: ClientPaymentsOverviewProps
         {payments.length ? (
           payments.map((payment) => <ClientPaymentCard key={payment.id} payment={payment} />)
         ) : (
-          <article className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-            <h3 className="text-lg font-semibold text-slate-900">No payment history yet</h3>
-            <p className="mt-2">
-              Payment records will appear here as soon as bookings begin generating checkout or settlement activity.
-            </p>
-          </article>
+          <DashboardEmptyState
+            meta="Client billing"
+            title="No payment history yet"
+            description="Payment records will appear here as soon as bookings begin generating checkout or settlement activity."
+          />
         )}
       </div>
     </section>

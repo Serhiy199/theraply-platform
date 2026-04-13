@@ -1,4 +1,5 @@
-﻿import type { AdminAuditLogItem } from "@/server/services/admin-operations.service";
+﻿import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import type { AdminAuditLogItem } from "@/server/services/admin-operations.service";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -54,21 +55,24 @@ export function AdminAuditList({ logs }: AdminAuditListProps) {
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
                   <p className="text-sm font-medium text-slate-700">Before</p>
-                  <pre className="mt-2 overflow-x-auto text-xs leading-6 text-slate-600 whitespace-pre-wrap">{JSON.stringify(log.before, null, 2) || "null"}</pre>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-slate-600">{JSON.stringify(log.before, null, 2) || "null"}</pre>
                 </div>
                 <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
                   <p className="text-sm font-medium text-slate-700">After</p>
-                  <pre className="mt-2 overflow-x-auto text-xs leading-6 text-slate-600 whitespace-pre-wrap">{JSON.stringify(log.after, null, 2) || "null"}</pre>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-slate-600">{JSON.stringify(log.after, null, 2) || "null"}</pre>
                 </div>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <article className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 text-sm leading-6 text-slate-600">
-          <h3 className="text-lg font-semibold text-slate-900">No audit events yet</h3>
-          <p className="mt-2">Manual admin actions will appear here once platform interventions begin generating audit records.</p>
-        </article>
+        <div className="mt-6">
+          <DashboardEmptyState
+            meta="Admin oversight"
+            title="No audit events yet"
+            description="Manual admin actions will appear here once platform interventions begin generating audit records."
+          />
+        </div>
       )}
     </section>
   );
