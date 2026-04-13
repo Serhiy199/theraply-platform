@@ -135,6 +135,23 @@ function mergeNotes(existingNotes: string | null, extraNotes: string | null) {
   return `${existingNotes}\n\n${extraNotes}`;
 }
 
+function getMeetingBaseUrl() {
+  const baseUrl =
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "https://theraply.local";
+
+  try {
+    return new URL(baseUrl).toString().replace(/\/$/, "");
+  } catch {
+    return "https://theraply.local";
+  }
+}
+
+function buildGeneratedMeetingUrl(bookingId: string) {
+  return `${getMeetingBaseUrl()}/sessions/${bookingId}`;
+}
+
 async function getBookableTherapistOrThrow(therapistId: string) {
   const therapist = await prisma.user.findFirst({
     where: {
@@ -348,6 +365,7 @@ export async function confirmBookingRequest(
       session: {
         select: {
           id: true,
+          meetingUrl: true,
         },
       },
     },
@@ -370,6 +388,9 @@ export async function confirmBookingRequest(
   await assertSlotIsAvailable(booking.therapistId, booking.startsAt, booking.endsAt, booking.id);
 
   return prisma.$transaction(async (tx) => {
+    const generatedMeetingUrl =
+      booking.session?.meetingUrl?.trim() || buildGeneratedMeetingUrl(booking.id);
+
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -382,6 +403,7 @@ export async function confirmBookingRequest(
         where: { id: booking.session.id },
         data: {
           sessionStatus: SessionStatus.SCHEDULED,
+          meetingUrl: generatedMeetingUrl,
         },
       });
     } else {
@@ -389,6 +411,7 @@ export async function confirmBookingRequest(
         data: {
           bookingId: booking.id,
           sessionStatus: SessionStatus.SCHEDULED,
+          meetingUrl: generatedMeetingUrl,
         },
       });
     }
@@ -426,6 +449,7 @@ export async function rejectBookingRequest(
       session: {
         select: {
           id: true,
+          meetingUrl: true,
         },
       },
     },
@@ -450,6 +474,9 @@ export async function rejectBookingRequest(
     : null;
 
   return prisma.$transaction(async (tx) => {
+    const generatedMeetingUrl =
+      booking.session?.meetingUrl?.trim() || buildGeneratedMeetingUrl(booking.id);
+
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -505,6 +532,7 @@ export async function attachMeetingLinkToBooking(
       session: {
         select: {
           id: true,
+          meetingUrl: true,
         },
       },
     },

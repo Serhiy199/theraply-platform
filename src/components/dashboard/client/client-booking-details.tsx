@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import Link from "next/link";
@@ -155,7 +155,15 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
             <DashboardStatusAlert tone="success" title="Meeting link ready">
               The meeting link is available. You can open it from this page whenever the session is ready to start.
             </DashboardStatusAlert>
-          ) : null}
+          ) : booking.bookingStatus === "CONFIRMED" ? (
+            <DashboardStatusAlert tone="info" title="Meeting link is being prepared">
+              Your therapist has confirmed this booking. The session link will appear here as soon as scheduling details finish syncing.
+            </DashboardStatusAlert>
+          ) : (
+            <DashboardStatusAlert tone="info" title="Waiting for therapist confirmation">
+              The meeting link will appear automatically after the therapist confirms the request.
+            </DashboardStatusAlert>
+          )}
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
