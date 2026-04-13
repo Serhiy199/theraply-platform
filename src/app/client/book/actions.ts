@@ -1,0 +1,84 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { UserRole } from "@prisma/client";
+import { getCurrentUser } from "@/lib/auth/session";
+import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
+import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { bookingRequestSchema } from "@/lib/validations/booking-flow";
+import {
+  BookingFlowServiceError,
+  createBookingRequest,
+} from "@/server/services/booking-flow.service";
+
+export type BookingRequestActionState = {
+  status: "idle" | "success" | "error";
+  message?: string;
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+export const initialBookingRequestActionState: BookingRequestActionState = {
+  status: "idle",
+};
+
+export async function createBookingRequestAction(
+  _prevState: BookingRequestActionState,
+  formData: FormData,
+): Promise<BookingRequestActionState> {
+  const user = await getCurrentUser();
+
+  try {
+    assertActionRole(
+      user,
+      [UserRole.CLIENT],
+      "Only client accounts can create booking requests.",
+    );
+
+    const parsed = bookingRequestSchema.safeParse({
+      therapistId: String(formData.get("therapistId") ?? ""),
+      startsAt: formData.get("startsAt"),
+      endsAt: formData.get("endsAt"),
+      notes: formData.get("notes") ?? "",
+    });
+
+    if (!parsed.success) {
+      return {
+        status: "error",
+        message: BOOKING_FLOW_MESSAGES.slotConflict,
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      };
+    }
+
+    const booking = await createBookingRequest(user.id, parsed.data);
+
+    revalidatePath("/client/bookings");
+    revalidatePath("/client/dashboard");
+    revalidatePath(`/client/book/${parsed.data.therapistId}`);
+    revalidatePath("/therapist/requests");
+    revalidatePath("/therapist/dashboard");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin/dashboard");
+
+    redirect(`/client/bookings/${booking.id}`);
+  } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
+    if (error instanceof BookingFlowServiceError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
+    return {
+      status: "error",
+      message: "Something went wrong while creating the booking request.",
+    };
+  }
+}

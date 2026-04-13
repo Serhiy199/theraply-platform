@@ -1,5 +1,6 @@
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
+import { RequestSlotForm } from "@/components/booking/client/request-slot-form";
 
 function formatTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -29,9 +30,17 @@ export function SlotCard({ slot }: SlotCardProps) {
 
       <p className="mt-4 text-sm leading-6 text-slate-600">
         {slot.isAvailable
-          ? "This slot is ready for the booking request step. On the next screen, the client will be able to submit it for therapist confirmation."
+          ? "This slot is ready for the booking request step. Once submitted, it will wait for therapist confirmation."
           : "This time is blocked by another active booking request or confirmed session and cannot be selected."}
       </p>
+
+      {slot.isAvailable ? (
+        <RequestSlotForm
+          therapistId={slot.therapistId}
+          startsAt={slot.startsAt.toISOString()}
+          endsAt={slot.endsAt.toISOString()}
+        />
+      ) : null}
     </article>
   );
 }
