@@ -1,4 +1,5 @@
-﻿import type { BookingListItem } from "@/lib/contracts/bookings";
+﻿import Link from "next/link";
+import type { BookingListItem } from "@/lib/contracts/bookings";
 import { ClientBookingCard } from "@/components/dashboard/client/client-booking-card";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 
@@ -11,7 +12,7 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
   return (
     <div className="grid gap-6">
       <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Client bookings</p>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">Upcoming sessions</h2>
@@ -19,8 +20,16 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
               Review the next sessions, watch booking status changes, and open each record for meeting access or cancellation decisions.
             </p>
           </div>
-          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-900">{upcomingBookings.length}</span> active booking item{upcomingBookings.length === 1 ? "" : "s"}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
+              <span className="font-semibold text-slate-900">{upcomingBookings.length}</span> active booking item{upcomingBookings.length === 1 ? "" : "s"}
+            </div>
+            <Link
+              href="/client/book/new"
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Book a new session
+            </Link>
           </div>
         </div>
 
@@ -32,6 +41,14 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
               meta="Client bookings"
               title="No upcoming sessions yet"
               description="As soon as confirmed or pending requests exist for this account, they will appear here with therapist details and payment status."
+              action={
+                <Link
+                  href="/client/book/new"
+                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Book your first session
+                </Link>
+              }
             />
           )}
         </div>

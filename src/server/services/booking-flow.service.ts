@@ -1,4 +1,4 @@
-﻿import { BookingStatus, Prisma, SessionStatus, UserRole } from "@prisma/client";
+import { BookingStatus, Prisma, SessionStatus, UserRole } from "@prisma/client";
 import {
   bookingDetailsSelect,
   type BookingDetailsItem,
@@ -233,6 +233,12 @@ export async function getBookableTherapists(): Promise<BookableTherapist[]> {
     ],
     select: bookableTherapistSelect,
   });
+}
+
+export async function getBookableTherapistById(
+  therapistId: string,
+): Promise<BookableTherapist> {
+  return getBookableTherapistOrThrow(therapistId);
 }
 
 export async function getTherapistAvailability(

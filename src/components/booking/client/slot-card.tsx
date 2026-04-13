@@ -1,0 +1,37 @@
+import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
+import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
+
+function formatTime(date: Date) {
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+type SlotCardProps = {
+  slot: TherapistAvailabilitySlot;
+};
+
+export function SlotCard({ slot }: SlotCardProps) {
+  return (
+    <article className={`rounded-[1.5rem] border p-4 shadow-sm shadow-slate-950/5 ${slot.isAvailable ? "border-emerald-200/80 bg-emerald-50/70" : "border-slate-200/80 bg-slate-100/80"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Session slot</p>
+          <h4 className="mt-2 text-xl font-semibold text-slate-900">
+            {formatTime(slot.startsAt)} - {formatTime(slot.endsAt)}
+          </h4>
+        </div>
+        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${slot.isAvailable ? "border-emerald-200 bg-white/80 text-emerald-800" : "border-slate-200 bg-white/70 text-slate-600"}`}>
+          {slot.isAvailable ? BOOKING_FLOW_MESSAGES.availableLabel : BOOKING_FLOW_MESSAGES.unavailableLabel}
+        </span>
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-slate-600">
+        {slot.isAvailable
+          ? "This slot is ready for the booking request step. On the next screen, the client will be able to submit it for therapist confirmation."
+          : "This time is blocked by another active booking request or confirmed session and cannot be selected."}
+      </p>
+    </article>
+  );
+}
