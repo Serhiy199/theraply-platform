@@ -1,7 +1,9 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
+import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import { TherapistCard } from "@/components/booking/client/therapist-card";
-import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
+import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 
 type TherapistPickerProps = {
   therapists: TherapistListItem[];
@@ -24,15 +26,22 @@ export function TherapistPicker({ therapists }: TherapistPickerProps) {
           </div>
         </div>
 
+        {therapists.length ? (
+          <div className="mt-6">
+            <BookingStatusAlert title="Choose the best fit">
+              Select a therapist to continue into slot selection. Booking requests are created on the next step and stay pending until the therapist responds.
+            </BookingStatusAlert>
+          </div>
+        ) : null}
+
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {therapists.length ? (
             therapists.map((therapist) => <TherapistCard key={therapist.id} therapist={therapist} />)
           ) : (
             <div className="md:col-span-2 xl:col-span-3">
-              <DashboardEmptyState
-                meta="Client booking flow"
+              <BookingEmptyState
                 title="No therapists available right now"
-                description="As soon as approved therapist profiles are ready for booking, they will appear here and clients will be able to continue into slot selection."
+                description={BOOKING_FLOW_MESSAGES.noTherapists}
                 action={
                   <Link
                     href="/client/bookings"

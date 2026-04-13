@@ -14,6 +14,7 @@ import {
 
 export type BookingRequestActionState = {
   status: "idle" | "success" | "error";
+  code?: "validation" | "conflict" | "permission" | "unknown";
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
@@ -45,7 +46,8 @@ export async function createBookingRequestAction(
     if (!parsed.success) {
       return {
         status: "error",
-        message: BOOKING_FLOW_MESSAGES.slotConflict,
+        code: "validation",
+        message: BOOKING_FLOW_MESSAGES.slotRequired,
         fieldErrors: parsed.error.flatten().fieldErrors,
       };
     }
@@ -65,6 +67,7 @@ export async function createBookingRequestAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
+        code: "permission",
         message: error.message,
       };
     }
@@ -72,12 +75,14 @@ export async function createBookingRequestAction(
     if (error instanceof BookingFlowServiceError) {
       return {
         status: "error",
+        code: error.code === "SLOT_CONFLICT" ? "conflict" : "unknown",
         message: error.message,
       };
     }
 
     return {
       status: "error",
+      code: "unknown",
       message: "Something went wrong while creating the booking request.",
     };
   }

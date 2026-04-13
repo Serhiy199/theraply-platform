@@ -1,6 +1,7 @@
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
 import { RequestSlotForm } from "@/components/booking/client/request-slot-form";
+import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 
 function formatTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -40,7 +41,13 @@ export function SlotCard({ slot }: SlotCardProps) {
           startsAt={slot.startsAt.toISOString()}
           endsAt={slot.endsAt.toISOString()}
         />
-      ) : null}
+      ) : (
+        <div className="mt-4">
+          <BookingStatusAlert tone="warning" title="Slot conflict">
+            {BOOKING_FLOW_MESSAGES.slotConflict}
+          </BookingStatusAlert>
+        </div>
+      )}
     </article>
   );
 }

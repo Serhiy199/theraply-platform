@@ -6,13 +6,24 @@ import {
   initialBookingRequestActionState,
   type BookingRequestActionState,
 } from "@/app/client/book/actions";
-import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
+import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 
 type RequestSlotFormProps = {
   therapistId: string;
   startsAt: string;
   endsAt: string;
 };
+
+function getErrorTone(state: BookingRequestActionState) {
+  if (state.code === "conflict") return "warning" as const;
+  return "error" as const;
+}
+
+function getErrorTitle(state: BookingRequestActionState) {
+  if (state.code === "conflict") return "Slot conflict detected";
+  if (state.code === "validation") return "Invalid booking request";
+  return "Unable to create request";
+}
 
 export function RequestSlotForm({ therapistId, startsAt, endsAt }: RequestSlotFormProps) {
   const [state, formAction, pending] = useActionState<BookingRequestActionState, FormData>(
@@ -27,10 +38,16 @@ export function RequestSlotForm({ therapistId, startsAt, endsAt }: RequestSlotFo
       <input type="hidden" name="endsAt" value={endsAt} />
       <input type="hidden" name="notes" value="" />
 
+      {pending ? (
+        <BookingStatusAlert title="Sending request">
+          We are checking the slot one more time before turning it into a booking request.
+        </BookingStatusAlert>
+      ) : null}
+
       {state.status === "error" && state.message ? (
-        <DashboardStatusAlert tone="error" title="Unable to create request">
+        <BookingStatusAlert tone={getErrorTone(state)} title={getErrorTitle(state)}>
           {state.message}
-        </DashboardStatusAlert>
+        </BookingStatusAlert>
       ) : null}
 
       <button

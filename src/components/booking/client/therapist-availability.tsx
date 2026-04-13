@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
-import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
 import { SlotCard } from "@/components/booking/client/slot-card";
+import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
+import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
@@ -50,6 +51,7 @@ type TherapistAvailabilityProps = {
 export function TherapistAvailability({ therapist, slots }: TherapistAvailabilityProps) {
   const slotGroups = groupSlotsByDay(slots);
   const availableCount = slots.filter((slot) => slot.isAvailable).length;
+  const unavailableCount = slots.length - availableCount;
 
   return (
     <div className="grid gap-6">
@@ -116,31 +118,52 @@ export function TherapistAvailability({ therapist, slots }: TherapistAvailabilit
         </div>
 
         {slotGroups.length ? (
-          <div className="mt-6 grid gap-5">
-            {slotGroups.map((group) => (
-              <section key={group.key} className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Availability day</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-slate-900">{group.label}</h3>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    {group.slots.filter((slot) => slot.isAvailable).length} available of {group.slots.length}
-                  </p>
-                </div>
+          <>
+            <div className="mt-6">
+              {availableCount > 0 ? (
+                <BookingStatusAlert title="Slots ready for booking">
+                  Choose any available slot below to send a booking request. Unavailable cards are shown too, so conflicts stay visible instead of silently disappearing.
+                </BookingStatusAlert>
+              ) : (
+                <BookingStatusAlert tone="warning" title="All visible slots are currently blocked">
+                  {BOOKING_FLOW_MESSAGES.slotConflict} Try another therapist or come back later when the schedule changes.
+                </BookingStatusAlert>
+              )}
+            </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {group.slots.map((slot) => (
-                    <SlotCard key={`${slot.startsAt.toISOString()}-${slot.endsAt.toISOString()}`} slot={slot} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+            <div className="mt-6 grid gap-5">
+              {slotGroups.map((group) => (
+                <section key={group.key} className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Availability day</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-slate-900">{group.label}</h3>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {group.slots.filter((slot) => slot.isAvailable).length} available of {group.slots.length}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {group.slots.map((slot) => (
+                      <SlotCard key={`${slot.startsAt.toISOString()}-${slot.endsAt.toISOString()}`} slot={slot} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            {unavailableCount > 0 ? (
+              <div className="mt-6">
+                <BookingStatusAlert tone="info" title="Conflict visibility is enabled">
+                  {unavailableCount} slot{unavailableCount === 1 ? " is" : "s are"} currently unavailable because they overlap with another active request or confirmed booking.
+                </BookingStatusAlert>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="mt-6">
-            <DashboardEmptyState
-              meta="Therapist availability"
+            <BookingEmptyState
               title="No slots available in the current window"
               description={BOOKING_FLOW_MESSAGES.noSlots}
               action={

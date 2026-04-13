@@ -1,4 +1,4 @@
-﻿# Theraply Platform
+# Theraply Platform
 
 English version: [README.md](./README.md)
 
@@ -19,6 +19,7 @@ Theraply Platform — це продуктова частина платформ�
 - `Phase 3` - авторизація, відновлення пароля і захист маршрутів
 - `Phase 4` - приватний app shell, role dashboards і базова внутрішня навігація
 - `Етапи 5-7` - operational-модулі для client, therapist і admin
+- `Phase 8` - end-to-end логіка бронювання
 
 Поточний стан застосунку вже включає:
 
@@ -33,7 +34,12 @@ Theraply Platform — це продуктова частина платформ�
 - реальний admin module для users, therapists, bookings, payments, manual cancellation і audit visibility
 - жорсткі server-side role guards для mutation actions
 - спільні empty, loading, success і error states у приватній зоні
-- server-side Prisma service layer для dashboards, bookings, sessions, payments і admin operations
+- server-side Prisma service layer для dashboards, bookings, sessions, payments, admin operations і booking flow
+- вибір терапевта і слотів для нового booking flow клієнта
+- створення booking request зі статусом `PENDING_THERAPIST`
+- єдиний end-to-end booking flow між client, therapist і admin
+- автоматичну генерацію meeting link після підтвердження терапевтом
+- booking-flow empty, loading, conflict і success states
 
 ## Технічний стек
 
@@ -88,7 +94,7 @@ Theraply Platform — це продуктова частина платформ�
 - реалізовано forgot-password flow
 - реалізовано reset-password flow
 - додано JWT session support
-- додано захист маршрутів через middleware
+- додано захист маршрутів через `proxy.ts`
 - додано role-based redirects після логіну
 - створено захищені базові dashboards для всіх трьох ролей
 - перевірено реєстрацію, логін, reset token і зміну пароля локально та в розгорнутому середовищі
@@ -145,6 +151,25 @@ Theraply Platform — це продуктова частина платформ�
 - server actions захищено спільними role guards, щоб кожна mutation дія валідувалась на сервері
 - у приватній зоні додано спільні empty, loading і status states
 
+### Phase 8
+
+Завершено головний booking flow end-to-end:
+
+- додано окремий booking flow service у `src/server/services/booking-flow.service.ts`
+- додано спільні contracts, constants і validation для booking flow:
+  - `src/lib/contracts/booking-flow.ts`
+  - `src/lib/constants/booking-flow.ts`
+  - `src/lib/validations/booking-flow.ts`
+- реалізовано клієнтський booking flow:
+  - сторінка вибору терапевта
+  - сторінка доступних слотів терапевта
+  - надсилання slot request
+  - conflict-aware стани у формі створення booking request
+- therapist confirm / reject actions інтегровано з новим booking flow service
+- після therapist confirmation система автоматично генерує і зберігає meeting link
+- для booking flow додано окремі empty, loading і conflict states
+- додано end-to-end verification script `scripts/verify-stage-8.ts`
+
 ## Реалізовані маршрути
 
 ### Публічні маршрути
@@ -159,6 +184,8 @@ Theraply Platform — це продуктова частина платформ�
 ### Захищені маршрути для client
 
 - `/client/dashboard`
+- `/client/book/new`
+- `/client/book/[therapistId]`
 - `/client/bookings`
 - `/client/bookings/[bookingId]`
 - `/client/payments`
@@ -313,6 +340,12 @@ npx prisma db seed
 npx tsx scripts/verify-stages-5-7.ts
 ```
 
+Запустити verification script для Phase 8:
+
+```bash
+npx tsx scripts/verify-stage-8.ts
+```
+
 ## Віддалена production / Vercel база даних
 
 Щоб не змінювати локальний `.env` і випадково не перепідключити локальну WSL-базу, використовуй окремий `.env.production.local`.
@@ -323,24 +356,21 @@ npx tsx scripts/verify-stages-5-7.ts
 cp .env.production.local.example .env.production.local
 ```
 
-2. Встав у `.env.production.local` значення `DATABASE_URL` із Vercel / Prisma Postgres.
+2. Встав у `.env.production.local` віддалений `DATABASE_URL` з Vercel / Prisma Postgres.
 
-3. Запусти віддалені Prisma-команди через окремі скрипти:
+3. Запусти міграції для віддаленої бази:
 
 ```bash
 npm run prisma:migrate:remote
+```
+
+4. Запусти seed для віддаленої бази:
+
+```bash
 npm run prisma:seed:remote
 ```
 
-Ці команди читають `DATABASE_URL` тільки з `.env.production.local` і не чіпають локальну WSL-базу.
-
-## Тестові акаунти із seed
-
-Поточний seed створює:
-
-- 1 admin
-- 2 therapists
-- 2 clients
+## Тестові акаунти
 
 ### Admin
 
@@ -363,20 +393,22 @@ npm run prisma:seed:remote
 - email: `client.james@theraply.local`
 - password: `Client123!`
 
-## Підсумок перевірки
+## Verification summary
 
-У поточному стані перевірено:
+Поточний verified стан:
 
-- production build проходить успішно
-- реєстрація створює `User` + `ClientProfile`
-- credentials login працює з хешованими паролями
-- forgot-password створює валідний reset token
-- reset-password оновлює збережений password hash
-- role-based redirects працюють для `client`, `therapist` і `admin`
-- private shell завантажується з session-aware header і sidebar
-- розгорнуту базу можна мігрувати й засівати через окремий remote Prisma workflow
-- operational-сценарії для Етапів 5-7:
-  - client bookings, payments, details і cancellation
-  - therapist requests, sessions, clients і payout update
-  - admin users, therapists, bookings, payments, manual cancellation і audit visibility
-- локальний smoke-test через `scripts/verify-stages-5-7.ts`
+- `Phase 3` перевірений через реєстрацію, логін, reset flow і JWT session behavior
+- `Phase 4` перевірений через build і роботу приватних role routes
+- `Етапи 5-7` перевірені через `scripts/verify-stages-5-7.ts`
+- `Phase 8` перевірений через `scripts/verify-stage-8.ts`
+- `npm run build` проходить успішно
+- `npm run dev` стартує коректно
+
+## Що далі
+
+Найлогічніші наступні етапи:
+
+- повна інтеграція з Google Calendar
+- Stripe payments і webhook-логіка
+- email notifications
+- production hardening, filters, pagination і monitoring

@@ -1,36 +1,45 @@
-﻿# Theraply Platform
+# Theraply Platform
 
 Ukrainian version: [README.ua.md](./README.ua.md)
 
-Theraply Platform is a Next.js product application for three core roles:
+Theraply Platform is the product application built with Next.js for three core roles:
+
 - clients
 - therapists
-- admins
+- administrators
 
 The marketing website remains outside this repository. This codebase contains the platform application that will run on a dedicated product subdomain.
 
 ## Current Status
 
 Completed phases:
+
 - `Phase 1` - project initialization
 - `Phase 2` - database design and PostgreSQL bootstrap
 - `Phase 3` - authentication, password recovery, and route protection
-- `Phase 4` - private app shell, role dashboards, and navigation foundations
-- `Stages 5-7` - operational client, therapist, and admin modules
+- `Phase 4` - private app shell, role dashboards, and core internal navigation
+- `Stages 5-7` - operational modules for client, therapist, and admin
+- `Phase 8` - end-to-end booking flow
 
 The current application already includes:
+
 - client self-signup
 - credentials-based login with `NextAuth`
 - forgot-password and reset-password flows
 - protected role-based routes
-- shared private dashboard shell
+- a shared private dashboard shell
 - role-specific overview dashboards for `client`, `therapist`, and `admin`
-- real client module for bookings, booking details, payments, and cancellation
-- real therapist module for requests, session management, clients, and payout details
-- real admin module for users, therapists, bookings, payments, manual cancellation, and audit visibility
-- hardened server-side role guards for mutation actions
-- shared empty, loading, success, and error states across private screens
-- server-side Prisma service layer for dashboards, bookings, sessions, payments, and admin operations
+- a real client module for bookings, booking details, payments, and cancellation
+- a real therapist module for requests, sessions, clients, and payout details
+- a real admin module for users, therapists, bookings, payments, manual cancellation, and audit visibility
+- strict server-side role guards for mutation actions
+- shared empty, loading, success, and error states across the private workspace
+- a server-side Prisma service layer for dashboards, bookings, sessions, payments, admin operations, and booking flow
+- therapist selection and slot selection for the new client booking flow
+- booking request creation with the `PENDING_THERAPIST` status
+- a unified end-to-end booking flow between client, therapist, and admin
+- automatic meeting link generation after therapist confirmation
+- booking-flow-specific empty, loading, conflict, and success states
 
 ## Tech Stack
 
@@ -50,7 +59,8 @@ The current application already includes:
 ### Phase 1
 
 Completed foundation work:
-- initialized the application with Next.js App Router
+
+- initialized the application with the Next.js App Router
 - connected Ant Design through a global provider
 - created base public pages:
   - `/`
@@ -65,16 +75,18 @@ Completed foundation work:
 
 ### Phase 2
 
-Completed database design and local database bootstrap:
+Completed database design and local bootstrap:
+
 - designed and implemented the Prisma schema
 - created and applied the first domain migration
-- added auth support migration for password reset tokens
+- added the auth migration for password reset tokens
 - created and executed seed data for local development
 - verified database access through Prisma Client and Prisma Studio
 
 ### Phase 3
 
-Completed authentication and authorization foundation:
+Completed the authentication and authorization foundation:
+
 - configured `NextAuth` with `CredentialsProvider`
 - added password hashing with `bcryptjs`
 - implemented client self-signup
@@ -82,30 +94,32 @@ Completed authentication and authorization foundation:
 - implemented forgot-password flow
 - implemented reset-password flow
 - added JWT session support
-- added route protection through middleware
+- added route protection through `proxy.ts`
 - added role-based redirects after login
 - created protected base dashboards for all three roles
-- verified registration, login, password reset token generation, and password update flow locally and on the deployed environment
+- verified registration, login, reset token generation, and password update locally and in the deployed environment
 
 ### Phase 4
 
-Completed private workspace foundation:
-- built a shared dashboard shell with header, sidebar, and sign-out controls
+Completed the private product workspace foundation:
+
+- built a shared dashboard shell with header, sidebar, and logout controls
 - added role-aware layouts for `client`, `therapist`, and `admin`
-- configured live role navigation for private routes
-- created child routes for upcoming booking, payments, therapist, and admin modules
+- configured live internal navigation for private routes
+- created child routes for future bookings, payments, therapist, and admin modules
 - implemented role-specific overview dashboards:
   - client workspace with upcoming sessions, payment summary, quick actions, and account summary
   - therapist workspace with pending requests, client summary, and profile/payout completion
   - admin workspace with users, approvals, bookings, payments, and recent activity
 - added a server-side dashboard data layer in `dashboard.service.ts`
-- made the private shell auth-aware by showing the signed-in user, current role, session state, and logout controls
+- made the private shell auth-aware so the signed-in user can see identity, role, session state, and logout controls
 
 ### Stages 5-7
 
-Completed the first operational business block across all three roles:
-- added shared booking/payment contracts in `src/lib/contracts/bookings.ts`
-- added shared booking/payment labels, badge mappings, and policy helpers
+Completed the first operational block for all three roles:
+
+- added shared booking and payment contracts in `src/lib/contracts/bookings.ts`
+- added shared labels, badge mappings, and policy helpers for booking and payment statuses
 - created role-specific service layers:
   - `client-bookings.service.ts`
   - `therapist-bookings.service.ts`
@@ -122,9 +136,9 @@ Completed the first operational business block across all three roles:
   - pending requests
   - upcoming sessions
   - session history
-  - client list
+  - clients list
   - request detail page
-  - confirm / reject actions
+  - confirm and reject actions
   - payout details view and update flow
 - implemented the admin module:
   - users list
@@ -134,8 +148,27 @@ Completed the first operational business block across all three roles:
   - payments list
   - manual admin cancellation
   - audit trail visibility
-- hardened server actions with shared role guards so each mutation flow is enforced on the server
-- added shared empty, loading, and status states for the private role areas
+- protected server actions with shared role guards so every mutation is enforced on the server
+- added shared empty, loading, and status states across the private workspace
+
+### Phase 8
+
+Completed the core booking flow end-to-end:
+
+- added a dedicated booking flow service in `src/server/services/booking-flow.service.ts`
+- added shared contracts, constants, and validation for booking flow:
+  - `src/lib/contracts/booking-flow.ts`
+  - `src/lib/constants/booking-flow.ts`
+  - `src/lib/validations/booking-flow.ts`
+- implemented the client booking flow:
+  - therapist selection page
+  - therapist availability page
+  - slot request submission
+  - conflict-aware states in the booking request form
+- integrated therapist confirm and reject actions with the new booking flow service
+- automatically generate and store a meeting link after therapist confirmation
+- added dedicated empty, loading, and conflict states for the booking flow
+- added the end-to-end verification script `scripts/verify-stage-8.ts`
 
 ## Implemented Routes
 
@@ -148,14 +181,16 @@ Completed the first operational business block across all three roles:
 - `/reset-password/[token]`
 - `/403`
 
-### Protected client routes
+### Protected routes for client
 
 - `/client/dashboard`
+- `/client/book/new`
+- `/client/book/[therapistId]`
 - `/client/bookings`
 - `/client/bookings/[bookingId]`
 - `/client/payments`
 
-### Protected therapist routes
+### Protected routes for therapist
 
 - `/therapist/dashboard`
 - `/therapist/requests`
@@ -163,7 +198,7 @@ Completed the first operational business block across all three roles:
 - `/therapist/clients`
 - `/therapist/payout-details`
 
-### Protected admin routes
+### Protected routes for admin
 
 - `/admin/dashboard`
 - `/admin/users`
@@ -204,8 +239,8 @@ Completed the first operational business block across all three roles:
 
 - roles are stored in `User.role`
 - `ClientProfile` and `TherapistProfile` are separate one-to-one role profiles
-- `Booking` represents booking state and scheduling intent
-- `Session` represents the actual session entity and is linked one-to-one with `Booking`
+- `Booking` describes booking state and booking intent
+- `Session` describes the actual session and is linked one-to-one with `Booking`
 - `Payment` is stored separately from `Booking`
 - password recovery tokens are stored in `PasswordResetToken`
 - therapist availability is planned around Google Calendar
@@ -246,6 +281,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 ```
 
 Environment variables expected by the project:
+
 - `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
 - `APP_URL`
@@ -262,7 +298,7 @@ Install dependencies:
 npm install
 ```
 
-Run the app locally:
+Run the application locally:
 
 ```bash
 npm run dev
@@ -274,7 +310,7 @@ Build the project:
 npm run build
 ```
 
-Generate Prisma client:
+Generate Prisma Client:
 
 ```bash
 npm run prisma:generate
@@ -298,15 +334,21 @@ Run seed manually:
 npx prisma db seed
 ```
 
-Run the verification script for stages 5-7:
+Run the verification script for Stages 5-7:
 
 ```bash
 npx tsx scripts/verify-stages-5-7.ts
 ```
 
+Run the verification script for Phase 8:
+
+```bash
+npx tsx scripts/verify-stage-8.ts
+```
+
 ## Remote production / Vercel database
 
-To avoid changing the local `.env` and accidentally pointing away from the local WSL database, use a separate `.env.production.local` file.
+To avoid changing the local `.env` and accidentally reconnecting your local WSL database, use a separate `.env.production.local` file.
 
 1. Copy the template:
 
@@ -314,23 +356,21 @@ To avoid changing the local `.env` and accidentally pointing away from the local
 cp .env.production.local.example .env.production.local
 ```
 
-2. Paste the `DATABASE_URL` value from Vercel / Prisma Postgres into `.env.production.local`.
+2. Paste the remote `DATABASE_URL` from Vercel / Prisma Postgres into `.env.production.local`.
 
-3. Run the remote Prisma commands through the dedicated scripts:
+3. Run migrations for the remote database:
 
 ```bash
 npm run prisma:migrate:remote
+```
+
+4. Run seed for the remote database:
+
+```bash
 npm run prisma:seed:remote
 ```
 
-These commands read `DATABASE_URL` only from `.env.production.local` and do not touch the local WSL database.
-
-## Seed Test Accounts
-
-The current seed creates:
-- 1 admin
-- 2 therapists
-- 2 clients
+## Test Accounts
 
 ### Admin
 
@@ -355,22 +395,20 @@ The current seed creates:
 
 ## Verification Summary
 
-The current application has been verified for:
-- successful production build
-- client registration that creates `User` + `ClientProfile`
-- credentials login with hashed passwords
-- forgot-password reset token generation
-- reset-password password update flow
-- role-based redirects for `client`, `therapist`, and `admin`
-- session-aware private shell with shared header and sidebar
-- remote Vercel / Prisma Postgres migration and seed workflow
-- operational role flows for stages 5-7:
-  - client bookings, payments, details, and cancellation
-  - therapist requests, sessions, clients, and payout update
-  - admin users, therapists, bookings, payments, manual cancellation, and audit visibility
-- local smoke-test verification through `scripts/verify-stages-5-7.ts`
+Current verified state:
 
-## Notes
+- `Phase 3` is verified through registration, login, reset flow, and JWT session behavior
+- `Phase 4` is verified through the build and private role routes
+- `Stages 5-7` are verified through `scripts/verify-stages-5-7.ts`
+- `Phase 8` is verified through `scripts/verify-stage-8.ts`
+- `npm run build` passes successfully
+- `npm run dev` starts correctly
 
-- `proxy.ts` now replaces the deprecated `middleware.ts` file convention for Next.js 16
+## What Comes Next
 
+The most logical next steps are:
+
+- full Google Calendar integration
+- Stripe payments and webhook logic
+- email notifications
+- production hardening, filters, pagination, and monitoring
