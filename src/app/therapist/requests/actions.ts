@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   TherapistBookingsServiceError,
   confirmTherapistBooking,
@@ -26,21 +27,20 @@ export async function requestDecisionAction(
   const intent = String(formData.get("intent") ?? "").trim();
   const user = await getCurrentUser();
 
-  if (!user || user.role !== UserRole.THERAPIST) {
-    return {
-      status: "error",
-      message: "You must be signed in as a therapist to manage booking requests.",
-    };
-  }
-
-  if (!bookingId || (intent !== "confirm" && intent !== "reject")) {
-    return {
-      status: "error",
-      message: "Request action payload is incomplete.",
-    };
-  }
-
   try {
+    assertActionRole(
+      user,
+      [UserRole.THERAPIST],
+      "Only therapist accounts can confirm or reject therapist booking requests.",
+    );
+
+    if (!bookingId || (intent !== "confirm" && intent !== "reject")) {
+      return {
+        status: "error",
+        message: "Request action payload is incomplete.",
+      };
+    }
+
     if (intent === "confirm") {
       await confirmTherapistBooking(user.id, bookingId);
     } else {
@@ -57,6 +57,13 @@ export async function requestDecisionAction(
       message: intent === "confirm" ? "Booking confirmed successfully." : "Booking rejected successfully.",
     };
   } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
     if (error instanceof TherapistBookingsServiceError) {
       return {
         status: "error",

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   TherapistBookingsServiceError,
   updateTherapistPayoutDetails,
@@ -24,30 +25,29 @@ export async function payoutDetailsAction(
 ): Promise<PayoutDetailsActionState> {
   const user = await getCurrentUser();
 
-  if (!user || user.role !== UserRole.THERAPIST) {
-    return {
-      status: "error",
-      message: "You must be signed in as a therapist to edit payout details.",
-    };
-  }
-
-  const accountHolderName = String(formData.get("accountHolderName") ?? "").trim();
-  const bankName = String(formData.get("bankName") ?? "").trim();
-  const iban = String(formData.get("iban") ?? "").trim();
-  const swift = String(formData.get("swift") ?? "").trim();
-  const country = String(formData.get("country") ?? "").trim();
-
-  if (!accountHolderName) {
-    return {
-      status: "error",
-      message: "Please complete the required payout fields.",
-      fieldErrors: {
-        accountHolderName: ["Account holder name is required."],
-      },
-    };
-  }
-
   try {
+    assertActionRole(
+      user,
+      [UserRole.THERAPIST],
+      "Only therapist accounts can update payout details.",
+    );
+
+    const accountHolderName = String(formData.get("accountHolderName") ?? "").trim();
+    const bankName = String(formData.get("bankName") ?? "").trim();
+    const iban = String(formData.get("iban") ?? "").trim();
+    const swift = String(formData.get("swift") ?? "").trim();
+    const country = String(formData.get("country") ?? "").trim();
+
+    if (!accountHolderName) {
+      return {
+        status: "error",
+        message: "Please complete the required payout fields.",
+        fieldErrors: {
+          accountHolderName: ["Account holder name is required."],
+        },
+      };
+    }
+
     await updateTherapistPayoutDetails(user.id, {
       accountHolderName,
       bankName,
@@ -64,6 +64,13 @@ export async function payoutDetailsAction(
       message: "Payout details saved successfully.",
     };
   } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
     if (error instanceof TherapistBookingsServiceError) {
       return {
         status: "error",

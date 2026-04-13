@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   AdminOperationsServiceError,
   adminCancelBooking,
@@ -24,21 +25,20 @@ export async function adminCancelBookingAction(
   const bookingId = String(formData.get("bookingId") ?? "").trim();
   const user = await getCurrentUser();
 
-  if (!user || user.role !== UserRole.ADMIN) {
-    return {
-      status: "error",
-      message: "You must be signed in as an admin to cancel bookings manually.",
-    };
-  }
-
-  if (!bookingId) {
-    return {
-      status: "error",
-      message: "Booking identifier is missing.",
-    };
-  }
-
   try {
+    assertActionRole(
+      user,
+      [UserRole.ADMIN],
+      "Only admin accounts can cancel bookings manually from the admin panel.",
+    );
+
+    if (!bookingId) {
+      return {
+        status: "error",
+        message: "Booking identifier is missing.",
+      };
+    }
+
     await adminCancelBooking(user.id, bookingId);
 
     revalidatePath("/admin/bookings");
@@ -54,6 +54,13 @@ export async function adminCancelBookingAction(
       message: "Booking cancelled successfully by admin.",
     };
   } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
     if (error instanceof AdminOperationsServiceError) {
       return {
         status: "error",

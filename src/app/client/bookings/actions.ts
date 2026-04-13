@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   ClientBookingsServiceError,
   cancelClientBooking,
@@ -24,21 +25,16 @@ export async function cancelBookingAction(
   const bookingId = String(formData.get("bookingId") ?? "").trim();
   const user = await getCurrentUser();
 
-  if (!user || user.role !== UserRole.CLIENT) {
-    return {
-      status: "error",
-      message: "You must be signed in as a client to cancel a booking.",
-    };
-  }
-
-  if (!bookingId) {
-    return {
-      status: "error",
-      message: "Booking identifier is missing.",
-    };
-  }
-
   try {
+    assertActionRole(user, [UserRole.CLIENT], "Only client accounts can cancel client bookings.");
+
+    if (!bookingId) {
+      return {
+        status: "error",
+        message: "Booking identifier is missing.",
+      };
+    }
+
     await cancelClientBooking(user.id, bookingId);
 
     revalidatePath("/client/bookings");
@@ -51,6 +47,13 @@ export async function cancelBookingAction(
       message: "Booking cancelled successfully.",
     };
   } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
     if (error instanceof ClientBookingsServiceError) {
       return {
         status: "error",
