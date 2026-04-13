@@ -3,6 +3,7 @@
 English version: [README.md](./README.md)
 
 Theraply Platform — це продуктова частина платформи на Next.js для трьох основних ролей:
+
 - клієнти
 - терапевти
 - адміністратори
@@ -12,6 +13,7 @@ Theraply Platform — це продуктова частина платформ�
 ## Поточний стан
 
 Завершені фази:
+
 - `Phase 1` - ініціалізація проєкту
 - `Phase 2` - проєктування бази даних і запуск PostgreSQL
 - `Phase 3` - авторизація, відновлення пароля і захист маршрутів
@@ -19,6 +21,7 @@ Theraply Platform — це продуктова частина платформ�
 - `Етапи 5-7` - operational-модулі для client, therapist і admin
 
 Поточний стан застосунку вже включає:
+
 - самостійну реєстрацію клієнта
 - логін через `NextAuth` credentials
 - `forgot password` і `reset password`
@@ -50,6 +53,7 @@ Theraply Platform — це продуктова частина платформ�
 ### Phase 1
 
 Завершені базові роботи:
+
 - ініціалізовано застосунок на Next.js App Router
 - підключено Ant Design через глобальний provider
 - створено базові публічні сторінки:
@@ -66,6 +70,7 @@ Theraply Platform — це продуктова частина платформ�
 ### Phase 2
 
 Завершено проєктування БД і локальний bootstrap:
+
 - спроєктовано й реалізовано Prisma schema
 - створено і застосовано першу доменну міграцію
 - додано auth-міграцію для токенів відновлення пароля
@@ -75,6 +80,7 @@ Theraply Platform — це продуктова частина платформ�
 ### Phase 3
 
 Завершено основу авторизації та доступів:
+
 - налаштовано `NextAuth` з `CredentialsProvider`
 - додано хешування паролів через `bcryptjs`
 - реалізовано самостійну реєстрацію клієнта
@@ -90,6 +96,7 @@ Theraply Platform — це продуктова частина платформ�
 ### Phase 4
 
 Завершено основу приватної продуктової зони:
+
 - побудовано спільний dashboard shell з header, sidebar і logout controls
 - додано role-aware layouts для `client`, `therapist` і `admin`
 - налаштовано живу внутрішню навігацію для приватних маршрутів
@@ -104,6 +111,7 @@ Theraply Platform — це продуктова частина платформ�
 ### Етапи 5-7
 
 Завершено перший operational-блок для всіх трьох ролей:
+
 - додано спільні booking/payment contracts у `src/lib/contracts/bookings.ts`
 - додано спільні labels, badge mappings і policy helpers для booking/payment статусів
 - створено role-specific service layer:
@@ -246,6 +254,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 ```
 
 Змінні середовища, які очікує проєкт:
+
 - `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
 - `APP_URL`
@@ -328,6 +337,7 @@ npm run prisma:seed:remote
 ## Тестові акаунти із seed
 
 Поточний seed створює:
+
 - 1 admin
 - 2 therapists
 - 2 clients
@@ -356,6 +366,7 @@ npm run prisma:seed:remote
 ## Підсумок перевірки
 
 У поточному стані перевірено:
+
 - production build проходить успішно
 - реєстрація створює `User` + `ClientProfile`
 - credentials login працює з хешованими паролями
@@ -369,8 +380,3 @@ npm run prisma:seed:remote
   - therapist requests, sessions, clients і payout update
   - admin users, therapists, bookings, payments, manual cancellation і audit visibility
 - локальний smoke-test через `scripts/verify-stages-5-7.ts`
-
-## Примітки
-
-- `proxy.ts` тепер замінює застарілий file convention `middleware.ts` у Next.js 16
-
