@@ -511,10 +511,12 @@ export async function rejectBookingRequest(
       id: true,
       bookingStatus: true,
       notes: true,
+      therapistId: true,
       session: {
         select: {
           id: true,
           meetingUrl: true,
+          googleCalendarEventId: true,
         },
       },
     },
@@ -538,10 +540,22 @@ export async function rejectBookingRequest(
     ? `Therapist rejection reason: ${normalizeOptionalString(reason)}`
     : null;
 
-  return prisma.$transaction(async (tx) => {
-    const generatedMeetingUrl =
-      booking.session?.meetingUrl?.trim() || buildGeneratedMeetingUrl(booking.id);
+  if (booking.session?.googleCalendarEventId) {
+    try {
+      await deleteTherapistGoogleCalendarEvent(
+        booking.therapistId,
+        booking.session.googleCalendarEventId,
+      );
+    } catch (error) {
+      if (error instanceof GoogleCalendarServiceError) {
+        throw new BookingFlowServiceError(error.message, "GOOGLE_CALENDAR_SYNC_FAILED");
+      }
 
+      throw error;
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -555,6 +569,10 @@ export async function rejectBookingRequest(
         where: { id: booking.session.id },
         data: {
           sessionStatus: SessionStatus.CANCELLED,
+          meetingUrl: null,
+          googleCalendarEventId: null,
+          googleCalendarConferenceId: null,
+          googleCalendarEventHtmlLink: null,
         },
       });
     }

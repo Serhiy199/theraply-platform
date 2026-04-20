@@ -13,6 +13,10 @@ import {
   type PaymentSummaryItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import {
+  deleteTherapistGoogleCalendarEvent,
+  GoogleCalendarServiceError,
+} from "@/server/services/google-calendar.service";
 
 export type AdminUserListItem = {
   id: string;
@@ -55,7 +59,11 @@ export type AdminAuditLogItem = Pick<AuditLog, "id" | "entityType" | "entityId" 
 export class AdminOperationsServiceError extends Error {
   constructor(
     message: string,
-    public readonly code: "BOOKING_NOT_FOUND" | "BOOKING_NOT_CANCELLABLE" | "ADMIN_NOT_FOUND",
+    public readonly code:
+      | "BOOKING_NOT_FOUND"
+      | "BOOKING_NOT_CANCELLABLE"
+      | "ADMIN_NOT_FOUND"
+      | "GOOGLE_CALENDAR_SYNC_FAILED",
   ) {
     super(message);
     this.name = "AdminOperationsServiceError";
@@ -187,12 +195,14 @@ export async function adminCancelBooking(
     select: {
       id: true,
       bookingStatus: true,
+      therapistId: true,
       cancelledAt: true,
       cancelledByUserId: true,
       session: {
         select: {
           id: true,
           sessionStatus: true,
+          googleCalendarEventId: true,
         },
       },
     },
@@ -216,6 +226,21 @@ export async function adminCancelBooking(
 
   const now = getNow();
 
+  if (booking.session?.googleCalendarEventId) {
+    try {
+      await deleteTherapistGoogleCalendarEvent(
+        booking.therapistId,
+        booking.session.googleCalendarEventId,
+      );
+    } catch (error) {
+      if (error instanceof GoogleCalendarServiceError) {
+        throw new AdminOperationsServiceError(error.message, "GOOGLE_CALENDAR_SYNC_FAILED");
+      }
+
+      throw error;
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
@@ -231,6 +256,10 @@ export async function adminCancelBooking(
         where: { id: booking.session.id },
         data: {
           sessionStatus: SessionStatus.CANCELLED,
+          meetingUrl: null,
+          googleCalendarEventId: null,
+          googleCalendarConferenceId: null,
+          googleCalendarEventHtmlLink: null,
         },
       });
     }

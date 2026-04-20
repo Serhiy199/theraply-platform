@@ -8,6 +8,10 @@ import {
   type PaymentSummaryItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import {
+  deleteTherapistGoogleCalendarEvent,
+  GoogleCalendarServiceError,
+} from "@/server/services/google-calendar.service";
 
 const upcomingClientBookingStatuses = [
   BookingStatus.PENDING_THERAPIST,
@@ -28,7 +32,8 @@ export class ClientBookingsServiceError extends Error {
     message: string,
     public readonly code:
       | "BOOKING_NOT_FOUND"
-      | "BOOKING_NOT_CANCELLABLE",
+      | "BOOKING_NOT_CANCELLABLE"
+      | "GOOGLE_CALENDAR_SYNC_FAILED",
   ) {
     super(message);
     this.name = "ClientBookingsServiceError";
@@ -121,9 +126,11 @@ export async function cancelClientBooking(
       id: true,
       bookingStatus: true,
       startsAt: true,
+      therapistId: true,
       session: {
         select: {
           id: true,
+          googleCalendarEventId: true,
         },
       },
     },
@@ -143,6 +150,21 @@ export async function cancelClientBooking(
     );
   }
 
+  if (booking.session?.googleCalendarEventId) {
+    try {
+      await deleteTherapistGoogleCalendarEvent(
+        booking.therapistId,
+        booking.session.googleCalendarEventId,
+      );
+    } catch (error) {
+      if (error instanceof GoogleCalendarServiceError) {
+        throw new ClientBookingsServiceError(error.message, "GOOGLE_CALENDAR_SYNC_FAILED");
+      }
+
+      throw error;
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
@@ -158,6 +180,10 @@ export async function cancelClientBooking(
         where: { id: booking.session.id },
         data: {
           sessionStatus: SessionStatus.CANCELLED,
+          meetingUrl: null,
+          googleCalendarEventId: null,
+          googleCalendarConferenceId: null,
+          googleCalendarEventHtmlLink: null,
         },
       });
     }
