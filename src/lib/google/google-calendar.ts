@@ -53,3 +53,54 @@ export async function refreshGoogleAccessToken(refreshToken: string): Promise<Go
 
   return normalizeGoogleOAuthTokens(auth.credentials);
 }
+
+export type GoogleAuthenticatedUserProfile = {
+  email: string | null;
+  name: string | null;
+};
+
+export type GoogleCalendarListItem = {
+  id: string | null;
+  summary: string | null;
+  primary: boolean;
+};
+
+export async function getGoogleAuthenticatedUserProfile(
+  auth: ReturnType<typeof createGoogleOAuthClient>,
+): Promise<GoogleAuthenticatedUserProfile> {
+  const oauth2 = google.oauth2({
+    version: "v2",
+    auth,
+  });
+
+  const response = await oauth2.userinfo.get();
+
+  return {
+    email: response.data.email?.trim() || null,
+    name: response.data.name?.trim() || null,
+  };
+}
+
+export async function listGoogleCalendars(
+  auth: ReturnType<typeof createGoogleOAuthClient>,
+): Promise<GoogleCalendarListItem[]> {
+  const calendar = google.calendar({
+    version: "v3",
+    auth,
+  });
+
+  const response = await calendar.calendarList.list();
+
+  return (response.data.items ?? []).map((item) => ({
+    id: item.id?.trim() || null,
+    summary: item.summary?.trim() || null,
+    primary: Boolean(item.primary),
+  }));
+}
+
+export async function getGooglePrimaryCalendar(
+  auth: ReturnType<typeof createGoogleOAuthClient>,
+): Promise<GoogleCalendarListItem | null> {
+  const calendars = await listGoogleCalendars(auth);
+  return calendars.find((calendar) => calendar.primary) ?? calendars[0] ?? null;
+}

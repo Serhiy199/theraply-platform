@@ -11,9 +11,24 @@ import type { TherapistPayoutDetailsView } from "@/server/services/therapist-boo
 
 type TherapistPayoutFormProps = {
   data: TherapistPayoutDetailsView;
+  googleCalendarFlash?: {
+    status: "success" | "error";
+    message: string;
+  } | null;
 };
 
-export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
+function formatConnectionDate(value: Date | null) {
+  if (!value) {
+    return "Not connected yet";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value);
+}
+
+export function TherapistPayoutForm({ data, googleCalendarFlash }: TherapistPayoutFormProps) {
   const [state, formAction, pending] = useActionState<PayoutDetailsActionState, FormData>(
     payoutDetailsAction,
     initialPayoutDetailsActionState,
@@ -27,6 +42,16 @@ export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
         <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
           Keep payout information current so the finance workflow stays clean when settlements and therapist payouts are turned on.
         </p>
+        {googleCalendarFlash ? (
+          <div className="mt-6">
+            <DashboardStatusAlert
+              tone={googleCalendarFlash.status === "success" ? "success" : "error"}
+              title={googleCalendarFlash.status === "success" ? "Calendar connected" : "Connection failed"}
+            >
+              {googleCalendarFlash.message}
+            </DashboardStatusAlert>
+          </div>
+        ) : null}
 
         <form action={formAction} className="mt-6 grid gap-4">
           {state.message ? (
@@ -84,11 +109,35 @@ export function TherapistPayoutForm({ data }: TherapistPayoutFormProps) {
               <dt className="font-medium text-slate-700">Approval status</dt>
               <dd className="text-right">{data.profile.approvalStatus.replaceAll("_", " ")}</dd>
             </div>
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Calendar email</dt>
               <dd className="text-right">{data.profile.googleCalendarEmail ?? "Not connected yet"}</dd>
             </div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
+              <dt className="font-medium text-slate-700">Calendar status</dt>
+              <dd className="text-right">
+                {data.profile.isGoogleCalendarConnected ? "Connected" : "Not connected"}
+              </dd>
+            </div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
+              <dt className="font-medium text-slate-700">Calendar ID</dt>
+              <dd className="max-w-[16rem] break-all text-right">
+                {data.profile.googleCalendarId ?? "Will appear after connection"}
+              </dd>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="font-medium text-slate-700">Connected at</dt>
+              <dd className="text-right">{formatConnectionDate(data.profile.googleCalendarConnectedAt)}</dd>
+            </div>
           </dl>
+          <div className="mt-6">
+            <a
+              href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+            </a>
+          </div>
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">

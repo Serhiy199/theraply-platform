@@ -1,7 +1,12 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { createGoogleCalendarClient, refreshGoogleAccessToken } from "@/lib/google/google-calendar";
+import {
+  createGoogleCalendarClient,
+  getGoogleAuthenticatedUserProfile,
+  getGooglePrimaryCalendar,
+  refreshGoogleAccessToken,
+} from "@/lib/google/google-calendar";
 import {
   buildGoogleOAuthConsentUrl,
   exchangeGoogleAuthorizationCode,
@@ -108,6 +113,26 @@ export async function buildTherapistGoogleCalendarConnectUrl(
 export async function exchangeGoogleCalendarCode(code: string) {
   ensureGoogleCalendarConfigured();
   return exchangeGoogleAuthorizationCode(code);
+}
+
+export async function completeTherapistGoogleCalendarConnection(
+  therapistUserId: string,
+  code: string,
+) {
+  ensureGoogleCalendarConfigured();
+
+  const { client, tokens } = await exchangeGoogleCalendarCode(code);
+  const [profile, primaryCalendar] = await Promise.all([
+    getGoogleAuthenticatedUserProfile(client),
+    getGooglePrimaryCalendar(client),
+  ]);
+
+  return saveTherapistGoogleCalendarConnection({
+    therapistUserId,
+    googleAccountEmail: profile.email,
+    googleCalendarId: primaryCalendar?.id ?? null,
+    tokens,
+  });
 }
 
 export async function saveTherapistGoogleCalendarConnection(

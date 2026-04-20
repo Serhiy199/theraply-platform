@@ -43,7 +43,10 @@ export type TherapistPayoutDetailsView = {
     displayName: string | null;
     specialization: string | null;
     approvalStatus: TherapistApprovalStatus;
+    googleCalendarId: string | null;
     googleCalendarEmail: string | null;
+    isGoogleCalendarConnected: boolean;
+    googleCalendarConnectedAt: Date | null;
   };
   payoutDetails: {
     id: string;
@@ -89,7 +92,10 @@ async function getTherapistProfileOrThrow(userId: string) {
       displayName: true,
       specialization: true,
       approvalStatus: true,
+      googleCalendarId: true,
       googleCalendarEmail: true,
+      isGoogleCalendarConnected: true,
+      googleCalendarConnectedAt: true,
       payoutDetails: {
         select: {
           id: true,
@@ -388,7 +394,10 @@ export async function getTherapistPayoutDetails(
       displayName: therapistProfile.displayName,
       specialization: therapistProfile.specialization,
       approvalStatus: therapistProfile.approvalStatus,
+      googleCalendarId: therapistProfile.googleCalendarId,
       googleCalendarEmail: therapistProfile.googleCalendarEmail,
+      isGoogleCalendarConnected: therapistProfile.isGoogleCalendarConnected,
+      googleCalendarConnectedAt: therapistProfile.googleCalendarConnectedAt,
     },
     payoutDetails: therapistProfile.payoutDetails,
   };
