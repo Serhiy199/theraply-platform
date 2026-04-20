@@ -2,13 +2,16 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  applyGoogleCalendarCredentials,
   createGoogleCalendarClient,
   getGoogleAuthenticatedUserProfile,
+  listGoogleCalendars,
   getGooglePrimaryCalendar,
   refreshGoogleAccessToken,
 } from "@/lib/google/google-calendar";
 import {
   buildGoogleOAuthConsentUrl,
+  createGoogleOAuthClient,
   exchangeGoogleAuthorizationCode,
   type GoogleOAuthTokens,
 } from "@/lib/google/google-oauth";
@@ -46,6 +49,12 @@ export type SaveGoogleCalendarConnectionInput = {
   tokens: GoogleOAuthTokens;
 };
 
+export type TherapistGoogleCalendarOption = {
+  id: string;
+  summary: string;
+  primary: boolean;
+};
+
 export class GoogleCalendarServiceError extends Error {
   constructor(
     message: string,
@@ -53,7 +62,8 @@ export class GoogleCalendarServiceError extends Error {
       | "GOOGLE_CALENDAR_NOT_CONFIGURED"
       | "THERAPIST_PROFILE_NOT_FOUND"
       | "GOOGLE_CALENDAR_NOT_CONNECTED"
-      | "GOOGLE_REFRESH_TOKEN_MISSING",
+      | "GOOGLE_REFRESH_TOKEN_MISSING"
+      | "GOOGLE_CALENDAR_SELECTION_INVALID",
   ) {
     super(message);
     this.name = "GoogleCalendarServiceError";
@@ -225,12 +235,70 @@ export async function getAuthenticatedTherapistGoogleCalendarClient(therapistUse
     connection = await refreshTherapistGoogleCalendarAccessToken(therapistUserId);
   }
 
+  const auth = createGoogleOAuthClient();
+  applyGoogleCalendarCredentials(auth, {
+    accessToken: connection.googleAccessToken,
+    refreshToken: connection.googleRefreshToken,
+    expiryDate: connection.googleTokenExpiresAt,
+  });
+
   return {
     connection,
+    auth,
     calendar: createGoogleCalendarClient({
       accessToken: connection.googleAccessToken,
       refreshToken: connection.googleRefreshToken,
       expiryDate: connection.googleTokenExpiresAt,
     }),
   };
+}
+
+export async function getTherapistSelectableGoogleCalendars(
+  therapistUserId: string,
+): Promise<TherapistGoogleCalendarOption[]> {
+  const { auth } = await getAuthenticatedTherapistGoogleCalendarClient(therapistUserId);
+  const calendars = await listGoogleCalendars(auth);
+
+  return calendars
+    .filter((calendar): calendar is { id: string; summary: string | null; primary: boolean } =>
+      Boolean(calendar.id),
+    )
+    .map((calendar) => ({
+      id: calendar.id,
+      summary: calendar.summary ?? calendar.id,
+      primary: calendar.primary,
+    }));
+}
+
+export async function updateTherapistSelectedGoogleCalendar(
+  therapistUserId: string,
+  googleCalendarId: string,
+) {
+  const normalizedCalendarId = normalizeOptionalString(googleCalendarId);
+
+  if (!normalizedCalendarId) {
+    throw new GoogleCalendarServiceError(
+      "Please choose a Google Calendar before saving.",
+      "GOOGLE_CALENDAR_SELECTION_INVALID",
+    );
+  }
+
+  const calendars = await getTherapistSelectableGoogleCalendars(therapistUserId);
+  const selectedCalendar = calendars.find((calendar) => calendar.id === normalizedCalendarId);
+
+  if (!selectedCalendar) {
+    throw new GoogleCalendarServiceError(
+      "The selected Google Calendar is not available for this therapist account.",
+      "GOOGLE_CALENDAR_SELECTION_INVALID",
+    );
+  }
+
+  return prisma.therapistProfile.update({
+    where: { userId: therapistUserId },
+    data: {
+      googleCalendarId: selectedCalendar.id,
+      isGoogleCalendarConnected: true,
+    },
+    select: therapistGoogleCalendarConnectionSelect,
+  });
 }

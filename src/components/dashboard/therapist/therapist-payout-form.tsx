@@ -1,16 +1,21 @@
-﻿"use client";
+"use client";
 
 import { useActionState } from "react";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import {
+  googleCalendarSelectionAction,
+  initialGoogleCalendarSelectionActionState,
   initialPayoutDetailsActionState,
   payoutDetailsAction,
+  type GoogleCalendarSelectionActionState,
   type PayoutDetailsActionState,
 } from "@/app/therapist/payout-details/actions";
 import type { TherapistPayoutDetailsView } from "@/server/services/therapist-bookings.service";
+import type { TherapistGoogleCalendarOption } from "@/server/services/google-calendar.service";
 
 type TherapistPayoutFormProps = {
   data: TherapistPayoutDetailsView;
+  googleCalendars: TherapistGoogleCalendarOption[];
   googleCalendarFlash?: {
     status: "success" | "error";
     message: string;
@@ -28,10 +33,21 @@ function formatConnectionDate(value: Date | null) {
   }).format(value);
 }
 
-export function TherapistPayoutForm({ data, googleCalendarFlash }: TherapistPayoutFormProps) {
+export function TherapistPayoutForm({
+  data,
+  googleCalendars,
+  googleCalendarFlash,
+}: TherapistPayoutFormProps) {
   const [state, formAction, pending] = useActionState<PayoutDetailsActionState, FormData>(
     payoutDetailsAction,
     initialPayoutDetailsActionState,
+  );
+  const [calendarState, calendarFormAction, calendarPending] = useActionState<
+    GoogleCalendarSelectionActionState,
+    FormData
+  >(
+    googleCalendarSelectionAction,
+    initialGoogleCalendarSelectionActionState,
   );
 
   return (
@@ -138,6 +154,54 @@ export function TherapistPayoutForm({ data, googleCalendarFlash }: TherapistPayo
               {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
             </a>
           </div>
+        </article>
+
+        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+          <h3 className="text-xl font-semibold text-slate-900">Target calendar</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Choose which Google Calendar should receive confirmed session events. The primary calendar is selected automatically after the first connection, but you can change it here.
+          </p>
+
+          <form action={calendarFormAction} className="mt-5 grid gap-4">
+            {calendarState.message ? (
+              <DashboardStatusAlert
+                tone={calendarState.status === "success" ? "success" : "error"}
+                title={calendarState.status === "success" ? "Calendar saved" : "Unable to save"}
+              >
+                {calendarState.message}
+              </DashboardStatusAlert>
+            ) : null}
+
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Google Calendar</span>
+              <select
+                name="googleCalendarId"
+                defaultValue={data.profile.googleCalendarId ?? ""}
+                disabled={!googleCalendars.length || calendarPending}
+                className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+              >
+                <option value="">
+                  {googleCalendars.length
+                    ? "Choose a calendar"
+                    : "Connect Google Calendar first to load available calendars"}
+                </option>
+                {googleCalendars.map((calendar) => (
+                  <option key={calendar.id} value={calendar.id}>
+                    {calendar.summary}
+                    {calendar.primary ? " (Primary)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              type="submit"
+              disabled={!googleCalendars.length || calendarPending}
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {calendarPending ? "Saving..." : "Save target calendar"}
+            </button>
+          </form>
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">

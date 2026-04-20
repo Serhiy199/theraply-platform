@@ -1,7 +1,8 @@
-﻿import { UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { TherapistPayoutForm } from "@/components/dashboard/therapist/therapist-payout-form";
 import { requireRole } from "@/lib/permissions";
 import { getTherapistPayoutDetails } from "@/server/services/therapist-bookings.service";
+import { getTherapistSelectableGoogleCalendars } from "@/server/services/google-calendar.service";
 
 type TherapistPayoutDetailsPageProps = {
   searchParams: Promise<{
@@ -14,7 +15,10 @@ export default async function TherapistPayoutDetailsPage({
   searchParams,
 }: TherapistPayoutDetailsPageProps) {
   const user = await requireRole([UserRole.THERAPIST]);
-  const data = await getTherapistPayoutDetails(user.id);
+  const [data, googleCalendars] = await Promise.all([
+    getTherapistPayoutDetails(user.id),
+    getTherapistSelectableGoogleCalendars(user.id).catch(() => []),
+  ]);
   const params = await searchParams;
   let googleCalendarFlash: { status: "success" | "error"; message: string } | null = null;
 
@@ -29,5 +33,11 @@ export default async function TherapistPayoutDetailsPage({
     };
   }
 
-  return <TherapistPayoutForm data={data} googleCalendarFlash={googleCalendarFlash} />;
+  return (
+    <TherapistPayoutForm
+      data={data}
+      googleCalendars={googleCalendars}
+      googleCalendarFlash={googleCalendarFlash}
+    />
+  );
 }
