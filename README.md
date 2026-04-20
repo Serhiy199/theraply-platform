@@ -20,6 +20,7 @@ Completed phases:
 - `Phase 4` - private app shell, role dashboards, and core internal navigation
 - `Stages 5-7` - operational modules for client, therapist, and admin
 - `Phase 8` - end-to-end booking flow
+- `Phase 9` - Google Calendar integration
 
 The current application already includes:
 
@@ -38,7 +39,13 @@ The current application already includes:
 - therapist selection and slot selection for the new client booking flow
 - booking request creation with the `PENDING_THERAPIST` status
 - a unified end-to-end booking flow between client, therapist, and admin
-- automatic meeting link generation after therapist confirmation
+- therapist-owned Google Calendar connection and target calendar selection
+- real therapist availability from Google Calendar `freeBusy`
+- conflict-aware booking creation with database and Google Calendar guards
+- automatic Google Calendar event creation after therapist confirmation
+- automatic Google Meet link generation and storage in `Session`
+- Google Calendar event cleanup on reject / cancel flows
+- Google Calendar audit logging and diagnostics for connect, sync, and failure events
 - booking-flow-specific empty, loading, conflict, and success states
 
 ## Tech Stack
@@ -170,6 +177,21 @@ Completed the core booking flow end-to-end:
 - added dedicated empty, loading, and conflict states for the booking flow
 - added the end-to-end verification script `scripts/verify-stage-8.ts`
 
+### Phase 9
+
+Completed Google Calendar integration:
+
+- added Google OAuth configuration and therapist connection flow
+- added Google callback handling and token storage in `TherapistProfile`
+- added target calendar selection for therapist-owned Google accounts
+- replaced local slot generation with Google Calendar availability from `freeBusy`
+- added booking creation protection against Google and database slot conflicts
+- create a real Google Calendar event after therapist confirmation
+- store Google event references and Google Meet links in `Session`
+- delete Google Calendar events on reject and cancel flows
+- added dashboard UI indicators for connection state and Google Meet sync state
+- added audit logging and runtime diagnostics for Google Calendar integration lifecycle events
+
 ## Implemented Routes
 
 ### Public routes
@@ -211,6 +233,11 @@ Completed the core booking flow end-to-end:
 
 - `/api/auth/[...nextauth]`
 
+### Integration API
+
+- `/api/integrations/google/connect`
+- `/api/integrations/google/callback`
+
 ## Database Model
 
 ### Enums
@@ -244,10 +271,13 @@ Completed the core booking flow end-to-end:
 - `Payment` is stored separately from `Booking`
 - password recovery tokens are stored in `PasswordResetToken`
 - therapist availability is planned around Google Calendar
+- therapist availability is read from Google Calendar `freeBusy`
 - Google Calendar replaced Calendly in the updated requirements
 - each therapist will connect their own Google account for calendar sync
 - booking requests stay in `PENDING_THERAPIST` until the therapist decides
-- after therapist confirmation, the platform will create the Google Calendar event and store the resulting meeting link
+- after therapist confirmation, the platform creates the Google Calendar event and stores the resulting meeting link
+- reject and cancel flows remove the synced Google Calendar event when one exists
+- Google Calendar lifecycle events are written into `AuditLog`
 
 ## Project Structure
 
@@ -288,6 +318,7 @@ Environment variables expected by the project:
 - `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
 - `APP_URL`
+- `NEXTAUTH_URL`
 - `AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -296,14 +327,26 @@ Environment variables expected by the project:
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
 
-## Google Calendar OAuth Preparation
+## Google Calendar Integration
 
 Phase 9 uses therapist-owned Google accounts.
 
+Setup requirements:
+
 - enable `Google Calendar API` in Google Cloud
 - create an OAuth 2.0 Web application client
-- register the callback route `http://localhost:3000/api/integrations/google/callback` for local development
-- use `https://your-domain/api/integrations/google/callback` in deployed environments
+- register `http://localhost:3000/api/integrations/google/callback` for local development
+- register `https://your-domain/api/integrations/google/callback` for deployed environments
+- set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALENDAR_REDIRECT_URI`
+
+Current runtime behavior:
+
+- therapists connect their own Google account from `/therapist/payout-details`
+- Theraply reads available slots from Google Calendar `freeBusy`
+- booking requests remain in `PENDING_THERAPIST` until therapist action
+- therapist confirmation creates a Google Calendar event and stores the Google Meet link
+- reject and cancel flows delete the synced Google Calendar event
+- connection, token refresh, event sync, and failure scenarios are logged to `AuditLog`
 
 More details are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
 
@@ -420,6 +463,7 @@ Current verified state:
 - `Phase 4` is verified through the build and private role routes
 - `Stages 5-7` are verified through `scripts/verify-stages-5-7.ts`
 - `Phase 8` is verified through `scripts/verify-stage-8.ts`
+- `Phase 9` is verified through Google Calendar connect, availability, confirm, and cancellation sync flows
 - `npm run build` passes successfully
 - `npm run dev` starts correctly
 
@@ -427,9 +471,8 @@ Current verified state:
 
 The most logical next steps are:
 
-- full Google Calendar integration
 - Stripe payments and webhook logic
 - email notifications
 - production hardening, filters, pagination, and monitoring
 
-Phase 9 integration scenario is documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
+Phase 9 implementation notes are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).

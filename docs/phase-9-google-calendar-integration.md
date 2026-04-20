@@ -1,67 +1,158 @@
 # Phase 9: Google Calendar Integration
 
-This document fixes the agreed integration scenario for Phase 9 so implementation can continue without ambiguity.
+This document describes the implemented Google Calendar integration for Theraply after Phase 9 completion.
 
-## Agreed MVP Scenario
+## Final Scope
+
+Phase 9 is built around therapist-owned Google accounts.
+
+Implemented behavior:
 
 - each therapist connects their own Google account
-- Theraply reads therapist availability from Google Calendar
-- the booking request remains in `PENDING_THERAPIST` until the therapist confirms or rejects it
-- after therapist confirmation, Theraply creates a Google Calendar event for the booked session
-- the created Google Calendar event is expected to provide the meeting link used by the platform
+- the therapist can choose the target Google Calendar used for sync
+- Theraply reads therapist availability from Google Calendar `freeBusy`
+- booking requests remain in `PENDING_THERAPIST` until the therapist decides
+- therapist confirmation creates a real Google Calendar event
+- the Google Calendar event provides the Google Meet link stored in the platform
+- reject and cancel flows remove the synced Google Calendar event
+- audit logging and runtime diagnostics cover connect, sync, refresh, and failure scenarios
 
 ## Source Of Truth
 
 - therapist availability comes from Google Calendar, not from a local static slot table
-- Theraply still remains the source of truth for booking state:
+- Theraply remains the source of truth for booking state:
   - `PENDING_THERAPIST`
   - `CONFIRMED`
   - `REJECTED`
-  - cancellation flows
+  - `CANCELLED`
+  - `AUTO_CANCELLED`
 
-## Expected User Flow
+## Implemented User Flow
 
-1. Therapist connects their Google account.
-2. Client selects a therapist.
-3. Theraply reads available time from that therapist's Google Calendar.
-4. Client creates a booking request for a free slot.
-5. Booking is stored with `PENDING_THERAPIST`.
-6. Therapist confirms or rejects the request.
-7. If confirmed, Theraply creates a Google Calendar event and stores the event reference plus meeting link in the platform.
+1. Therapist opens `/therapist/payout-details`.
+2. Therapist connects a Google account through `/api/integrations/google/connect`.
+3. Google redirects back to `/api/integrations/google/callback`.
+4. Theraply stores OAuth tokens and the connected Google account metadata in `TherapistProfile`.
+5. Therapist selects the target Google Calendar.
+6. Client opens therapist availability and sees slots derived from Google Calendar `freeBusy`.
+7. Client creates a booking request for a free slot.
+8. The booking is stored with `PENDING_THERAPIST`.
+9. Therapist confirms the request.
+10. Theraply creates a Google Calendar event and stores:
+    - `googleCalendarEventId`
+    - `googleCalendarConferenceId`
+    - `googleCalendarEventHtmlLink`
+    - `meetingUrl`
+11. If the booking is rejected or cancelled later, Theraply deletes the synced Google Calendar event and clears the session metadata.
 
-## Implementation Boundary For This Step
+## Data Model
 
-Phase 9 Step 1 does not yet add OAuth, token storage, Google API calls, or UI settings pages.
+### `TherapistProfile`
 
-This step only fixes the integration contract that future implementation must follow.
+Google Calendar connection state is stored in:
 
-## Step 2: Google Cloud Configuration
+- `googleCalendarId`
+- `googleCalendarEmail`
+- `googleAccessToken`
+- `googleRefreshToken`
+- `googleTokenExpiresAt`
+- `googleCalendarConnectedAt`
+- `isGoogleCalendarConnected`
 
-Phase 9 Step 2 prepares the project for Google OAuth and Calendar API access without adding runtime integration yet.
+### `Session`
 
-### Google Cloud Setup
+Google Calendar event state is stored in:
 
-1. Create or reuse a Google Cloud project for Theraply.
-2. Enable the Google Calendar API.
-3. Configure an OAuth consent screen for the product environment you are testing.
-4. Create an OAuth 2.0 Web application client.
-5. Register the callback URL that Theraply will use after Google authentication.
+- `googleCalendarEventId`
+- `googleCalendarConferenceId`
+- `googleCalendarEventHtmlLink`
+- `meetingUrl`
 
-### Redirect URI
+## Required Environment Variables
 
-The agreed callback URL for the upcoming integration is:
+Local or deployed environments must define:
 
-- local: `http://localhost:3000/api/integrations/google/callback`
-- production example: `https://app.example.com/api/integrations/google/callback`
-
-### Required Environment Variables
-
+- `DATABASE_URL`
+- `APP_URL`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXTAUTH_URL`
+- `AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_CALENDAR_REDIRECT_URI`
 
-### Notes For The Next Step
+## Google Cloud Setup
 
-- the connect route will redirect a therapist to Google OAuth
-- the callback route will exchange the authorization code for tokens
-- the redirect URI documented here must exactly match the Google Cloud OAuth client configuration
+1. Create or reuse a Google Cloud project for Theraply.
+2. Enable the `Google Calendar API`.
+3. Configure the OAuth consent screen.
+4. Create an OAuth 2.0 Web application client.
+5. Register the callback URL used by Theraply.
+
+### Redirect URI
+
+- local: `http://localhost:3000/api/integrations/google/callback`
+- deployed example: `https://app.example.com/api/integrations/google/callback`
+
+The redirect URI must exactly match the Google Cloud OAuth client configuration.
+
+## Key Server Files
+
+- `src/lib/google/google-calendar-config.ts`
+- `src/lib/google/google-oauth.ts`
+- `src/lib/google/google-calendar.ts`
+- `src/lib/google/google-slot-mapper.ts`
+- `src/server/services/google-calendar.service.ts`
+- `src/server/services/google-availability.service.ts`
+- `src/server/services/booking-flow.service.ts`
+- `src/server/services/audit-log.service.ts`
+- `src/app/api/integrations/google/connect/route.ts`
+- `src/app/api/integrations/google/callback/route.ts`
+
+## Audit Logging And Diagnostics
+
+Google Calendar lifecycle events are written into `AuditLog`.
+
+Covered events include:
+
+- connect started
+- connected
+- disconnected
+- target calendar updated
+- token refreshed
+- availability read failures
+- Google event created
+- Google event deleted
+- OAuth callback mismatch or denial
+- event create/delete failures
+
+Runtime diagnostics are also written to server logs for failure scenarios.
+
+## UI Surface
+
+Google Calendar status is visible in:
+
+- therapist dashboard overview
+- therapist payout and calendar settings
+- therapist booking details
+- client booking details
+- admin booking details
+
+The UI distinguishes between:
+
+- Google Calendar connected vs setup incomplete
+- Google Meet synced vs pending/manual meeting link state
+
+## End-Of-Phase Verification
+
+Use this checklist to verify the final Phase 9 behavior:
+
+1. Connect a therapist Google account.
+2. Select the target Google Calendar.
+3. Open the client booking flow and verify slots come from Google Calendar.
+4. Create a booking request for a visible free slot.
+5. Confirm the request as the therapist.
+6. Verify a Google Calendar event exists and a Google Meet link appears in Theraply.
+7. Reject or cancel another synced booking and verify the Google Calendar event is removed.
+8. Verify `AuditLog` contains Google Calendar lifecycle records.
+9. Run `npm run build` and confirm the project builds successfully.

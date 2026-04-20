@@ -20,6 +20,7 @@ Theraply Platform — це продуктова частина платформ�
 - `Phase 4` - приватний app shell, role dashboards і базова внутрішня навігація
 - `Етапи 5-7` - operational-модулі для client, therapist і admin
 - `Phase 8` - end-to-end логіка бронювання
+- `Phase 9` - інтеграція з Google Calendar
 
 Поточний стан застосунку вже включає:
 
@@ -38,7 +39,13 @@ Theraply Platform — це продуктова частина платформ�
 - вибір терапевта і слотів для нового booking flow клієнта
 - створення booking request зі статусом `PENDING_THERAPIST`
 - єдиний end-to-end booking flow між client, therapist і admin
-- автоматичну генерацію meeting link після підтвердження терапевтом
+- підключення власного Google-акаунта терапевта і вибір target calendar
+- реальні availability slots із Google Calendar `freeBusy`
+- conflict-aware створення booking з перевіркою і в БД, і в Google Calendar
+- автоматичне створення Google Calendar event після підтвердження терапевтом
+- автоматичне збереження Google Meet link у `Session`
+- синхронне видалення Google Calendar event при reject / cancel
+- audit logging і технічну діагностику для життєвого циклу Google Calendar інтеграції
 - booking-flow empty, loading, conflict і success states
 
 ## Технічний стек
@@ -170,6 +177,21 @@ Theraply Platform — це продуктова частина платформ�
 - для booking flow додано окремі empty, loading і conflict states
 - додано end-to-end verification script `scripts/verify-stage-8.ts`
 
+### Phase 9
+
+Завершено інтеграцію з Google Calendar:
+
+- додано Google OAuth конфігурацію і therapist connect flow
+- додано callback-обробку Google авторизації та збереження токенів у `TherapistProfile`
+- додано вибір target calendar для therapist-owned Google account
+- локальну генерацію слотів замінено на availability із Google Calendar `freeBusy`
+- додано захист від конфліктів часу на етапі створення booking
+- після therapist confirmation система створює реальний Google Calendar event
+- Google event references і Google Meet link зберігаються в `Session`
+- reject і cancel flows синхронно видаляють Google Calendar event
+- у dashboard UI додано індикатори connection state і Meet sync state
+- для інтеграції додано audit logging і runtime diagnostics
+
 ## Реалізовані маршрути
 
 ### Публічні маршрути
@@ -211,6 +233,11 @@ Theraply Platform — це продуктова частина платформ�
 
 - `/api/auth/[...nextauth]`
 
+### Integration API
+
+- `/api/integrations/google/connect`
+- `/api/integrations/google/callback`
+
 ## Модель бази даних
 
 ### Enums
@@ -243,8 +270,13 @@ Theraply Platform — це продуктова частина платформ�
 - `Session` описує фактичну сесію і пов’язана one-to-one з `Booking`
 - `Payment` зберігається окремо від `Booking`
 - токени відновлення пароля зберігаються в `PasswordResetToken`
-- доступність терапевтів планується через Google Calendar
+- доступність терапевтів читається з Google Calendar `freeBusy`
 - Google Calendar замінив Calendly в оновленому ТЗ
+- кожен therapist підключає власний Google account для calendar sync
+- booking request лишається в `PENDING_THERAPIST`, доки therapist не прийме рішення
+- після therapist confirmation платформа створює Google Calendar event і зберігає meeting link
+- reject і cancel flows видаляють синхронізований Google Calendar event, якщо він існує
+- події життєвого циклу інтеграції пишуться в `AuditLog`
 
 ## Структура проєкту
 
@@ -285,6 +317,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 - `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
 - `APP_URL`
+- `NEXTAUTH_URL`
 - `AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -292,6 +325,27 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+
+## Google Calendar інтеграція
+
+Phase 9 використовує therapist-owned Google accounts.
+
+Що потрібно для конфігурації:
+
+- увімкнути `Google Calendar API` у Google Cloud
+- створити OAuth 2.0 Web application client
+- зареєструвати `http://localhost:3000/api/integrations/google/callback` для локального середовища
+- зареєструвати `https://your-domain/api/integrations/google/callback` для продакшену
+- заповнити `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` і `GOOGLE_CALENDAR_REDIRECT_URI`
+
+Поточна runtime-логіка:
+
+- therapist підключає свій Google account на `/therapist/payout-details`
+- Theraply читає availability slots із Google Calendar `freeBusy`
+- booking request лишається в `PENDING_THERAPIST`, поки therapist не підтвердить або не відхилить його
+- therapist confirmation створює Google Calendar event і зберігає Google Meet link
+- reject і cancel flows видаляють синхронізований Google Calendar event
+- connect, refresh token, event sync і failure-сценарії логуються в `AuditLog`
 
 ## Корисні команди
 
@@ -361,13 +415,15 @@ cp .env.production.local.example .env.production.local
 
 2. Встав у `.env.production.local` віддалений `DATABASE_URL` з Vercel / Prisma Postgres.
 
-3. Запусти міграції для віддаленої бази:
+3. Якщо хочеш, щоб локальний проєкт теж використовував віддалену БД як основну, продублюй той самий `DATABASE_URL` у `.env`.
+
+4. Запусти міграції для віддаленої бази:
 
 ```bash
 npm run prisma:migrate:remote
 ```
 
-4. Запусти seed для віддаленої бази:
+5. Запусти seed для віддаленої бази лише якщо справді хочеш записати seed-дані в це спільне середовище:
 
 ```bash
 npm run prisma:seed:remote
@@ -404,6 +460,7 @@ npm run prisma:seed:remote
 - `Phase 4` перевірений через build і роботу приватних role routes
 - `Етапи 5-7` перевірені через `scripts/verify-stages-5-7.ts`
 - `Phase 8` перевірений через `scripts/verify-stage-8.ts`
+- `Phase 9` перевірений через Google Calendar connect, availability, confirm і cancellation sync flows
 - `npm run build` проходить успішно
 - `npm run dev` стартує коректно
 
@@ -411,7 +468,8 @@ npm run prisma:seed:remote
 
 Найлогічніші наступні етапи:
 
-- повна інтеграція з Google Calendar
 - Stripe payments і webhook-логіка
 - email notifications
 - production hardening, filters, pagination і monitoring
+
+Деталі реалізації `Phase 9` описані в [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).

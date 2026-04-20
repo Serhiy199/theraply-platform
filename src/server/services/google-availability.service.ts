@@ -9,6 +9,10 @@ import {
   GoogleCalendarServiceError,
   getAuthenticatedTherapistGoogleCalendarClient,
 } from "@/server/services/google-calendar.service";
+import {
+  createAuditLogEntryBestEffort,
+  logDiagnosticEvent,
+} from "@/server/services/audit-log.service";
 
 const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING_THERAPIST,
@@ -134,6 +138,17 @@ async function getGoogleCalendarBusyRanges(
     const { connection, calendar } = await getAuthenticatedTherapistGoogleCalendarClient(therapistId);
 
     if (!connection.googleCalendarId) {
+      await createAuditLogEntryBestEffort({
+        actorUserId: therapistId,
+        entityType: "GoogleCalendarIntegration",
+        entityId: therapistId,
+        action: "GOOGLE_CALENDAR_AVAILABILITY_TARGET_MISSING",
+        after: {
+          from: from.toISOString(),
+          to: to.toISOString(),
+        },
+      });
+
       throw new GoogleAvailabilityServiceError(
         "No target Google Calendar is selected for this therapist.",
         "GOOGLE_CALENDAR_TARGET_MISSING",
@@ -173,12 +188,41 @@ async function getGoogleCalendarBusyRanges(
 
     if (error instanceof GoogleCalendarServiceError) {
       if (error.code === "GOOGLE_CALENDAR_NOT_CONNECTED") {
+        await createAuditLogEntryBestEffort({
+          actorUserId: therapistId,
+          entityType: "GoogleCalendarIntegration",
+          entityId: therapistId,
+          action: "GOOGLE_CALENDAR_AVAILABILITY_NOT_CONNECTED",
+          after: {
+            from: from.toISOString(),
+            to: to.toISOString(),
+          },
+        });
+
         throw new GoogleAvailabilityServiceError(
           error.message,
           "GOOGLE_CALENDAR_NOT_CONNECTED",
         );
       }
     }
+
+    logDiagnosticEvent("google-calendar-availability", "Unable to read Google Calendar freeBusy data.", {
+      therapistId,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await createAuditLogEntryBestEffort({
+      actorUserId: therapistId,
+      entityType: "GoogleCalendarIntegration",
+      entityId: therapistId,
+      action: "GOOGLE_CALENDAR_AVAILABILITY_READ_FAILED",
+      after: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
 
     throw error;
   }

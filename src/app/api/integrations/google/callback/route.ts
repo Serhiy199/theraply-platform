@@ -8,6 +8,10 @@ import {
   GoogleCalendarServiceError,
   completeTherapistGoogleCalendarConnection,
 } from "@/server/services/google-calendar.service";
+import {
+  createAuditLogEntryBestEffort,
+  logDiagnosticEvent,
+} from "@/server/services/audit-log.service";
 
 function buildAppUrl(request: NextRequest, pathname: string) {
   return new URL(pathname, request.url);
@@ -60,6 +64,17 @@ export async function GET(request: NextRequest) {
     const returnTo = normalizeReturnTo(parsedState.returnTo);
 
     if (parsedState.therapistUserId !== user.id) {
+      await createAuditLogEntryBestEffort({
+        actorUserId: user.id,
+        entityType: "GoogleCalendarIntegration",
+        entityId: parsedState.therapistUserId,
+        action: "GOOGLE_CALENDAR_CALLBACK_USER_MISMATCH",
+        after: {
+          signedInUserId: user.id,
+          stateTherapistUserId: parsedState.therapistUserId,
+        },
+      });
+
       return NextResponse.redirect(
         buildReturnRedirect(
           request,
@@ -71,6 +86,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (oauthError) {
+      await createAuditLogEntryBestEffort({
+        actorUserId: user.id,
+        entityType: "GoogleCalendarIntegration",
+        entityId: user.id,
+        action: "GOOGLE_CALENDAR_CALLBACK_DENIED",
+        after: {
+          returnTo,
+          oauthError,
+        },
+      });
+
       return NextResponse.redirect(
         buildReturnRedirect(
           request,
@@ -82,6 +108,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code) {
+      await createAuditLogEntryBestEffort({
+        actorUserId: user.id,
+        entityType: "GoogleCalendarIntegration",
+        entityId: user.id,
+        action: "GOOGLE_CALENDAR_CALLBACK_CODE_MISSING",
+        after: {
+          returnTo,
+        },
+      });
+
       return NextResponse.redirect(
         buildReturnRedirect(
           request,
@@ -101,6 +137,20 @@ export async function GET(request: NextRequest) {
       buildReturnRedirect(request, returnTo, "success", successMessage),
     );
   } catch (error) {
+    await createAuditLogEntryBestEffort({
+      actorUserId: user.id,
+      entityType: "GoogleCalendarIntegration",
+      entityId: user.id,
+      action: "GOOGLE_CALENDAR_CALLBACK_FAILED",
+      after: {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    logDiagnosticEvent("google-calendar-callback-route", "Unable to complete Google Calendar connection.", {
+      therapistUserId: user.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     if (error instanceof GoogleCalendarServiceError) {
       return NextResponse.redirect(
         buildReturnRedirect(request, defaultReturnTo, "error", error.message),

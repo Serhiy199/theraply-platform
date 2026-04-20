@@ -16,6 +16,10 @@ import {
   type GoogleOAuthTokens,
 } from "@/lib/google/google-oauth";
 import { isGoogleCalendarConfigured } from "@/lib/google/google-calendar-config";
+import {
+  createAuditLogEntryBestEffort,
+  logDiagnosticEvent,
+} from "@/server/services/audit-log.service";
 
 const therapistGoogleCalendarConnectionSelect = {
   id: true,
@@ -104,6 +108,44 @@ function ensureGoogleCalendarConfigured() {
   }
 }
 
+async function logGoogleCalendarAudit(
+  actorUserId: string | null | undefined,
+  entityId: string,
+  action: string,
+  before?: unknown,
+  after?: unknown,
+) {
+  await createAuditLogEntryBestEffort({
+    actorUserId,
+    entityType: "GoogleCalendarIntegration",
+    entityId,
+    action,
+    before,
+    after,
+  });
+}
+
+async function logGoogleCalendarFailure(
+  actorUserId: string | null | undefined,
+  entityId: string,
+  action: string,
+  message: string,
+  metadata?: Record<string, unknown>,
+) {
+  logDiagnosticEvent("google-calendar", message, {
+    actorUserId: actorUserId ?? null,
+    entityId,
+    action,
+    ...(metadata ?? {}),
+  });
+
+  await logGoogleCalendarAudit(actorUserId, entityId, action, null, {
+    status: "error",
+    message,
+    ...(metadata ?? {}),
+  });
+}
+
 export async function getTherapistGoogleCalendarConnection(
   therapistUserId: string,
 ): Promise<TherapistGoogleCalendarConnection | null> {
@@ -133,6 +175,14 @@ export async function buildTherapistGoogleCalendarConnectUrl(
   ensureGoogleCalendarConfigured();
 
   const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
+
+  await logGoogleCalendarAudit(therapistUserId, connection.id, "GOOGLE_CALENDAR_CONNECT_STARTED", {
+    googleCalendarId: connection.googleCalendarId,
+    googleCalendarEmail: connection.googleCalendarEmail,
+    isGoogleCalendarConnected: connection.isGoogleCalendarConnected,
+  }, {
+    returnTo: normalizeOptionalString(returnTo),
+  });
 
   return buildGoogleOAuthConsentUrl({
     therapistUserId: connection.userId,
@@ -168,9 +218,9 @@ export async function completeTherapistGoogleCalendarConnection(
 export async function saveTherapistGoogleCalendarConnection(
   input: SaveGoogleCalendarConnectionInput,
 ) {
-  await requireTherapistGoogleCalendarConnection(input.therapistUserId);
+  const connection = await requireTherapistGoogleCalendarConnection(input.therapistUserId);
 
-  return prisma.therapistProfile.update({
+  const updatedConnection = await prisma.therapistProfile.update({
     where: { userId: input.therapistUserId },
     data: {
       googleCalendarEmail: normalizeOptionalString(input.googleAccountEmail),
@@ -183,12 +233,31 @@ export async function saveTherapistGoogleCalendarConnection(
     },
     select: therapistGoogleCalendarConnectionSelect,
   });
+
+  await logGoogleCalendarAudit(
+    input.therapistUserId,
+    connection.id,
+    "GOOGLE_CALENDAR_CONNECTED",
+    {
+      googleCalendarId: connection.googleCalendarId,
+      googleCalendarEmail: connection.googleCalendarEmail,
+      isGoogleCalendarConnected: connection.isGoogleCalendarConnected,
+    },
+    {
+      googleCalendarId: updatedConnection.googleCalendarId,
+      googleCalendarEmail: updatedConnection.googleCalendarEmail,
+      isGoogleCalendarConnected: updatedConnection.isGoogleCalendarConnected,
+      googleCalendarConnectedAt: updatedConnection.googleCalendarConnectedAt,
+    },
+  );
+
+  return updatedConnection;
 }
 
 export async function disconnectTherapistGoogleCalendarConnection(therapistUserId: string) {
-  await requireTherapistGoogleCalendarConnection(therapistUserId);
+  const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
 
-  return prisma.therapistProfile.update({
+  const updatedConnection = await prisma.therapistProfile.update({
     where: { userId: therapistUserId },
     data: {
       googleAccessToken: null,
@@ -199,6 +268,24 @@ export async function disconnectTherapistGoogleCalendarConnection(therapistUserI
     },
     select: therapistGoogleCalendarConnectionSelect,
   });
+
+  await logGoogleCalendarAudit(
+    therapistUserId,
+    connection.id,
+    "GOOGLE_CALENDAR_DISCONNECTED",
+    {
+      googleCalendarId: connection.googleCalendarId,
+      googleCalendarEmail: connection.googleCalendarEmail,
+      isGoogleCalendarConnected: connection.isGoogleCalendarConnected,
+    },
+    {
+      googleCalendarId: updatedConnection.googleCalendarId,
+      googleCalendarEmail: updatedConnection.googleCalendarEmail,
+      isGoogleCalendarConnected: updatedConnection.isGoogleCalendarConnected,
+    },
+  );
+
+  return updatedConnection;
 }
 
 export async function refreshTherapistGoogleCalendarAccessToken(therapistUserId: string) {
@@ -213,18 +300,46 @@ export async function refreshTherapistGoogleCalendarAccessToken(therapistUserId:
     );
   }
 
-  const refreshedTokens = await refreshGoogleAccessToken(connection.googleRefreshToken);
+  try {
+    const refreshedTokens = await refreshGoogleAccessToken(connection.googleRefreshToken);
 
-  return prisma.therapistProfile.update({
-    where: { userId: therapistUserId },
-    data: {
-      googleAccessToken: refreshedTokens.accessToken,
-      googleRefreshToken: refreshedTokens.refreshToken ?? connection.googleRefreshToken,
-      googleTokenExpiresAt: refreshedTokens.expiryDate,
-      isGoogleCalendarConnected: true,
-    },
-    select: therapistGoogleCalendarConnectionSelect,
-  });
+    const updatedConnection = await prisma.therapistProfile.update({
+      where: { userId: therapistUserId },
+      data: {
+        googleAccessToken: refreshedTokens.accessToken,
+        googleRefreshToken: refreshedTokens.refreshToken ?? connection.googleRefreshToken,
+        googleTokenExpiresAt: refreshedTokens.expiryDate,
+        isGoogleCalendarConnected: true,
+      },
+      select: therapistGoogleCalendarConnectionSelect,
+    });
+
+    await logGoogleCalendarAudit(
+      therapistUserId,
+      connection.id,
+      "GOOGLE_CALENDAR_TOKEN_REFRESHED",
+      {
+        googleTokenExpiresAt: connection.googleTokenExpiresAt,
+      },
+      {
+        googleTokenExpiresAt: updatedConnection.googleTokenExpiresAt,
+      },
+    );
+
+    return updatedConnection;
+  } catch (error) {
+    await logGoogleCalendarFailure(
+      therapistUserId,
+      connection.id,
+      "GOOGLE_CALENDAR_TOKEN_REFRESH_FAILED",
+      "Google Calendar token refresh failed.",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
+
+    throw error;
+  }
 }
 
 export async function getAuthenticatedTherapistGoogleCalendarClient(therapistUserId: string) {
@@ -313,7 +428,9 @@ export async function updateTherapistSelectedGoogleCalendar(
     );
   }
 
-  return prisma.therapistProfile.update({
+  const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
+
+  const updatedConnection = await prisma.therapistProfile.update({
     where: { userId: therapistUserId },
     data: {
       googleCalendarId: selectedCalendar.id,
@@ -321,6 +438,21 @@ export async function updateTherapistSelectedGoogleCalendar(
     },
     select: therapistGoogleCalendarConnectionSelect,
   });
+
+  await logGoogleCalendarAudit(
+    therapistUserId,
+    connection.id,
+    "GOOGLE_CALENDAR_TARGET_UPDATED",
+    {
+      googleCalendarId: connection.googleCalendarId,
+    },
+    {
+      googleCalendarId: updatedConnection.googleCalendarId,
+      googleCalendarEmail: updatedConnection.googleCalendarEmail,
+    },
+  );
+
+  return updatedConnection;
 }
 
 function buildCalendarEventSummary(clientDisplayName: string | null, therapistDisplayName: string | null) {
@@ -424,13 +556,44 @@ export async function createTherapistGoogleCalendarEvent(
     const entryPointUri =
       response.data.conferenceData?.entryPoints?.find((entryPoint) => entryPoint.uri)?.uri ?? null;
 
-    return {
+    const createdEvent = {
       eventId,
       conferenceId: normalizeOptionalString(response.data.conferenceData?.conferenceId),
       eventHtmlLink: normalizeOptionalString(response.data.htmlLink),
       meetingUrl: normalizeOptionalString(response.data.hangoutLink) ?? normalizeOptionalString(entryPointUri),
     };
+
+    await logGoogleCalendarAudit(
+      input.therapistUserId,
+      input.bookingId,
+      "GOOGLE_CALENDAR_EVENT_CREATED",
+      {
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        googleCalendarId: connection.googleCalendarId,
+      },
+      {
+        eventId: createdEvent.eventId,
+        conferenceId: createdEvent.conferenceId,
+        eventHtmlLink: createdEvent.eventHtmlLink,
+        meetingUrl: createdEvent.meetingUrl,
+      },
+    );
+
+    return createdEvent;
   } catch (error) {
+    await logGoogleCalendarFailure(
+      input.therapistUserId,
+      input.bookingId,
+      "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
+      "Google Calendar could not create an event for the booking.",
+      {
+        startsAt: input.startsAt.toISOString(),
+        endsAt: input.endsAt.toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
+
     if (error instanceof GoogleCalendarServiceError) {
       throw error;
     }
@@ -460,8 +623,35 @@ export async function deleteTherapistGoogleCalendarEvent(
     return;
   }
 
-  await calendar.events.delete({
-    calendarId: connection.googleCalendarId,
-    eventId: normalizedEventId,
-  });
+  try {
+    await calendar.events.delete({
+      calendarId: connection.googleCalendarId,
+      eventId: normalizedEventId,
+    });
+
+    await logGoogleCalendarAudit(
+      therapistUserId,
+      normalizedEventId,
+      "GOOGLE_CALENDAR_EVENT_DELETED",
+      {
+        googleCalendarId: connection.googleCalendarId,
+      },
+      {
+        deleted: true,
+      },
+    );
+  } catch (error) {
+    await logGoogleCalendarFailure(
+      therapistUserId,
+      normalizedEventId,
+      "GOOGLE_CALENDAR_EVENT_DELETE_FAILED",
+      "Google Calendar could not delete the event.",
+      {
+        googleCalendarId: connection.googleCalendarId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
+
+    throw error;
+  }
 }

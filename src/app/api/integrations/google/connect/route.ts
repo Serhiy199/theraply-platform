@@ -7,6 +7,10 @@ import {
   GoogleCalendarServiceError,
   buildTherapistGoogleCalendarConnectUrl,
 } from "@/server/services/google-calendar.service";
+import {
+  createAuditLogEntryBestEffort,
+  logDiagnosticEvent,
+} from "@/server/services/audit-log.service";
 
 function buildAppUrl(request: NextRequest, pathname: string) {
   return new URL(pathname, request.url);
@@ -44,6 +48,22 @@ export async function GET(request: NextRequest) {
     const consentUrl = await buildTherapistGoogleCalendarConnectUrl(user.id, returnTo);
     return NextResponse.redirect(consentUrl);
   } catch (error) {
+    await createAuditLogEntryBestEffort({
+      actorUserId: user.id,
+      entityType: "GoogleCalendarIntegration",
+      entityId: user.id,
+      action: "GOOGLE_CALENDAR_CONNECT_ROUTE_FAILED",
+      after: {
+        returnTo,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    logDiagnosticEvent("google-calendar-connect-route", "Unable to start Google Calendar connection.", {
+      therapistUserId: user.id,
+      returnTo,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     if (error instanceof GoogleCalendarServiceError) {
       return NextResponse.redirect(buildTherapistRedirect(request, "error", error.message));
     }
