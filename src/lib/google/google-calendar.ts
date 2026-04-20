@@ -1,0 +1,55 @@
+import "server-only";
+import { google } from "googleapis";
+import { createGoogleOAuthClient, normalizeGoogleOAuthTokens, type GoogleOAuthTokens } from "@/lib/google/google-oauth";
+
+export type GoogleCalendarCredentialsInput = {
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: Date | string | null;
+};
+
+function toExpiryTimestamp(value: Date | string | null | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.getTime();
+}
+
+export function applyGoogleCalendarCredentials(
+  client: ReturnType<typeof createGoogleOAuthClient>,
+  credentials: GoogleCalendarCredentialsInput,
+) {
+  client.setCredentials({
+    access_token: credentials.accessToken ?? undefined,
+    refresh_token: credentials.refreshToken ?? undefined,
+    expiry_date: toExpiryTimestamp(credentials.expiryDate),
+  });
+
+  return client;
+}
+
+export function createGoogleCalendarClient(credentials?: GoogleCalendarCredentialsInput) {
+  const auth = createGoogleOAuthClient();
+
+  if (credentials) {
+    applyGoogleCalendarCredentials(auth, credentials);
+  }
+
+  return google.calendar({
+    version: "v3",
+    auth,
+  });
+}
+
+export async function refreshGoogleAccessToken(refreshToken: string): Promise<GoogleOAuthTokens> {
+  const auth = createGoogleOAuthClient();
+  auth.setCredentials({
+    refresh_token: refreshToken,
+  });
+
+  await auth.getAccessToken();
+
+  return normalizeGoogleOAuthTokens(auth.credentials);
+}
