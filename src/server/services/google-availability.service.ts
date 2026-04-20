@@ -54,6 +54,15 @@ function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+function rangesOverlap(
+  leftStart: Date,
+  leftEnd: Date,
+  rightStart: Date,
+  rightEnd: Date,
+) {
+  return leftStart < rightEnd && leftEnd > rightStart;
+}
+
 export function getGoogleAvailabilityWindowStart() {
   const now = new Date();
   const rounded = startOfHour(now);
@@ -173,6 +182,20 @@ async function getGoogleCalendarBusyRanges(
 
     throw error;
   }
+}
+
+export async function hasTherapistGoogleCalendarBusyConflict(
+  therapistId: string,
+  startsAt: Date,
+  endsAt: Date,
+) {
+  validateDateRange(startsAt, endsAt);
+
+  const googleBusyRanges = await getGoogleCalendarBusyRanges(therapistId, startsAt, endsAt);
+
+  return googleBusyRanges.some((range) =>
+    rangesOverlap(startsAt, endsAt, range.startsAt, range.endsAt),
+  );
 }
 
 export async function getTherapistGoogleAvailability(

@@ -46,12 +46,21 @@ function groupSlotsByDay(slots: TherapistAvailabilitySlot[]) {
 type TherapistAvailabilityProps = {
   therapist: TherapistListItem;
   slots: TherapistAvailabilitySlot[];
+  availabilityIssue?: string | null;
 };
 
-export function TherapistAvailability({ therapist, slots }: TherapistAvailabilityProps) {
+export function TherapistAvailability({
+  therapist,
+  slots,
+  availabilityIssue,
+}: TherapistAvailabilityProps) {
   const slotGroups = groupSlotsByDay(slots);
   const availableCount = slots.filter((slot) => slot.isAvailable).length;
   const unavailableCount = slots.length - availableCount;
+  const hasCalendarConnection = Boolean(
+    therapist.therapistProfile?.isGoogleCalendarConnected &&
+      therapist.therapistProfile?.googleCalendarId,
+  );
 
   return (
     <div className="grid gap-6">
@@ -102,6 +111,20 @@ export function TherapistAvailability({ therapist, slots }: TherapistAvailabilit
             <div className="mt-5 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
               Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
             </div>
+            {!hasCalendarConnection ? (
+              <div className="mt-4">
+                <BookingStatusAlert tone="warning" title="Calendar setup is not complete">
+                  This therapist has not finished Google Calendar setup yet, so real availability cannot be shown.
+                </BookingStatusAlert>
+              </div>
+            ) : null}
+            {availabilityIssue ? (
+              <div className="mt-4">
+                <BookingStatusAlert tone="warning" title="Availability could not be loaded">
+                  {availabilityIssue}
+                </BookingStatusAlert>
+              </div>
+            ) : null}
           </article>
         </div>
       </section>
@@ -165,7 +188,12 @@ export function TherapistAvailability({ therapist, slots }: TherapistAvailabilit
           <div className="mt-6">
             <BookingEmptyState
               title="No slots available in the current window"
-              description={BOOKING_FLOW_MESSAGES.noSlots}
+              description={
+                availabilityIssue ||
+                (!hasCalendarConnection
+                  ? "This therapist has not completed Google Calendar setup yet, so booking slots cannot be shown."
+                  : BOOKING_FLOW_MESSAGES.noSlots)
+              }
               action={
                 <Link
                   href="/client/book/new"

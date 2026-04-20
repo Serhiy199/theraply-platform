@@ -4,16 +4,16 @@ import {
   type BookingDetailsItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import {
+  GoogleAvailabilityServiceError,
+  getTherapistGoogleAvailability,
+  hasTherapistGoogleCalendarBusyConflict,
+} from "@/server/services/google-availability.service";
 
 const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING_THERAPIST,
   BookingStatus.CONFIRMED,
 ] as const;
-
-const DEFAULT_SLOT_DURATION_MINUTES = 60;
-const DEFAULT_BOOKING_WINDOW_DAYS = 14;
-const BUSINESS_HOURS_START = 9;
-const BUSINESS_HOURS_END = 17;
 
 const bookableTherapistSelect = {
   id: true,
@@ -26,7 +26,9 @@ const bookableTherapistSelect = {
       displayName: true,
       specialization: true,
       bio: true,
+      googleCalendarId: true,
       googleCalendarEmail: true,
+      isGoogleCalendarConnected: true,
       approvalStatus: true,
       isApproved: true,
     },
@@ -66,39 +68,6 @@ export class BookingFlowServiceError extends Error {
     super(message);
     this.name = "BookingFlowServiceError";
   }
-}
-
-function startOfHour(date: Date) {
-  const next = new Date(date);
-  next.setMinutes(0, 0, 0);
-  return next;
-}
-
-function addMinutes(date: Date, minutes: number) {
-  return new Date(date.getTime() + minutes * 60 * 1000);
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function getAvailabilityWindowStart() {
-  const now = new Date();
-  const rounded = startOfHour(now);
-  return rounded > now ? rounded : addMinutes(rounded, DEFAULT_SLOT_DURATION_MINUTES);
-}
-
-function getAvailabilityWindowEnd(from: Date) {
-  return addDays(from, DEFAULT_BOOKING_WINDOW_DAYS);
-}
-
-function overlaps(
-  leftStart: Date,
-  leftEnd: Date,
-  rightStart: Date,
-  rightEnd: Date,
-) {
-  return leftStart < rightEnd && leftEnd > rightStart;
 }
 
 function validateDateRange(startsAt: Date, endsAt: Date) {
@@ -150,6 +119,23 @@ function getMeetingBaseUrl() {
 
 function buildGeneratedMeetingUrl(bookingId: string) {
   return `${getMeetingBaseUrl()}/sessions/${bookingId}`;
+}
+
+function buildBookingSlotLockKey(therapistId: string, startsAt: Date, endsAt: Date) {
+  return `${therapistId}:${startsAt.toISOString()}:${endsAt.toISOString()}`;
+}
+
+async function acquireBookingSlotCreationLock(
+  tx: Prisma.TransactionClient,
+  therapistId: string,
+  startsAt: Date,
+  endsAt: Date,
+) {
+  const lockKey = buildBookingSlotLockKey(therapistId, startsAt, endsAt);
+
+  await tx.$queryRaw`
+    SELECT pg_advisory_xact_lock(hashtext(${therapistId}), hashtext(${lockKey}))
+  `;
 }
 
 async function getBookableTherapistOrThrow(therapistId: string) {
@@ -229,6 +215,40 @@ async function assertSlotIsAvailable(
   }
 }
 
+async function assertTherapistGoogleSlotIsAvailable(
+  therapistId: string,
+  startsAt: Date,
+  endsAt: Date,
+) {
+  try {
+    const hasGoogleConflict = await hasTherapistGoogleCalendarBusyConflict(
+      therapistId,
+      startsAt,
+      endsAt,
+    );
+
+    if (hasGoogleConflict) {
+      throw new BookingFlowServiceError(
+        "The selected slot is no longer available.",
+        "SLOT_CONFLICT",
+      );
+    }
+  } catch (error) {
+    if (error instanceof BookingFlowServiceError) {
+      throw error;
+    }
+
+    if (error instanceof GoogleAvailabilityServiceError) {
+      throw new BookingFlowServiceError(
+        "The selected slot is no longer available.",
+        "SLOT_CONFLICT",
+      );
+    }
+
+    throw error;
+  }
+}
+
 export async function getBookableTherapists(): Promise<BookableTherapist[]> {
   return prisma.user.findMany({
     where: {
@@ -260,59 +280,15 @@ export async function getBookableTherapistById(
 
 export async function getTherapistAvailability(
   therapistId: string,
-  from = getAvailabilityWindowStart(),
-  to = getAvailabilityWindowEnd(from),
+  from?: Date,
+  to?: Date,
 ): Promise<TherapistAvailabilitySlot[]> {
   await getBookableTherapistOrThrow(therapistId);
-  validateDateRange(from, to);
-
-  const bookings = await prisma.booking.findMany({
-    where: {
-      therapistId,
-      bookingStatus: {
-        in: [...ACTIVE_BOOKING_STATUSES],
-      },
-      startsAt: { lt: to },
-      endsAt: { gt: from },
-    },
-    select: {
-      startsAt: true,
-      endsAt: true,
-    },
-    orderBy: {
-      startsAt: "asc",
-    },
-  });
-
-  const slots: TherapistAvailabilitySlot[] = [];
-  let cursor = new Date(from);
-
-  while (cursor < to) {
-    const slotStart = new Date(cursor);
-    const slotEnd = addMinutes(slotStart, DEFAULT_SLOT_DURATION_MINUTES);
-
-    const withinBusinessHours =
-      slotStart.getHours() >= BUSINESS_HOURS_START &&
-      slotEnd.getHours() <= BUSINESS_HOURS_END &&
-      slotEnd <= to;
-
-    if (withinBusinessHours) {
-      const isAvailable = !bookings.some((booking) =>
-        overlaps(slotStart, slotEnd, booking.startsAt, booking.endsAt),
-      );
-
-      slots.push({
-        therapistId,
-        startsAt: slotStart,
-        endsAt: slotEnd,
-        isAvailable,
-      });
-    }
-
-    cursor = addMinutes(cursor, DEFAULT_SLOT_DURATION_MINUTES);
+  if (from && to) {
+    validateDateRange(from, to);
   }
 
-  return slots;
+  return getTherapistGoogleAvailability(therapistId, from, to);
 }
 
 export async function createBookingRequest(
@@ -330,21 +306,23 @@ export async function createBookingRequest(
     );
   }
 
-  await assertSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
+  return prisma.$transaction(async (tx) => {
+    await acquireBookingSlotCreationLock(tx, input.therapistId, input.startsAt, input.endsAt);
+    await assertSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
+    await assertTherapistGoogleSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
 
-  const booking = await prisma.booking.create({
-    data: {
-      clientId: clientUserId,
-      therapistId: input.therapistId,
-      startsAt: input.startsAt,
-      endsAt: input.endsAt,
-      bookingStatus: BookingStatus.PENDING_THERAPIST,
-      notes: normalizeOptionalString(input.notes),
-    },
-    select: bookingDetailsSelect,
+    return tx.booking.create({
+      data: {
+        clientId: clientUserId,
+        therapistId: input.therapistId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        bookingStatus: BookingStatus.PENDING_THERAPIST,
+        notes: normalizeOptionalString(input.notes),
+      },
+      select: bookingDetailsSelect,
+    });
   });
-
-  return booking;
 }
 
 export async function confirmBookingRequest(
