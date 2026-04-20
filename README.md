@@ -245,6 +245,9 @@ Completed the core booking flow end-to-end:
 - password recovery tokens are stored in `PasswordResetToken`
 - therapist availability is planned around Google Calendar
 - Google Calendar replaced Calendly in the updated requirements
+- each therapist will connect their own Google account for calendar sync
+- booking requests stay in `PENDING_THERAPIST` until the therapist decides
+- after therapist confirmation, the platform will create the Google Calendar event and store the resulting meeting link
 
 ## Project Structure
 
@@ -286,9 +289,23 @@ Environment variables expected by the project:
 - `NEXT_PUBLIC_APP_URL`
 - `APP_URL`
 - `AUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_CALENDAR_REDIRECT_URI`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+
+## Google Calendar OAuth Preparation
+
+Phase 9 uses therapist-owned Google accounts.
+
+- enable `Google Calendar API` in Google Cloud
+- create an OAuth 2.0 Web application client
+- register the callback route `http://localhost:3000/api/integrations/google/callback` for local development
+- use `https://your-domain/api/integrations/google/callback` in deployed environments
+
+More details are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
 
 ## Useful Commands
 
@@ -412,3 +429,5 @@ The most logical next steps are:
 - Stripe payments and webhook logic
 - email notifications
 - production hardening, filters, pagination, and monitoring
+
+Phase 9 integration scenario is documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).

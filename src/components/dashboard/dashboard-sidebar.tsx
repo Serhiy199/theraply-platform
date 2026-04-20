@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { DashboardNavItem } from "@/lib/constants/dashboard-nav";
 import { LogoutButton } from "@/components/dashboard/logout-button";
-import { getUserDisplayName, getUserInitials } from "@/lib/auth/session";
+import { getUserDisplayName, getUserInitials } from "@/lib/auth/user-display";
 
 type DashboardSidebarProps = {
   eyebrow: string;

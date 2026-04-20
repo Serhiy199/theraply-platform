@@ -1,5 +1,5 @@
 import { LogoutButton } from "@/components/dashboard/logout-button";
-import { getUserDisplayName } from "@/lib/auth/session";
+import { getUserDisplayName } from "@/lib/auth/user-display";
 
 type DashboardHeaderProps = {
   email: string | null | undefined;
