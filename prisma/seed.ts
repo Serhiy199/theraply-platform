@@ -95,6 +95,8 @@ async function main() {
       isApproved: true,
       googleCalendarId: "anna-miller-theraply",
       googleCalendarEmail: "anna.calendar@theraply.local",
+      isGoogleCalendarConnected: true,
+      googleCalendarConnectedAt: new Date("2026-04-18T09:00:00.000Z"),
     },
     create: {
       userId: therapistOne.id,
@@ -105,6 +107,8 @@ async function main() {
       isApproved: true,
       googleCalendarId: "anna-miller-theraply",
       googleCalendarEmail: "anna.calendar@theraply.local",
+      isGoogleCalendarConnected: true,
+      googleCalendarConnectedAt: new Date("2026-04-18T09:00:00.000Z"),
     },
   });
 
@@ -118,6 +122,8 @@ async function main() {
       isApproved: true,
       googleCalendarId: "david-brown-theraply",
       googleCalendarEmail: "david.calendar@theraply.local",
+      isGoogleCalendarConnected: true,
+      googleCalendarConnectedAt: new Date("2026-04-18T09:05:00.000Z"),
     },
     create: {
       userId: therapistTwo.id,
@@ -128,6 +134,8 @@ async function main() {
       isApproved: true,
       googleCalendarId: "david-brown-theraply",
       googleCalendarEmail: "david.calendar@theraply.local",
+      isGoogleCalendarConnected: true,
+      googleCalendarConnectedAt: new Date("2026-04-18T09:05:00.000Z"),
     },
   });
 

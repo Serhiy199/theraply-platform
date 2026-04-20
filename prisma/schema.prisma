@@ -84,24 +84,32 @@ model ClientProfile {
 }
 
 model TherapistProfile {
-  id                    String                   @id @default(cuid())
-  userId                String                   @unique
-  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName           String?
-  bio                   String?
-  specialization        String?
-  approvalStatus        TherapistApprovalStatus  @default(PENDING)
-  isApproved            Boolean                  @default(false)
-  googleCalendarId      String?                  @unique
-  googleCalendarEmail   String?                  @unique
-  payoutDetails         TherapistPayoutDetails?
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  id                        String                  @id @default(cuid())
+  userId                    String                  @unique
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName               String?
+  bio                       String?
+  specialization            String?
+  approvalStatus            TherapistApprovalStatus @default(PENDING)
+  isApproved                Boolean                 @default(false)
+  googleCalendarId          String?                 @unique
+  googleCalendarEmail       String?                 @unique
+  googleAccessToken         String?
+  googleRefreshToken        String?
+  googleTokenExpiresAt      DateTime?
+  googleCalendarConnectedAt DateTime?
+  isGoogleCalendarConnected Boolean                 @default(false)
+  payoutDetails             TherapistPayoutDetails?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@index([approvalStatus])
   @@index([isApproved])
+  @@index([isGoogleCalendarConnected])
+  @@index([googleTokenExpiresAt])
   @@index([createdAt])
   @@index([approvalStatus, isApproved])
+  @@index([isApproved, isGoogleCalendarConnected])
 }
 
 model Booking {
@@ -135,16 +143,20 @@ model Booking {
 }
 
 model Session {
-  id             String        @id @default(cuid())
-  bookingId      String        @unique
-  sessionStatus  SessionStatus @default(SCHEDULED)
-  meetingUrl     String?
-  completedAt    DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  booking        Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id                          String        @id @default(cuid())
+  bookingId                   String        @unique
+  sessionStatus               SessionStatus @default(SCHEDULED)
+  meetingUrl                  String?
+  googleCalendarEventId       String?       @unique
+  googleCalendarConferenceId  String?
+  googleCalendarEventHtmlLink String?
+  completedAt                 DateTime?
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
+  booking                     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([sessionStatus])
+  @@index([googleCalendarConferenceId])
   @@index([createdAt])
   @@index([completedAt])
   @@index([sessionStatus, createdAt])
