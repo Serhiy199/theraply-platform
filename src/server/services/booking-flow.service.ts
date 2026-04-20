@@ -9,6 +9,11 @@ import {
   getTherapistGoogleAvailability,
   hasTherapistGoogleCalendarBusyConflict,
 } from "@/server/services/google-availability.service";
+import {
+  createTherapistGoogleCalendarEvent,
+  deleteTherapistGoogleCalendarEvent,
+  GoogleCalendarServiceError,
+} from "@/server/services/google-calendar.service";
 
 const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING_THERAPIST,
@@ -63,7 +68,8 @@ export class BookingFlowServiceError extends Error {
       | "INVALID_DATE_RANGE"
       | "INVALID_MEETING_URL"
       | "SLOT_CONFLICT"
-      | "THERAPIST_NOT_BOOKABLE",
+      | "THERAPIST_NOT_BOOKABLE"
+      | "GOOGLE_CALENDAR_SYNC_FAILED",
   ) {
     super(message);
     this.name = "BookingFlowServiceError";
@@ -119,6 +125,15 @@ function getMeetingBaseUrl() {
 
 function buildGeneratedMeetingUrl(bookingId: string) {
   return `${getMeetingBaseUrl()}/sessions/${bookingId}`;
+}
+
+function getUserDisplayName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+}) {
+  const fullName = [user.firstName?.trim(), user.lastName?.trim()].filter(Boolean).join(" ");
+  return fullName || user.email?.trim() || null;
 }
 
 function buildBookingSlotLockKey(therapistId: string, startsAt: Date, endsAt: Date) {
@@ -340,10 +355,31 @@ export async function confirmBookingRequest(
       startsAt: true,
       endsAt: true,
       therapistId: true,
+      notes: true,
+      client: {
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      therapist: {
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+          therapistProfile: {
+            select: {
+              displayName: true,
+            },
+          },
+        },
+      },
       session: {
         select: {
           id: true,
           meetingUrl: true,
+          googleCalendarEventId: true,
         },
       },
     },
@@ -364,50 +400,101 @@ export async function confirmBookingRequest(
   }
 
   await assertSlotIsAvailable(booking.therapistId, booking.startsAt, booking.endsAt, booking.id);
+  await assertTherapistGoogleSlotIsAvailable(booking.therapistId, booking.startsAt, booking.endsAt);
 
-  return prisma.$transaction(async (tx) => {
-    const generatedMeetingUrl =
-      booking.session?.meetingUrl?.trim() || buildGeneratedMeetingUrl(booking.id);
+  const clientDisplayName = getUserDisplayName(booking.client);
+  const therapistDisplayName =
+    booking.therapist.therapistProfile?.displayName?.trim() ||
+    getUserDisplayName(booking.therapist);
 
-    await tx.booking.update({
-      where: { id: booking.id },
-      data: {
-        bookingStatus: BookingStatus.CONFIRMED,
-      },
+  let createdEvent:
+    | Awaited<ReturnType<typeof createTherapistGoogleCalendarEvent>>
+    | null = null;
+
+  try {
+    createdEvent = await createTherapistGoogleCalendarEvent({
+      therapistUserId,
+      bookingId: booking.id,
+      startsAt: booking.startsAt,
+      endsAt: booking.endsAt,
+      clientEmail: booking.client.email,
+      clientDisplayName,
+      therapistDisplayName,
+      notes: booking.notes,
     });
 
-    if (booking.session?.id) {
-      await tx.session.update({
-        where: { id: booking.session.id },
-        data: {
-          sessionStatus: SessionStatus.SCHEDULED,
-          meetingUrl: generatedMeetingUrl,
-        },
-      });
-    } else {
-      await tx.session.create({
-        data: {
-          bookingId: booking.id,
-          sessionStatus: SessionStatus.SCHEDULED,
-          meetingUrl: generatedMeetingUrl,
-        },
-      });
-    }
+    const confirmedEvent = createdEvent;
 
-    const updatedBooking = await tx.booking.findUnique({
-      where: { id: booking.id },
-      select: bookingDetailsSelect,
+    return prisma.$transaction(async (tx) => {
+      const generatedMeetingUrl =
+        confirmedEvent.meetingUrl ||
+        booking.session?.meetingUrl?.trim() ||
+        buildGeneratedMeetingUrl(booking.id);
+
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          bookingStatus: BookingStatus.CONFIRMED,
+        },
+      });
+
+      if (booking.session?.id) {
+        await tx.session.update({
+          where: { id: booking.session.id },
+          data: {
+            sessionStatus: SessionStatus.SCHEDULED,
+            meetingUrl: generatedMeetingUrl,
+            googleCalendarEventId: confirmedEvent.eventId,
+            googleCalendarConferenceId: confirmedEvent.conferenceId,
+            googleCalendarEventHtmlLink: confirmedEvent.eventHtmlLink,
+          },
+        });
+      } else {
+        await tx.session.create({
+          data: {
+            bookingId: booking.id,
+            sessionStatus: SessionStatus.SCHEDULED,
+            meetingUrl: generatedMeetingUrl,
+            googleCalendarEventId: confirmedEvent.eventId,
+            googleCalendarConferenceId: confirmedEvent.conferenceId,
+            googleCalendarEventHtmlLink: confirmedEvent.eventHtmlLink,
+          },
+        });
+      }
+
+      const updatedBooking = await tx.booking.findUnique({
+        where: { id: booking.id },
+        select: bookingDetailsSelect,
+      });
+
+      if (!updatedBooking) {
+        throw new BookingFlowServiceError(
+          "Booking not found after confirmation.",
+          "BOOKING_NOT_FOUND",
+        );
+      }
+
+      return updatedBooking;
     });
-
-    if (!updatedBooking) {
-      throw new BookingFlowServiceError(
-        "Booking not found after confirmation.",
-        "BOOKING_NOT_FOUND",
-      );
+  } catch (error) {
+    if (createdEvent?.eventId) {
+      try {
+        await deleteTherapistGoogleCalendarEvent(therapistUserId, createdEvent.eventId);
+      } catch {
+        // Best effort rollback so we do not leave orphan Google events on failed confirmation.
+      }
     }
 
-    return updatedBooking;
-  });
+    if (error instanceof BookingFlowServiceError) {
+      throw error;
+    }
+
+    if (error instanceof GoogleCalendarServiceError) {
+      throw new BookingFlowServiceError(error.message, "GOOGLE_CALENDAR_SYNC_FAILED");
+    }
+
+    throw error;
+  }
 }
 
 export async function rejectBookingRequest(

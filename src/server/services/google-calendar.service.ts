@@ -55,6 +55,24 @@ export type TherapistGoogleCalendarOption = {
   primary: boolean;
 };
 
+export type CreateTherapistGoogleCalendarEventInput = {
+  therapistUserId: string;
+  bookingId: string;
+  startsAt: Date;
+  endsAt: Date;
+  clientEmail: string | null;
+  clientDisplayName: string | null;
+  therapistDisplayName: string | null;
+  notes?: string | null;
+};
+
+export type CreatedTherapistGoogleCalendarEvent = {
+  eventId: string;
+  conferenceId: string | null;
+  eventHtmlLink: string | null;
+  meetingUrl: string | null;
+};
+
 export class GoogleCalendarServiceError extends Error {
   constructor(
     message: string,
@@ -63,7 +81,9 @@ export class GoogleCalendarServiceError extends Error {
       | "THERAPIST_PROFILE_NOT_FOUND"
       | "GOOGLE_CALENDAR_NOT_CONNECTED"
       | "GOOGLE_REFRESH_TOKEN_MISSING"
-      | "GOOGLE_CALENDAR_SELECTION_INVALID",
+      | "GOOGLE_CALENDAR_SELECTION_INVALID"
+      | "GOOGLE_CALENDAR_TARGET_MISSING"
+      | "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
   ) {
     super(message);
     this.name = "GoogleCalendarServiceError";
@@ -300,5 +320,148 @@ export async function updateTherapistSelectedGoogleCalendar(
       isGoogleCalendarConnected: true,
     },
     select: therapistGoogleCalendarConnectionSelect,
+  });
+}
+
+function buildCalendarEventSummary(clientDisplayName: string | null, therapistDisplayName: string | null) {
+  if (clientDisplayName && therapistDisplayName) {
+    return `Therapy session: ${clientDisplayName} with ${therapistDisplayName}`;
+  }
+
+  if (clientDisplayName) {
+    return `Therapy session with ${clientDisplayName}`;
+  }
+
+  return "Therapy session";
+}
+
+function buildCalendarEventDescription(
+  bookingId: string,
+  therapistDisplayName: string | null,
+  notes?: string | null,
+) {
+  const lines = [
+    "Theraply booking confirmed.",
+    `Booking ID: ${bookingId}`,
+  ];
+
+  if (therapistDisplayName) {
+    lines.push(`Therapist: ${therapistDisplayName}`);
+  }
+
+  const normalizedNotes = normalizeOptionalString(notes);
+
+  if (normalizedNotes) {
+    lines.push("", "Client notes:", normalizedNotes);
+  }
+
+  return lines.join("\n");
+}
+
+export async function createTherapistGoogleCalendarEvent(
+  input: CreateTherapistGoogleCalendarEventInput,
+): Promise<CreatedTherapistGoogleCalendarEvent> {
+  const { connection, calendar } = await getAuthenticatedTherapistGoogleCalendarClient(
+    input.therapistUserId,
+  );
+
+  if (!connection.googleCalendarId) {
+    throw new GoogleCalendarServiceError(
+      "No target Google Calendar is selected for this therapist.",
+      "GOOGLE_CALENDAR_TARGET_MISSING",
+    );
+  }
+
+  const attendeeEmail = normalizeOptionalString(input.clientEmail);
+  const attendeeName = normalizeOptionalString(input.clientDisplayName);
+  const therapistDisplayName = normalizeOptionalString(input.therapistDisplayName);
+
+  try {
+    const response = await calendar.events.insert({
+      calendarId: connection.googleCalendarId,
+      conferenceDataVersion: 1,
+      requestBody: {
+        summary: buildCalendarEventSummary(attendeeName, therapistDisplayName),
+        description: buildCalendarEventDescription(
+          input.bookingId,
+          therapistDisplayName,
+          input.notes,
+        ),
+        start: {
+          dateTime: input.startsAt.toISOString(),
+        },
+        end: {
+          dateTime: input.endsAt.toISOString(),
+        },
+        attendees: attendeeEmail
+          ? [
+              {
+                email: attendeeEmail,
+                displayName: attendeeName ?? undefined,
+              },
+            ]
+          : undefined,
+        conferenceData: {
+          createRequest: {
+            requestId: `theraply-booking-${input.bookingId}`,
+            conferenceSolutionKey: {
+              type: "hangoutsMeet",
+            },
+          },
+        },
+      },
+    });
+
+    const eventId = normalizeOptionalString(response.data.id);
+
+    if (!eventId) {
+      throw new GoogleCalendarServiceError(
+        "Google Calendar did not return an event id for the confirmed booking.",
+        "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
+      );
+    }
+
+    const entryPointUri =
+      response.data.conferenceData?.entryPoints?.find((entryPoint) => entryPoint.uri)?.uri ?? null;
+
+    return {
+      eventId,
+      conferenceId: normalizeOptionalString(response.data.conferenceData?.conferenceId),
+      eventHtmlLink: normalizeOptionalString(response.data.htmlLink),
+      meetingUrl: normalizeOptionalString(response.data.hangoutLink) ?? normalizeOptionalString(entryPointUri),
+    };
+  } catch (error) {
+    if (error instanceof GoogleCalendarServiceError) {
+      throw error;
+    }
+
+    throw new GoogleCalendarServiceError(
+      "Google Calendar could not create a meeting for this booking.",
+      "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
+    );
+  }
+}
+
+export async function deleteTherapistGoogleCalendarEvent(
+  therapistUserId: string,
+  eventId: string,
+) {
+  const normalizedEventId = normalizeOptionalString(eventId);
+
+  if (!normalizedEventId) {
+    return;
+  }
+
+  const { connection, calendar } = await getAuthenticatedTherapistGoogleCalendarClient(
+    therapistUserId,
+  );
+
+  if (!connection.googleCalendarId) {
+    return;
+  }
+
+  await calendar.events.delete({
+    calendarId: connection.googleCalendarId,
+    eventId: normalizedEventId,
   });
 }
