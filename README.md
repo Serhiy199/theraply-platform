@@ -365,7 +365,7 @@ npx tsx scripts/verify-stage-8.ts
 
 ## Remote production / Vercel database
 
-To avoid changing the local `.env` and accidentally reconnecting your local WSL database, use a separate `.env.production.local` file.
+The project can work against the remote Vercel / Prisma Postgres database directly when the local environment should use the shared remote database as the main datasource.
 
 1. Copy the template:
 
@@ -375,13 +375,15 @@ cp .env.production.local.example .env.production.local
 
 2. Paste the remote `DATABASE_URL` from Vercel / Prisma Postgres into `.env.production.local`.
 
-3. Run migrations for the remote database:
+3. If you want the local project itself to use the remote database as the primary datasource, mirror the same `DATABASE_URL` into `.env`.
+
+4. Run migrations for the remote database:
 
 ```bash
 npm run prisma:migrate:remote
 ```
 
-4. Run seed for the remote database:
+5. Run seed for the remote database only when you explicitly want to write seed data into that shared environment:
 
 ```bash
 npm run prisma:seed:remote

@@ -70,7 +70,12 @@ if (!selected) {
 
 const env = { ...process.env, DATABASE_URL: databaseUrl };
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(npxCommand, selected, { stdio: "inherit", env, cwd: rootDir });
+const result = spawnSync(npxCommand, selected, {
+  stdio: "inherit",
+  env,
+  cwd: rootDir,
+  shell: process.platform === "win32",
+});
 
 if (result.error) {
   console.error(result.error.message);
