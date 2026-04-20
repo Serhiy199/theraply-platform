@@ -175,7 +175,9 @@ export async function getTherapistDashboardData(userId: string) {
           specialization: true,
           approvalStatus: true,
           isApproved: true,
+          googleCalendarId: true,
           googleCalendarEmail: true,
+          isGoogleCalendarConnected: true,
           payoutDetails: {
             select: {
               isVerified: true,
@@ -255,7 +257,9 @@ export async function getTherapistDashboardData(userId: string) {
       displayName: therapistProfile?.displayName ?? null,
       specialization: therapistProfile?.specialization ?? null,
       approvalStatus: therapistProfile?.approvalStatus ?? null,
+      calendarId: therapistProfile?.googleCalendarId ?? null,
       calendarEmail: therapistProfile?.googleCalendarEmail ?? null,
+      isGoogleCalendarConnected: therapistProfile?.isGoogleCalendarConnected ?? false,
       payoutCountry: therapistProfile?.payoutDetails?.country ?? null,
     },
     recentRequests: recentRequests.map((booking) => ({

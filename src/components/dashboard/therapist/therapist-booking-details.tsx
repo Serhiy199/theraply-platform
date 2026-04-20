@@ -14,6 +14,7 @@ import {
   requestDecisionAction,
   type RequestDecisionActionState,
 } from "@/app/therapist/requests/actions";
+import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 
 function formatDateTime(date: Date | null) {
@@ -109,6 +110,12 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
                   )}
                 </dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Calendar sync</dt>
+                <dd className="text-right">
+                  {booking.session?.googleCalendarEventId ? "Google Calendar event" : "Not synced yet"}
+                </dd>
+              </div>
             </dl>
           </article>
 
@@ -140,14 +147,13 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
           <h3 className="text-xl font-semibold text-slate-900">Booking notes</h3>
           <p className="mt-4 text-sm leading-7 text-slate-600">{booking.notes || "No extra booking notes were attached to this request."}</p>
-          {booking.session?.meetingUrl ? (
-            <DashboardStatusAlert tone="success" title="Meeting link ready">
-              The generated meeting link is already attached to this booking and is visible to the client.
-            </DashboardStatusAlert>
-          ) : booking.bookingStatus === "CONFIRMED" ? (
-            <DashboardStatusAlert tone="info" title="Meeting link is being prepared">
-              This booking is confirmed. Add or sync the final session link if you need to replace the generated placeholder.
-            </DashboardStatusAlert>
+          {booking.session?.meetingUrl || booking.bookingStatus === "CONFIRMED" ? (
+            <GoogleCalendarMeetingStatus
+              meetingUrl={booking.session?.meetingUrl}
+              googleCalendarEventId={booking.session?.googleCalendarEventId}
+              googleCalendarEventHtmlLink={booking.session?.googleCalendarEventHtmlLink}
+              bookingStatus={booking.bookingStatus}
+            />
           ) : (
             <div className="mt-5 rounded-[1.5rem] border border-slate-200/70 bg-slate-50/70 px-4 py-4 text-sm text-slate-600">
               Therapist actions taken on this page immediately update the request queue and future session schedule for this client.

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import type { getTherapistDashboardData } from "@/server/services/dashboard.service";
+import { GoogleCalendarConnectionStatus } from "@/components/dashboard/shared/google-calendar-status";
 
 type TherapistDashboardData = Awaited<ReturnType<typeof getTherapistDashboardData>>;
 
@@ -80,6 +82,14 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             </p>
           </article>
         </div>
+
+        <div className="mt-6">
+          <GoogleCalendarConnectionStatus
+            connected={data.profileSummary.isGoogleCalendarConnected}
+            calendarEmail={data.profileSummary.calendarEmail}
+            calendarId={data.profileSummary.calendarId}
+          />
+        </div>
       </section>
 
       <div className="grid gap-4">
@@ -136,6 +146,14 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
                 </span>
               </div>
             ))}
+          </div>
+          <div className="mt-5">
+            <Link
+              href="/therapist/payout-details"
+              className="text-sm font-medium text-slate-900 underline underline-offset-4"
+            >
+              Open payout and calendar settings
+            </Link>
           </div>
         </section>
       </div>

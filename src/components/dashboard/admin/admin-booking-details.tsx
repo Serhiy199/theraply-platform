@@ -14,6 +14,8 @@ import {
   initialAdminCancelBookingActionState,
   type AdminCancelBookingActionState,
 } from "@/app/admin/bookings/actions";
+import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
+import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -124,6 +126,12 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
                   )}
                 </dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Integration state</dt>
+                <dd className="text-right">
+                  {booking.session?.googleCalendarEventId ? "Google Calendar synced" : "No synced event"}
+                </dd>
+              </div>
             </dl>
           </article>
 
@@ -155,6 +163,14 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
           <h3 className="text-xl font-semibold text-slate-900">Notes and identifiers</h3>
           <p className="mt-4 text-sm leading-7 text-slate-600">{booking.notes || "No extra notes were attached to this booking record."}</p>
+          <div className="mt-5">
+            <GoogleCalendarMeetingStatus
+              meetingUrl={booking.session?.meetingUrl}
+              googleCalendarEventId={booking.session?.googleCalendarEventId}
+              googleCalendarEventHtmlLink={booking.session?.googleCalendarEventHtmlLink}
+              bookingStatus={booking.bookingStatus}
+            />
+          </div>
           <dl className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
             <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
               <dt className="font-medium text-slate-700">Booking ID</dt>
@@ -175,8 +191,10 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
           {canCancel ? (
             <ManualCancelForm bookingId={booking.id} />
           ) : (
-            <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              This booking is already in a final state, so manual cancellation is no longer available.
+            <div className="mt-5">
+              <DashboardStatusAlert tone="info">
+                This booking is already in a final state, so manual cancellation is no longer available.
+              </DashboardStatusAlert>
             </div>
           )}
           <div className="mt-5">

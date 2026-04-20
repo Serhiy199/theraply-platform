@@ -17,6 +17,7 @@ import {
   type CancelBookingActionState,
 } from "@/app/client/bookings/actions";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
+import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -117,6 +118,12 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
                   )}
                 </dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Link source</dt>
+                <dd className="text-right">
+                  {booking.session?.googleCalendarEventId ? "Google Meet via Calendar" : "Pending or manual link"}
+                </dd>
+              </div>
             </dl>
           </article>
 
@@ -151,19 +158,12 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
             {booking.notes || "No extra booking notes were attached to this record yet."}
           </p>
 
-          {booking.session?.meetingUrl ? (
-            <DashboardStatusAlert tone="success" title="Meeting link ready">
-              The meeting link is available. You can open it from this page whenever the session is ready to start.
-            </DashboardStatusAlert>
-          ) : booking.bookingStatus === "CONFIRMED" ? (
-            <DashboardStatusAlert tone="info" title="Meeting link is being prepared">
-              Your therapist has confirmed this booking. The session link will appear here as soon as scheduling details finish syncing.
-            </DashboardStatusAlert>
-          ) : (
-            <DashboardStatusAlert tone="info" title="Waiting for therapist confirmation">
-              The meeting link will appear automatically after the therapist confirms the request.
-            </DashboardStatusAlert>
-          )}
+          <GoogleCalendarMeetingStatus
+            meetingUrl={booking.session?.meetingUrl}
+            googleCalendarEventId={booking.session?.googleCalendarEventId}
+            googleCalendarEventHtmlLink={booking.session?.googleCalendarEventHtmlLink}
+            bookingStatus={booking.bookingStatus}
+          />
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">

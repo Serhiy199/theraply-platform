@@ -20,6 +20,8 @@ const sessionMiniSelect = {
   id: true,
   sessionStatus: true,
   meetingUrl: true,
+  googleCalendarEventId: true,
+  googleCalendarEventHtmlLink: true,
   completedAt: true,
 } satisfies Prisma.SessionSelect;
 
@@ -95,6 +97,8 @@ export const bookingDetailsSelect = {
       id: true,
       sessionStatus: true,
       meetingUrl: true,
+      googleCalendarEventId: true,
+      googleCalendarEventHtmlLink: true,
       completedAt: true,
       createdAt: true,
       updatedAt: true,
