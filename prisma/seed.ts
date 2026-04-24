@@ -91,6 +91,7 @@ async function main() {
       displayName: "Anna Miller, LPC",
       bio: "Trauma-informed therapist focused on stress, burnout, and life transitions.",
       specialization: "Anxiety, burnout, trauma recovery",
+      sessionPricePence: 8500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
       googleCalendarId: "anna-miller-theraply",
@@ -103,6 +104,7 @@ async function main() {
       displayName: "Anna Miller, LPC",
       bio: "Trauma-informed therapist focused on stress, burnout, and life transitions.",
       specialization: "Anxiety, burnout, trauma recovery",
+      sessionPricePence: 8500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
       googleCalendarId: "anna-miller-theraply",
@@ -118,6 +120,7 @@ async function main() {
       displayName: "David Brown, PhD",
       bio: "Therapist working with relationship issues, grief, and long-term emotional resilience.",
       specialization: "Relationships, grief, resilience",
+      sessionPricePence: 9500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
       googleCalendarId: "david-brown-theraply",
@@ -130,6 +133,7 @@ async function main() {
       displayName: "David Brown, PhD",
       bio: "Therapist working with relationship issues, grief, and long-term emotional resilience.",
       specialization: "Relationships, grief, resilience",
+      sessionPricePence: 9500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
       googleCalendarId: "david-brown-theraply",
@@ -178,6 +182,32 @@ async function main() {
       swift: "NWBKGB2L",
       country: "GB",
       isVerified: true,
+    },
+  });
+
+  await prisma.clientCreditBalance.upsert({
+    where: { clientId: clientOne.id },
+    update: {
+      balance: 0,
+      currency: "gbp",
+    },
+    create: {
+      clientId: clientOne.id,
+      balance: 0,
+      currency: "gbp",
+    },
+  });
+
+  await prisma.clientCreditBalance.upsert({
+    where: { clientId: clientTwo.id },
+    update: {
+      balance: 0,
+      currency: "gbp",
+    },
+    create: {
+      clientId: clientTwo.id,
+      balance: 0,
+      currency: "gbp",
     },
   });
 

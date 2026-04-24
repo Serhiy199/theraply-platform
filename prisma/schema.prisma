@@ -43,6 +43,18 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum CompensationResolutionType {
+  REFUND
+  CREDIT
+}
+
+enum ClientCreditTransactionType {
+  ISSUED
+  APPLIED
+  REVERSED
+  EXPIRED
+}
+
 enum EmailStatus {
   PENDING
   SENT
@@ -60,6 +72,8 @@ model User {
   clientProfile         ClientProfile?
   therapistProfile      TherapistProfile?
   clientBookings        Booking[]            @relation("ClientBookings")
+  clientCreditBalance   ClientCreditBalance?
+  clientCreditTransactions ClientCreditTransaction[] @relation("ClientCreditTransactions")
   therapistBookings     Booking[]            @relation("TherapistBookings")
   cancelledBookings     Booking[]            @relation("CancelledBookings")
   emailLogs             EmailLog[]
@@ -90,6 +104,7 @@ model TherapistProfile {
   displayName               String?
   bio                       String?
   specialization            String?
+  sessionPricePence         Int?
   approvalStatus            TherapistApprovalStatus @default(PENDING)
   isApproved                Boolean                 @default(false)
   googleCalendarId          String?                 @unique
@@ -107,6 +122,7 @@ model TherapistProfile {
   @@index([isApproved])
   @@index([isGoogleCalendarConnected])
   @@index([googleTokenExpiresAt])
+  @@index([sessionPricePence])
   @@index([createdAt])
   @@index([approvalStatus, isApproved])
   @@index([isApproved, isGoogleCalendarConnected])
@@ -119,11 +135,15 @@ model Booking {
   startsAt           DateTime
   endsAt             DateTime
   bookingStatus      BookingStatus @default(PENDING_THERAPIST)
+  paymentDueBy       DateTime?
   notes              String?
   cancelledAt        DateTime?
   cancelledByUserId  String?
+  compensationResolutionType CompensationResolutionType?
+  compensationResolvedAt DateTime?
   session            Session?
   payment            Payment?
+  creditTransactions ClientCreditTransaction[]
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   client             User          @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
@@ -135,6 +155,7 @@ model Booking {
   @@index([startsAt])
   @@index([endsAt])
   @@index([bookingStatus])
+  @@index([paymentDueBy])
   @@index([cancelledByUserId])
   @@index([clientId, startsAt])
   @@index([therapistId, startsAt])
@@ -167,12 +188,19 @@ model Payment {
   bookingId               String        @unique
   stripeCheckoutSessionId String?       @unique
   stripePaymentIntentId   String?       @unique
+  stripeRefundId          String?       @unique
   amount                  Int
-  currency                String        @default("usd")
+  refundedAmount          Int?
+  creditAppliedAmount     Int?
+  checkoutExpiresAt       DateTime?
+  failedReason            String?
+  refundReason            String?
+  currency                String        @default("gbp")
   paymentStatus           PaymentStatus @default(UNPAID)
   paidAt                  DateTime?
   failedAt                DateTime?
   refundedAt              DateTime?
+  creditTransactions      ClientCreditTransaction[]
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   booking                 Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -180,10 +208,46 @@ model Payment {
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([currency])
+  @@index([checkoutExpiresAt])
   @@index([paidAt])
   @@index([failedAt])
   @@index([refundedAt])
   @@index([paymentStatus, createdAt])
+}
+
+model ClientCreditBalance {
+  id         String   @id @default(cuid())
+  clientId   String   @unique
+  balance    Int      @default(0)
+  currency   String   @default("gbp")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  client     User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([currency])
+  @@index([updatedAt])
+}
+
+model ClientCreditTransaction {
+  id         String                      @id @default(cuid())
+  clientId   String
+  bookingId  String?
+  paymentId  String?
+  type       ClientCreditTransactionType
+  amount     Int
+  currency   String                      @default("gbp")
+  notes      String?
+  createdAt  DateTime                    @default(now())
+  client     User                        @relation("ClientCreditTransactions", fields: [clientId], references: [id], onDelete: Cascade)
+  booking    Booking?                    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payment    Payment?                    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([bookingId])
+  @@index([paymentId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([clientId, createdAt])
 }
 
 model TherapistPayoutDetails {
