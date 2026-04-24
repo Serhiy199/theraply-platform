@@ -14,6 +14,7 @@ import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
+import { getPaymentDueBy } from "@/server/services/payment-flow.service";
 
 const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING_THERAPIST,
@@ -436,6 +437,7 @@ export async function confirmBookingRequest(
         where: { id: booking.id },
         data: {
           bookingStatus: BookingStatus.CONFIRMED,
+          paymentDueBy: getPaymentDueBy(booking.startsAt),
         },
       });
 

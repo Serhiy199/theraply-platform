@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
+import type { PaymentEligibility } from "@/server/services/payment-flow.service";
 import {
   formatBookingStatus,
   formatPaymentStatus,
@@ -26,6 +27,15 @@ function formatDateTime(date: Date | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatAmount(amount: number | null, currency = "GBP") {
+  if (typeof amount !== "number") return "Not available";
+
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(amount / 100);
 }
 
 function getTherapistName(booking: BookingDetailsItem) {
@@ -63,9 +73,10 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
 
 type ClientBookingDetailsProps = {
   booking: BookingDetailsItem;
+  paymentEligibility: PaymentEligibility;
 };
 
-export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
+export function ClientBookingDetails({ booking, paymentEligibility }: ClientBookingDetailsProps) {
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canCancel = ["PENDING_THERAPIST", "CONFIRMED"].includes(booking.bookingStatus) && booking.startsAt > new Date();
   const lateCancellation = isLateCancellation(booking.startsAt);
@@ -143,6 +154,16 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
                 <dd className="text-right">{paymentStatus ? formatPaymentStatus(paymentStatus) : "No payment record yet"}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Session price</dt>
+                <dd className="text-right">
+                  {formatAmount(paymentEligibility.amount, paymentEligibility.currency)}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Payment deadline</dt>
+                <dd className="text-right">{formatDateTime(paymentEligibility.paymentDueBy)}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Paid at</dt>
                 <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
@@ -164,6 +185,27 @@ export function ClientBookingDetails({ booking }: ClientBookingDetailsProps) {
             googleCalendarEventHtmlLink={booking.session?.googleCalendarEventHtmlLink}
             bookingStatus={booking.bookingStatus}
           />
+        </article>
+
+        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+          <h3 className="text-xl font-semibold text-slate-900">Payment readiness</h3>
+          <div className="mt-5">
+            <DashboardStatusAlert
+              tone={
+                paymentEligibility.canPay
+                  ? "success"
+                  : paymentEligibility.code === "PAYMENT_DEADLINE_PASSED"
+                    ? "warning"
+                    : "info"
+              }
+              title={paymentEligibility.canPay ? "Checkout can be started" : "Checkout is not available yet"}
+            >
+              {paymentEligibility.message}
+            </DashboardStatusAlert>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            Stripe Checkout will appear here on the next implementation step, but the payment rules are already enforced on the server side.
+          </p>
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">

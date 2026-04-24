@@ -10,6 +10,7 @@ const bookingParticipantSelect = {
 const therapistProfileMiniSelect = {
   displayName: true,
   specialization: true,
+  sessionPricePence: true,
 } satisfies Prisma.TherapistProfileSelect;
 
 const clientProfileMiniSelect = {
@@ -63,6 +64,7 @@ export const bookingDetailsSelect = {
   startsAt: true,
   endsAt: true,
   bookingStatus: true,
+  paymentDueBy: true,
   notes: true,
   cancelledAt: true,
   cancelledByUserId: true,
@@ -113,6 +115,8 @@ export const bookingDetailsSelect = {
       paidAt: true,
       failedAt: true,
       refundedAt: true,
+      checkoutExpiresAt: true,
+      failedReason: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
       createdAt: true,

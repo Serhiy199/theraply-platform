@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { ClientBookingDetails } from "@/components/dashboard/client/client-booking-details";
 import { requireRole } from "@/lib/permissions";
 import { getClientBookingById } from "@/server/services/client-bookings.service";
+import { getClientPaymentEligibility } from "@/server/services/payment-flow.service";
 
 type ClientBookingDetailsPageProps = {
   params: Promise<{
@@ -19,5 +20,7 @@ export default async function ClientBookingDetailsPage({ params }: ClientBooking
     notFound();
   }
 
-  return <ClientBookingDetails booking={booking} />;
+  const paymentEligibility = await getClientPaymentEligibility(user.id, bookingId);
+
+  return <ClientBookingDetails booking={booking} paymentEligibility={paymentEligibility} />;
 }
