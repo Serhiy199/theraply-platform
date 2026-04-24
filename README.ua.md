@@ -473,3 +473,5 @@ npm run prisma:seed:remote
 - production hardening, filters, pagination і monitoring
 
 Деталі реалізації `Phase 9` описані в [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
+
+Контракт для `Phase 10` описаний у [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).

@@ -476,3 +476,5 @@ The most logical next steps are:
 - production hardening, filters, pagination, and monitoring
 
 Phase 9 implementation notes are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
+
+Phase 10 payment contract is documented in [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).
