@@ -13,6 +13,17 @@ type TherapistCardProps = {
   therapist: TherapistListItem;
 };
 
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== "number") {
+    return "Price will be confirmed later";
+  }
+
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(value / 100);
+}
+
 export function TherapistCard({ therapist }: TherapistCardProps) {
   const hasCalendarConnection = Boolean(
     therapist.therapistProfile?.isGoogleCalendarConnected &&
@@ -43,6 +54,10 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
         <div>
           <dt className="font-medium text-slate-700">Specialization</dt>
           <dd className="mt-1">{therapist.therapistProfile?.specialization ?? "To be defined"}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slate-700">Session price</dt>
+          <dd className="mt-1">{formatCurrency(therapist.therapistProfile?.sessionPricePence)}</dd>
         </div>
         <div>
           <dt className="font-medium text-slate-700">Profile summary</dt>

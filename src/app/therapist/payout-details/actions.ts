@@ -50,6 +50,7 @@ export async function payoutDetailsAction(
     const iban = String(formData.get("iban") ?? "").trim();
     const swift = String(formData.get("swift") ?? "").trim();
     const country = String(formData.get("country") ?? "").trim();
+    const sessionPriceGbp = String(formData.get("sessionPriceGbp") ?? "").trim();
 
     if (!accountHolderName) {
       return {
@@ -61,12 +62,32 @@ export async function payoutDetailsAction(
       };
     }
 
+    let sessionPricePence: number | null = null;
+
+    if (sessionPriceGbp) {
+      const normalizedSessionPrice = sessionPriceGbp.replace(",", ".");
+      const parsedSessionPrice = Number(normalizedSessionPrice);
+
+      if (!Number.isFinite(parsedSessionPrice) || parsedSessionPrice <= 0) {
+        return {
+          status: "error",
+          message: "Please enter a valid session price in GBP.",
+          fieldErrors: {
+            sessionPriceGbp: ["Session price must be greater than 0."],
+          },
+        };
+      }
+
+      sessionPricePence = Math.round(parsedSessionPrice * 100);
+    }
+
     await updateTherapistPayoutDetails(user.id, {
       accountHolderName,
       bankName,
       iban,
       swift,
       country,
+      sessionPricePence,
     });
 
     revalidatePath("/therapist/payout-details");

@@ -25,6 +25,7 @@ export type TherapistPayoutDetailsInput = {
   iban?: string | null;
   swift?: string | null;
   country?: string | null;
+  sessionPricePence?: number | null;
 };
 
 export type TherapistClientListItem = {
@@ -43,6 +44,7 @@ export type TherapistPayoutDetailsView = {
     displayName: string | null;
     specialization: string | null;
     approvalStatus: TherapistApprovalStatus;
+    sessionPricePence: number | null;
     googleCalendarId: string | null;
     googleCalendarEmail: string | null;
     isGoogleCalendarConnected: boolean;
@@ -92,6 +94,7 @@ async function getTherapistProfileOrThrow(userId: string) {
       displayName: true,
       specialization: true,
       approvalStatus: true,
+      sessionPricePence: true,
       googleCalendarId: true,
       googleCalendarEmail: true,
       isGoogleCalendarConnected: true,
@@ -394,6 +397,7 @@ export async function getTherapistPayoutDetails(
       displayName: therapistProfile.displayName,
       specialization: therapistProfile.specialization,
       approvalStatus: therapistProfile.approvalStatus,
+      sessionPricePence: therapistProfile.sessionPricePence,
       googleCalendarId: therapistProfile.googleCalendarId,
       googleCalendarEmail: therapistProfile.googleCalendarEmail,
       isGoogleCalendarConnected: therapistProfile.isGoogleCalendarConnected,
@@ -411,35 +415,46 @@ export async function updateTherapistPayoutDetails(
 
   const normalizedAccountHolderName = input.accountHolderName.trim();
 
-  return prisma.therapistPayoutDetails.upsert({
-    where: {
-      therapistProfileId: therapistProfile.id,
-    },
-    update: {
-      accountHolderName: normalizedAccountHolderName,
-      bankName: normalizeOptionalString(input.bankName),
-      iban: normalizeOptionalString(input.iban),
-      swift: normalizeOptionalString(input.swift),
-      country: normalizeOptionalString(input.country),
-    },
-    create: {
-      therapistProfileId: therapistProfile.id,
-      accountHolderName: normalizedAccountHolderName,
-      bankName: normalizeOptionalString(input.bankName),
-      iban: normalizeOptionalString(input.iban),
-      swift: normalizeOptionalString(input.swift),
-      country: normalizeOptionalString(input.country),
-    },
-    select: {
-      id: true,
-      accountHolderName: true,
-      bankName: true,
-      iban: true,
-      swift: true,
-      country: true,
-      isVerified: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+  return prisma.$transaction(async (tx) => {
+    await tx.therapistProfile.update({
+      where: {
+        id: therapistProfile.id,
+      },
+      data: {
+        sessionPricePence: input.sessionPricePence ?? null,
+      },
+    });
+
+    return tx.therapistPayoutDetails.upsert({
+      where: {
+        therapistProfileId: therapistProfile.id,
+      },
+      update: {
+        accountHolderName: normalizedAccountHolderName,
+        bankName: normalizeOptionalString(input.bankName),
+        iban: normalizeOptionalString(input.iban),
+        swift: normalizeOptionalString(input.swift),
+        country: normalizeOptionalString(input.country),
+      },
+      create: {
+        therapistProfileId: therapistProfile.id,
+        accountHolderName: normalizedAccountHolderName,
+        bankName: normalizeOptionalString(input.bankName),
+        iban: normalizeOptionalString(input.iban),
+        swift: normalizeOptionalString(input.swift),
+        country: normalizeOptionalString(input.country),
+      },
+      select: {
+        id: true,
+        accountHolderName: true,
+        bankName: true,
+        iban: true,
+        swift: true,
+        country: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   });
 }

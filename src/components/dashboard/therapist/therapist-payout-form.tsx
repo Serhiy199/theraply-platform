@@ -22,6 +22,25 @@ type TherapistPayoutFormProps = {
   } | null;
 };
 
+function formatSessionPriceInput(value: number | null) {
+  if (typeof value !== "number") {
+    return "";
+  }
+
+  return (value / 100).toFixed(2);
+}
+
+function formatCurrency(value: number | null) {
+  if (typeof value !== "number") {
+    return "Not set yet";
+  }
+
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(value / 100);
+}
+
 function formatConnectionDate(value: Date | null) {
   if (!value) {
     return "Not connected yet";
@@ -103,6 +122,25 @@ export function TherapistPayoutForm({
             <input name="country" defaultValue={data.payoutDetails?.country ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
           </label>
 
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span className="font-medium">Session price (GBP)</span>
+            <input
+              name="sessionPriceGbp"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              defaultValue={formatSessionPriceInput(data.profile.sessionPricePence)}
+              className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
+            />
+            <span className="text-xs leading-5 text-slate-500">
+              This price will be shown in the booking flow and used for Stripe payments later in Phase 10.
+            </span>
+            {state.fieldErrors?.sessionPriceGbp?.[0] ? (
+              <span className="text-rose-700">{state.fieldErrors.sessionPriceGbp[0]}</span>
+            ) : null}
+          </label>
+
           <button type="submit" disabled={pending} className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {pending ? "Saving..." : "Save payout details"}
           </button>
@@ -124,6 +162,10 @@ export function TherapistPayoutForm({
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Approval status</dt>
               <dd className="text-right">{data.profile.approvalStatus.replaceAll("_", " ")}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
+              <dt className="font-medium text-slate-700">Session price</dt>
+              <dd className="text-right">{formatCurrency(data.profile.sessionPricePence)}</dd>
             </div>
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Calendar email</dt>

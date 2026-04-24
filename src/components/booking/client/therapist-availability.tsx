@@ -14,6 +14,17 @@ function getDisplayName(therapist: TherapistListItem) {
   );
 }
 
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== "number") {
+    return "Price not set yet";
+  }
+
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(value / 100);
+}
+
 function formatDayLabel(date: Date) {
   return new Intl.DateTimeFormat("en", {
     weekday: "long",
@@ -94,6 +105,10 @@ export function TherapistAvailability({
               <div>
                 <dt className="font-medium text-slate-700">Specialization</dt>
                 <dd className="mt-1">{therapist.therapistProfile?.specialization ?? "To be defined"}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-700">Session price</dt>
+                <dd className="mt-1">{formatCurrency(therapist.therapistProfile?.sessionPricePence)}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-700">Profile summary</dt>

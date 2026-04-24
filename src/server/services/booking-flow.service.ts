@@ -31,6 +31,7 @@ const bookableTherapistSelect = {
       displayName: true,
       specialization: true,
       bio: true,
+      sessionPricePence: true,
       googleCalendarId: true,
       googleCalendarEmail: true,
       isGoogleCalendarConnected: true,
