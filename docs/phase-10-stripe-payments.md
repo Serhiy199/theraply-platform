@@ -188,7 +188,13 @@ Phase 10 expects these Stripe variables:
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 
-They can exist as empty placeholders during the early implementation steps, but real Stripe integration testing requires actual values.
+They can exist as empty placeholders during the early implementation steps.
+
+Real Stripe integration testing requires actual values for:
+
+- checkout session creation
+- webhook signature validation
+- Stripe CLI forwarding
 
 ## End-Of-Step Outcome
 

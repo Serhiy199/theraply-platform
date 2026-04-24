@@ -322,6 +322,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_CALENDAR_REDIRECT_URI`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
@@ -475,3 +476,5 @@ npm run prisma:seed:remote
 Деталі реалізації `Phase 9` описані в [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
 
 Контракт для `Phase 10` описаний у [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).
+
+Поточну Stripe-конфігурацію можна почати з порожніх placeholder-значень у env-шаблонах, а реальні ключі додати пізніше, коли буде доступ до Stripe credentials.

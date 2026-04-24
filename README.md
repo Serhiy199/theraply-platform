@@ -323,6 +323,7 @@ Environment variables expected by the project:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_CALENDAR_REDIRECT_URI`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
@@ -478,3 +479,5 @@ The most logical next steps are:
 Phase 9 implementation notes are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
 
 Phase 10 payment contract is documented in [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).
+
+Current Stripe setup can begin with placeholder values in env templates, and real key values can be added later when the Stripe account credentials are available.
