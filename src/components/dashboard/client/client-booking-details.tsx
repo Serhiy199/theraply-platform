@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import type { PaymentEligibility } from "@/server/services/payment-flow.service";
@@ -68,6 +68,80 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
         {pending ? "Cancelling..." : "Cancel booking"}
       </button>
     </form>
+  );
+}
+
+type PaymentCheckoutButtonProps = {
+  bookingId: string;
+  paymentEligibility: PaymentEligibility;
+};
+
+function PaymentCheckoutButton({
+  bookingId,
+  paymentEligibility,
+}: PaymentCheckoutButtonProps) {
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const disabled = !paymentEligibility.canPay || isPending;
+
+  function handleCheckout() {
+    setCheckoutError(null);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ bookingId }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | { checkoutUrl?: string; error?: string }
+          | null;
+
+        if (!response.ok) {
+          setCheckoutError(
+            payload?.error || "Unable to start Stripe Checkout right now.",
+          );
+          return;
+        }
+
+        if (!payload?.checkoutUrl) {
+          setCheckoutError("Stripe Checkout did not return a redirect URL.");
+          return;
+        }
+
+        window.location.assign(payload.checkoutUrl);
+      } catch {
+        setCheckoutError("Unable to reach Stripe Checkout right now. Please try again.");
+      }
+    });
+  }
+
+  return (
+    <div className="mt-5 grid gap-4">
+      {checkoutError ? (
+        <DashboardStatusAlert tone="error" title="Checkout could not be started">
+          {checkoutError}
+        </DashboardStatusAlert>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={handleCheckout}
+        disabled={disabled}
+        className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+      >
+        {isPending ? "Redirecting to Stripe..." : "Pay now"}
+      </button>
+
+      <p className="text-xs leading-5 text-slate-500">
+        You will be redirected to secure Stripe Checkout to complete this payment.
+      </p>
+    </div>
   );
 }
 
@@ -204,8 +278,12 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
             </DashboardStatusAlert>
           </div>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            Stripe Checkout will appear here on the next implementation step, but the payment rules are already enforced on the server side.
+            Payment rules are enforced on the server side before Stripe Checkout is created, so this button only activates when the booking is genuinely payable.
           </p>
+          <PaymentCheckoutButton
+            bookingId={booking.id}
+            paymentEligibility={paymentEligibility}
+          />
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
