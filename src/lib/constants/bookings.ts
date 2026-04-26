@@ -21,6 +21,8 @@ export const BOOKING_STATUS_BADGE_STYLES: Record<BookingStatus, string> = {
 export const CANCELLATION_POLICY_HOURS = 24;
 
 export const CANCELLATION_POLICY_MESSAGES = {
-  standard: "Cancellations made at least 24 hours before the session are handled as standard cancellations.",
-  late: "Cancellations made less than 24 hours before the session may be treated as non-refundable under platform policy.",
+  standard:
+    "Cancellations made at least 24 hours before the session are treated as standard cancellations. If the session was already paid, the platform can process a refund under the normal policy.",
+  late:
+    "Cancellations made less than 24 hours before the session are treated as late cancellations. When payment has already been captured, the booked time is considered non-refundable under platform policy.",
 } as const;

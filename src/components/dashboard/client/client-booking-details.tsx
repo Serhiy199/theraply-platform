@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import type { PaymentEligibility } from "@/server/services/payment-flow.service";
 import {
+  getCancellationConfirmationMessage,
   formatBookingStatus,
   formatPaymentStatus,
   getBookingStatusBadgeClass,
@@ -77,6 +78,14 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
     cancelBookingAction,
     initialCancelBookingActionState,
   );
+  const [lateAcknowledged, setLateAcknowledged] = useState(false);
+  const lateCancellation = isLateCancellation(booking.startsAt);
+  const hasCapturedPayment = booking.payment?.paymentStatus === "PAID";
+  const confirmationMessage = getCancellationConfirmationMessage(
+    booking.startsAt,
+    hasCapturedPayment,
+  );
+  const disabled = pending || (lateCancellation && !lateAcknowledged);
 
   return (
     <form action={formAction} className="mt-5 grid gap-4">
@@ -86,12 +95,36 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
           {state.message}
         </DashboardStatusAlert>
       ) : null}
+      <DashboardStatusAlert
+        tone={lateCancellation ? "warning" : "info"}
+        title={lateCancellation ? "Late cancellation warning" : "Cancellation confirmation"}
+      >
+        {confirmationMessage}
+      </DashboardStatusAlert>
+      {lateCancellation ? (
+        <label className="flex items-start gap-3 rounded-[1.25rem] border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm leading-6 text-rose-900">
+          <input
+            type="checkbox"
+            checked={lateAcknowledged}
+            onChange={(event) => setLateAcknowledged(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-rose-300 text-rose-700 focus:ring-rose-500"
+          />
+          <span>
+            I understand that this cancellation is taking place less than 24 hours before the
+            session and any captured payment for the booked time is non-refundable.
+          </span>
+        </label>
+      ) : null}
       <button
         type="submit"
-        disabled={pending}
+        disabled={disabled}
         className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
-        {pending ? "Cancelling..." : "Cancel booking"}
+        {pending
+          ? "Cancelling..."
+          : lateCancellation
+            ? "Confirm late cancellation"
+            : "Cancel booking"}
       </button>
     </form>
   );

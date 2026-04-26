@@ -32,3 +32,19 @@ export function getCancellationPolicyMessage(startsAt: Date, now = new Date()) {
     ? CANCELLATION_POLICY_MESSAGES.late
     : CANCELLATION_POLICY_MESSAGES.standard;
 }
+
+export function getCancellationConfirmationMessage(
+  startsAt: Date,
+  hasCapturedPayment: boolean,
+  now = new Date(),
+) {
+  if (isLateCancellation(startsAt, now)) {
+    return hasCapturedPayment
+      ? "This is a late cancellation. The booked time is non-refundable and your captured payment will not be returned."
+      : "This is a late cancellation. The booking will be cancelled immediately and any unfinished payment flow will stop, but there is no paid refund to process.";
+  }
+
+  return hasCapturedPayment
+    ? "This cancellation is still within the standard refund window. The booking will be cancelled and the paid amount can be refunded under platform policy."
+    : "This cancellation is within the standard window. The booking will be cancelled and no payment refund is needed because nothing has been captured yet.";
+}
