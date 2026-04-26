@@ -11,20 +11,17 @@ import {
 
 export const runtime = "nodejs";
 
-function buildBookingUrl(request: NextRequest, bookingId: string) {
-  return new URL(`/client/bookings/${bookingId}`, request.url);
-}
-
 function buildSuccessUrl(request: NextRequest, bookingId: string) {
-  const url = buildBookingUrl(request, bookingId);
-  url.searchParams.set("checkout", "success");
+  const url = new URL("/client/payments/success", request.url);
+  url.searchParams.set("bookingId", bookingId);
   url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
   return url.toString();
 }
 
 function buildCancelUrl(request: NextRequest, bookingId: string) {
-  const url = buildBookingUrl(request, bookingId);
-  url.searchParams.set("checkout", "cancelled");
+  const url = new URL("/client/payments/failed", request.url);
+  url.searchParams.set("bookingId", bookingId);
+  url.searchParams.set("reason", "cancelled");
   return url.toString();
 }
 
