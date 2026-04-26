@@ -30,6 +30,32 @@ function getClientName(booking: BookingDetailsItem) {
   return [booking.client.firstName, booking.client.lastName].filter(Boolean).join(" ") || booking.client.email;
 }
 
+function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
+  if (!booking.payment) {
+    return "No payment record has been created yet.";
+  }
+
+  if (booking.payment.paymentStatus === "FAILED") {
+    return booking.payment.failedReason || "The latest Stripe payment attempt failed.";
+  }
+
+  if (booking.payment.paymentStatus === "REFUNDED") {
+    return booking.payment.refundReason || "Stripe marked this booking as refunded.";
+  }
+
+  if (booking.payment.paymentStatus === "PENDING") {
+    return booking.payment.checkoutExpiresAt
+      ? `Client checkout is still open until approximately ${formatDateTime(booking.payment.checkoutExpiresAt)}.`
+      : "Client checkout has started but has not completed yet.";
+  }
+
+  if (booking.payment.paymentStatus === "PAID") {
+    return "Stripe confirmed payment for this session.";
+  }
+
+  return "No payment incident recorded.";
+}
+
 function DecisionForm({ bookingId, intent, label }: { bookingId: string; intent: "confirm" | "reject"; label: string }) {
   const [state, formAction, pending] = useActionState<RequestDecisionActionState, FormData>(
     requestDecisionAction,
@@ -64,6 +90,7 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canDecide = booking.bookingStatus === "PENDING_THERAPIST";
   const clientName = getClientName(booking);
+  const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
   return (
     <div className="grid gap-6">
@@ -138,7 +165,16 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
                 <dt className="font-medium text-slate-700">Paid at</dt>
                 <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Checkout expires</dt>
+                <dd className="text-right">
+                  {formatDateTime(booking.payment?.checkoutExpiresAt ?? null)}
+                </dd>
+              </div>
             </dl>
+            <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+              {paymentOutcomeMessage}
+            </div>
           </article>
         </div>
       </section>

@@ -31,6 +31,28 @@ function getTherapistName(payment: PaymentSummaryItem) {
   );
 }
 
+function getPaymentIncidentSummary(payment: PaymentSummaryItem) {
+  if (payment.paymentStatus === "FAILED") {
+    return payment.failedReason || "Stripe reported a failed payment attempt.";
+  }
+
+  if (payment.paymentStatus === "REFUNDED") {
+    return payment.refundReason || "Stripe completed a refund.";
+  }
+
+  if (payment.paymentStatus === "PENDING") {
+    return payment.checkoutExpiresAt
+      ? `Open until ${formatDateTime(payment.checkoutExpiresAt)}`
+      : "Checkout started but not completed";
+  }
+
+  if (payment.paymentStatus === "PAID") {
+    return "Payment cleared";
+  }
+
+  return "No incident recorded";
+}
+
 type AdminPaymentsTableProps = {
   payments: PaymentSummaryItem[];
 };
@@ -63,6 +85,7 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                 <th className="px-5 py-4">Booking state</th>
                 <th className="px-5 py-4">Paid</th>
                 <th className="px-5 py-4">Refunded</th>
+                <th className="px-5 py-4">Stripe note</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/80">
@@ -84,6 +107,11 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                     <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(payment.paymentStatus)}`}>
                       {formatPaymentStatus(payment.paymentStatus)}
                     </span>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {payment.checkoutExpiresAt && payment.paymentStatus === "PENDING"
+                        ? `Expires ${formatDateTime(payment.checkoutExpiresAt)}`
+                        : "\u00A0"}
+                    </p>
                   </td>
                   <td className="px-5 py-4">
                     <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(payment.booking.bookingStatus)}`}>
@@ -92,6 +120,7 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                   </td>
                   <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.paidAt)}</td>
                   <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.refundedAt)}</td>
+                  <td className="px-5 py-4 text-slate-600">{getPaymentIncidentSummary(payment)}</td>
                 </tr>
               ))}
             </tbody>

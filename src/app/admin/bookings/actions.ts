@@ -7,6 +7,7 @@ import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   AdminOperationsServiceError,
   adminCancelBooking,
+  type AdminBookingCancellationResult,
 } from "@/server/services/admin-operations.service";
 
 export type AdminCancelBookingActionState = {
@@ -39,19 +40,21 @@ export async function adminCancelBookingAction(
       };
     }
 
-    await adminCancelBooking(user.id, bookingId);
+    const cancellationResult = await adminCancelBooking(user.id, bookingId);
 
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${bookingId}`);
     revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/payments");
     revalidatePath("/client/bookings");
     revalidatePath("/client/dashboard");
+    revalidatePath("/client/payments");
     revalidatePath("/therapist/requests");
     revalidatePath("/therapist/dashboard");
 
     return {
       status: "success",
-      message: "Booking cancelled successfully by admin.",
+      message: getAdminCancellationSuccessMessage(cancellationResult),
     };
   } catch (error) {
     if (error instanceof ActionPermissionError) {
@@ -73,4 +76,12 @@ export async function adminCancelBookingAction(
       message: "Something went wrong while cancelling the booking.",
     };
   }
+}
+
+function getAdminCancellationSuccessMessage(result: AdminBookingCancellationResult) {
+  if (result.refund.status === "refunded") {
+    return "Booking cancelled successfully by admin and the Stripe refund was created.";
+  }
+
+  return "Booking cancelled successfully by admin.";
 }

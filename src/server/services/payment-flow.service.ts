@@ -69,7 +69,8 @@ export class PaymentFlowServiceError extends Error {
       | "BOOKING_NOT_FOUND"
       | "PAYMENT_NOT_ELIGIBLE"
       | "STRIPE_NOT_CONFIGURED"
-      | "CHECKOUT_SESSION_CREATE_FAILED",
+      | "CHECKOUT_SESSION_CREATE_FAILED"
+      | "PAYMENT_RECORD_NOT_FOUND",
   ) {
     super(message);
     this.name = "PaymentFlowServiceError";
@@ -133,6 +134,12 @@ export type StripeCheckoutSessionResult = {
   amount: number;
   currency: string;
   expiresAt: Date | null;
+};
+
+type StripePaymentUpdateResult = {
+  paymentId: string;
+  bookingId: string;
+  paymentStatus: PaymentStatus;
 };
 
 export function getPaymentDueBy(startsAt: Date) {
@@ -309,6 +316,34 @@ async function getPaymentEligibilityBookingOrThrow(
   return booking;
 }
 
+async function getStripePaymentBookingOrThrow(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+    select: {
+      id: true,
+      bookingStatus: true,
+      paymentDueBy: true,
+      startsAt: true,
+      compensationResolutionType: true,
+      compensationResolvedAt: true,
+      payment: {
+        select: {
+          id: true,
+          paymentStatus: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new PaymentFlowServiceError("Booking not found for payment flow.", "BOOKING_NOT_FOUND");
+  }
+
+  return booking;
+}
+
 export async function getClientPaymentEligibility(
   clientUserId: string,
   bookingId: string,
@@ -452,4 +487,217 @@ export async function createClientStripeCheckoutSession(
       "CHECKOUT_SESSION_CREATE_FAILED",
     );
   }
+}
+
+export async function markStripeCheckoutSessionCompleted(
+  bookingId: string,
+  input: {
+    checkoutSessionId: string;
+    paymentIntentId: string | null;
+    amount: number;
+    currency: string;
+  },
+): Promise<StripePaymentUpdateResult> {
+  const paidAt = new Date();
+  const booking = await getStripePaymentBookingOrThrow(bookingId);
+
+  const payment = await prisma.payment.upsert({
+    where: {
+      bookingId,
+    },
+    update: {
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.PAID,
+      stripeCheckoutSessionId: input.checkoutSessionId,
+      stripePaymentIntentId: input.paymentIntentId,
+      paidAt,
+      failedAt: null,
+      refundedAt: null,
+      failedReason: null,
+      refundReason: null,
+      refundedAmount: null,
+      stripeRefundId: null,
+    },
+    create: {
+      bookingId,
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.PAID,
+      stripeCheckoutSessionId: input.checkoutSessionId,
+      stripePaymentIntentId: input.paymentIntentId,
+      paidAt,
+    },
+    select: {
+      id: true,
+      bookingId: true,
+      paymentStatus: true,
+    },
+  });
+
+  if (booking.bookingStatus !== BookingStatus.CONFIRMED) {
+    await prisma.booking.update({
+      where: {
+        id: bookingId,
+      },
+      data: {
+        bookingStatus: BookingStatus.CONFIRMED,
+      },
+    });
+  }
+
+  return {
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    paymentStatus: payment.paymentStatus,
+  };
+}
+
+export async function markStripePaymentIntentFailed(
+  bookingId: string,
+  input: {
+    paymentIntentId: string;
+    amount: number;
+    currency: string;
+    failedReason: string;
+  },
+): Promise<StripePaymentUpdateResult> {
+  const failedAt = new Date();
+
+  const payment = await prisma.payment.upsert({
+    where: {
+      bookingId,
+    },
+    update: {
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.FAILED,
+      stripePaymentIntentId: input.paymentIntentId,
+      failedAt,
+      failedReason: input.failedReason,
+    },
+    create: {
+      bookingId,
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.FAILED,
+      stripePaymentIntentId: input.paymentIntentId,
+      failedAt,
+      failedReason: input.failedReason,
+    },
+    select: {
+      id: true,
+      bookingId: true,
+      paymentStatus: true,
+    },
+  });
+
+  return {
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    paymentStatus: payment.paymentStatus,
+  };
+}
+
+export async function markStripeCheckoutSessionExpired(
+  bookingId: string,
+  input: {
+    checkoutSessionId: string;
+    amount: number;
+    currency: string;
+    checkoutExpiresAt: Date | null;
+    failedReason: string;
+  },
+): Promise<StripePaymentUpdateResult> {
+  const failedAt = new Date();
+
+  const payment = await prisma.payment.upsert({
+    where: {
+      bookingId,
+    },
+    update: {
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.FAILED,
+      stripeCheckoutSessionId: input.checkoutSessionId,
+      checkoutExpiresAt: input.checkoutExpiresAt,
+      failedAt,
+      failedReason: input.failedReason,
+    },
+    create: {
+      bookingId,
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.FAILED,
+      stripeCheckoutSessionId: input.checkoutSessionId,
+      checkoutExpiresAt: input.checkoutExpiresAt,
+      failedAt,
+      failedReason: input.failedReason,
+    },
+    select: {
+      id: true,
+      bookingId: true,
+      paymentStatus: true,
+    },
+  });
+
+  return {
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    paymentStatus: payment.paymentStatus,
+  };
+}
+
+export async function markStripeChargeRefunded(
+  bookingId: string,
+  input: {
+    refundId: string | null;
+    refundedAmount: number | null;
+    refundReason: string;
+  },
+): Promise<StripePaymentUpdateResult> {
+  const booking = await getStripePaymentBookingOrThrow(bookingId);
+
+  if (!booking.payment?.id) {
+    throw new PaymentFlowServiceError(
+      "Payment record was not found for Stripe refund processing.",
+      "PAYMENT_RECORD_NOT_FOUND",
+    );
+  }
+
+  const refundedAt = new Date();
+
+  const payment = await prisma.payment.update({
+    where: {
+      id: booking.payment.id,
+    },
+    data: {
+      paymentStatus: PaymentStatus.REFUNDED,
+      refundedAt,
+      refundedAmount: input.refundedAmount,
+      stripeRefundId: input.refundId,
+      refundReason: input.refundReason,
+    },
+    select: {
+      id: true,
+      bookingId: true,
+      paymentStatus: true,
+    },
+  });
+
+  await prisma.booking.update({
+    where: {
+      id: bookingId,
+    },
+    data: {
+      compensationResolutionType: "REFUND",
+      compensationResolvedAt: refundedAt,
+    },
+  });
+
+  return {
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    paymentStatus: payment.paymentStatus,
+  };
 }

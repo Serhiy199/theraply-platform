@@ -12,6 +12,11 @@ import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
+import {
+  refundClientCancellationIfEligible,
+  RefundServiceError,
+  type RefundExecutionResult,
+} from "@/server/services/refund.service";
 
 const upcomingClientBookingStatuses = [
   BookingStatus.PENDING_THERAPIST,
@@ -33,12 +38,18 @@ export class ClientBookingsServiceError extends Error {
     public readonly code:
       | "BOOKING_NOT_FOUND"
       | "BOOKING_NOT_CANCELLABLE"
-      | "GOOGLE_CALENDAR_SYNC_FAILED",
+      | "GOOGLE_CALENDAR_SYNC_FAILED"
+      | "REFUND_FAILED",
   ) {
     super(message);
     this.name = "ClientBookingsServiceError";
   }
 }
+
+export type ClientBookingCancellationResult = {
+  booking: BookingDetailsItem;
+  refund: RefundExecutionResult;
+};
 
 function getNow() {
   return new Date();
@@ -116,7 +127,7 @@ export async function getClientPayments(userId: string): Promise<PaymentSummaryI
 export async function cancelClientBooking(
   userId: string,
   bookingId: string,
-): Promise<BookingDetailsItem> {
+): Promise<ClientBookingCancellationResult> {
   const booking = await prisma.booking.findFirst({
     where: {
       id: bookingId,
@@ -165,6 +176,23 @@ export async function cancelClientBooking(
     }
   }
 
+  let refund: RefundExecutionResult = {
+    status: "skipped",
+    reason: "PAYMENT_NOT_FOUND",
+    refundId: null,
+    refundedAmount: null,
+  };
+
+  try {
+    refund = await refundClientCancellationIfEligible(booking.id, userId);
+  } catch (error) {
+    if (error instanceof RefundServiceError) {
+      throw new ClientBookingsServiceError(error.message, "REFUND_FAILED");
+    }
+
+    throw error;
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
@@ -197,7 +225,10 @@ export async function cancelClientBooking(
       throw new ClientBookingsServiceError("Booking not found after update.", "BOOKING_NOT_FOUND");
     }
 
-    return updatedBooking;
+    return {
+      booking: updatedBooking,
+      refund,
+    };
   });
 }
 

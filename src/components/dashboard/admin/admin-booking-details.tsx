@@ -38,6 +38,32 @@ function getTherapistName(booking: BookingDetailsItem) {
   );
 }
 
+function getPaymentIncidentSummary(booking: BookingDetailsItem) {
+  if (!booking.payment) {
+    return "No payment record has been created yet.";
+  }
+
+  if (booking.payment.paymentStatus === "FAILED") {
+    return booking.payment.failedReason || "Stripe reported a failed payment attempt.";
+  }
+
+  if (booking.payment.paymentStatus === "REFUNDED") {
+    return booking.payment.refundReason || "Stripe completed a refund for this booking.";
+  }
+
+  if (booking.payment.paymentStatus === "PENDING") {
+    return booking.payment.checkoutExpiresAt
+      ? `Checkout remains open until approximately ${formatDateTime(booking.payment.checkoutExpiresAt)}.`
+      : "Checkout has started but has not completed yet.";
+  }
+
+  if (booking.payment.paymentStatus === "PAID") {
+    return "Stripe confirmed payment for this booking.";
+  }
+
+  return "No payment incident has been recorded.";
+}
+
 function ManualCancelForm({ bookingId }: { bookingId: string }) {
   const [state, formAction, pending] = useActionState<AdminCancelBookingActionState, FormData>(
     adminCancelBookingAction,
@@ -72,6 +98,7 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
   const clientName = getClientName(booking);
   const therapistName = getTherapistName(booking);
   const canCancel = !["CANCELLED", "AUTO_CANCELLED", "REJECTED", "COMPLETED"].includes(booking.bookingStatus);
+  const paymentIncidentSummary = getPaymentIncidentSummary(booking);
 
   return (
     <div className="grid gap-6">
@@ -147,6 +174,10 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
                 <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Checkout expires</dt>
+                <dd className="text-right">{formatDateTime(booking.payment?.checkoutExpiresAt ?? null)}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Cancelled at</dt>
                 <dd className="text-right">{formatDateTime(booking.cancelledAt)}</dd>
               </div>
@@ -154,7 +185,18 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
                 <dt className="font-medium text-slate-700">Cancelled by</dt>
                 <dd className="text-right">{booking.cancelledBy ? ([booking.cancelledBy.firstName, booking.cancelledBy.lastName].filter(Boolean).join(" ") || booking.cancelledBy.email) : "Not cancelled"}</dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Compensation</dt>
+                <dd className="text-right">
+                  {booking.compensationResolutionType
+                    ? `${booking.compensationResolutionType.toLowerCase()} at ${formatDateTime(booking.compensationResolvedAt ?? null)}`
+                    : "Not resolved"}
+                </dd>
+              </div>
             </dl>
+            <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+              {paymentIncidentSummary}
+            </div>
           </article>
         </div>
       </section>
@@ -179,6 +221,10 @@ export function AdminBookingDetails({ booking }: AdminBookingDetailsProps) {
             <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
               <dt className="font-medium text-slate-700">Stripe payment intent</dt>
               <dd className="mt-1">{booking.payment?.stripePaymentIntentId ?? "Not available"}</dd>
+            </div>
+            <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3 md:col-span-2">
+              <dt className="font-medium text-slate-700">Payment incident details</dt>
+              <dd className="mt-1">{paymentIncidentSummary}</dd>
             </div>
           </dl>
         </article>

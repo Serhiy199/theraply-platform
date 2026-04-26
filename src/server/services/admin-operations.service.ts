@@ -17,6 +17,11 @@ import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
+import {
+  refundPlatformCancellationIfEligible,
+  RefundServiceError,
+  type RefundExecutionResult,
+} from "@/server/services/refund.service";
 
 export type AdminUserListItem = {
   id: string;
@@ -63,12 +68,18 @@ export class AdminOperationsServiceError extends Error {
       | "BOOKING_NOT_FOUND"
       | "BOOKING_NOT_CANCELLABLE"
       | "ADMIN_NOT_FOUND"
-      | "GOOGLE_CALENDAR_SYNC_FAILED",
+      | "GOOGLE_CALENDAR_SYNC_FAILED"
+      | "REFUND_FAILED",
   ) {
     super(message);
     this.name = "AdminOperationsServiceError";
   }
 }
+
+export type AdminBookingCancellationResult = {
+  booking: BookingDetailsItem;
+  refund: RefundExecutionResult;
+};
 
 function getNow() {
   return new Date();
@@ -187,7 +198,7 @@ export async function getAdminPayments(): Promise<PaymentSummaryItem[]> {
 export async function adminCancelBooking(
   adminUserId: string,
   bookingId: string,
-): Promise<BookingDetailsItem> {
+): Promise<AdminBookingCancellationResult> {
   await assertAdminExists(adminUserId);
 
   const booking = await prisma.booking.findUnique({
@@ -241,6 +252,28 @@ export async function adminCancelBooking(
     }
   }
 
+  let refund: RefundExecutionResult = {
+    status: "skipped",
+    reason: "PAYMENT_NOT_FOUND",
+    refundId: null,
+    refundedAmount: null,
+  };
+
+  try {
+    refund = await refundPlatformCancellationIfEligible({
+      bookingId: booking.id,
+      actorUserId: adminUserId,
+      trigger: "ADMIN_MANUAL_CANCELLATION",
+      businessReason: "Platform initiated a refund after manual admin cancellation.",
+    });
+  } catch (error) {
+    if (error instanceof RefundServiceError) {
+      throw new AdminOperationsServiceError(error.message, "REFUND_FAILED");
+    }
+
+    throw error;
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
@@ -281,6 +314,9 @@ export async function adminCancelBooking(
           cancelledAt: now,
           cancelledByUserId: adminUserId,
           sessionStatus: SessionStatus.CANCELLED,
+          refundStatus: refund.status,
+          refundReason: refund.reason,
+          refundId: refund.refundId,
         },
       },
     });
@@ -294,7 +330,10 @@ export async function adminCancelBooking(
       throw new AdminOperationsServiceError("Booking not found after cancel.", "BOOKING_NOT_FOUND");
     }
 
-    return updatedBooking;
+    return {
+      booking: updatedBooking,
+      refund,
+    };
   });
 }
 

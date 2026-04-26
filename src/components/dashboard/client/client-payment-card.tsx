@@ -22,6 +22,24 @@ function formatAmount(amount: number, currency: string) {
   }).format(amount / 100);
 }
 
+function getPaymentOutcomeNote(payment: PaymentSummaryItem) {
+  if (payment.paymentStatus === "FAILED") {
+    return payment.failedReason || "The payment attempt did not complete successfully.";
+  }
+
+  if (payment.paymentStatus === "REFUNDED") {
+    return payment.refundReason || "The payment was refunded through Stripe.";
+  }
+
+  if (payment.paymentStatus === "PENDING") {
+    return payment.checkoutExpiresAt
+      ? `Checkout is still pending and is expected to expire on ${formatDateTime(payment.checkoutExpiresAt)}.`
+      : "Checkout was started but has not been finalized yet.";
+  }
+
+  return null;
+}
+
 function getTherapistName(payment: PaymentSummaryItem) {
   return (
     payment.booking.therapist.therapistProfile?.displayName ||
@@ -35,6 +53,8 @@ type ClientPaymentCardProps = {
 };
 
 export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
+  const paymentOutcomeNote = getPaymentOutcomeNote(payment);
+
   return (
     <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -74,6 +94,12 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
           <dd className="mt-1">{formatDateTime(payment.refundedAt)}</dd>
         </div>
       </dl>
+
+      {paymentOutcomeNote ? (
+        <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+          {paymentOutcomeNote}
+        </div>
+      ) : null}
     </article>
   );
 }

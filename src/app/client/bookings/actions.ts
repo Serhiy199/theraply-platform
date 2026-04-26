@@ -7,6 +7,7 @@ import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
 import {
   ClientBookingsServiceError,
   cancelClientBooking,
+  type ClientBookingCancellationResult,
 } from "@/server/services/client-bookings.service";
 
 export type CancelBookingActionState = {
@@ -35,16 +36,22 @@ export async function cancelBookingAction(
       };
     }
 
-    await cancelClientBooking(user.id, bookingId);
+    const cancellationResult = await cancelClientBooking(user.id, bookingId);
 
     revalidatePath("/client/bookings");
     revalidatePath(`/client/bookings/${bookingId}`);
     revalidatePath("/client/dashboard");
     revalidatePath("/client/payments");
+    revalidatePath("/therapist/requests");
+    revalidatePath("/therapist/dashboard");
+    revalidatePath("/admin/bookings");
+    revalidatePath(`/admin/bookings/${bookingId}`);
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/payments");
 
     return {
       status: "success",
-      message: "Booking cancelled successfully.",
+      message: getClientCancellationSuccessMessage(cancellationResult),
     };
   } catch (error) {
     if (error instanceof ActionPermissionError) {
@@ -66,4 +73,16 @@ export async function cancelBookingAction(
       message: "Something went wrong while cancelling the booking.",
     };
   }
+}
+
+function getClientCancellationSuccessMessage(result: ClientBookingCancellationResult) {
+  if (result.refund.status === "refunded") {
+    return "Booking cancelled successfully and the Stripe refund was created.";
+  }
+
+  if (result.refund.reason === "LATE_CANCELLATION_POLICY") {
+    return "Booking cancelled successfully. Because this was less than 24 hours before the session, the payment was not refunded.";
+  }
+
+  return "Booking cancelled successfully.";
 }

@@ -34,6 +34,10 @@ const paymentMiniSelect = {
   paidAt: true,
   failedAt: true,
   refundedAt: true,
+  checkoutExpiresAt: true,
+  failedReason: true,
+  refundReason: true,
+  refundedAmount: true,
 } satisfies Prisma.PaymentSelect;
 
 export const bookingListSelect = {
@@ -65,6 +69,8 @@ export const bookingDetailsSelect = {
   endsAt: true,
   bookingStatus: true,
   paymentDueBy: true,
+  compensationResolutionType: true,
+  compensationResolvedAt: true,
   notes: true,
   cancelledAt: true,
   cancelledByUserId: true,
@@ -117,6 +123,8 @@ export const bookingDetailsSelect = {
       refundedAt: true,
       checkoutExpiresAt: true,
       failedReason: true,
+      refundReason: true,
+      refundedAmount: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
       createdAt: true,
@@ -133,6 +141,10 @@ export const paymentSummarySelect = {
   paidAt: true,
   failedAt: true,
   refundedAt: true,
+  checkoutExpiresAt: true,
+  failedReason: true,
+  refundReason: true,
+  refundedAmount: true,
   createdAt: true,
   booking: {
     select: {

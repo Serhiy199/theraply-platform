@@ -46,6 +46,32 @@ function getTherapistName(booking: BookingDetailsItem) {
   );
 }
 
+function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
+  if (!booking.payment) {
+    return "No payment record has been created yet.";
+  }
+
+  if (booking.payment.paymentStatus === "FAILED") {
+    return booking.payment.failedReason || "The latest payment attempt did not complete successfully.";
+  }
+
+  if (booking.payment.paymentStatus === "REFUNDED") {
+    return booking.payment.refundReason || "A Stripe refund was completed for this booking.";
+  }
+
+  if (booking.payment.paymentStatus === "PENDING") {
+    return booking.payment.checkoutExpiresAt
+      ? `Checkout is still open and is expected to expire on ${formatDateTime(booking.payment.checkoutExpiresAt)}.`
+      : "Checkout has been started but has not completed yet.";
+  }
+
+  if (booking.payment.paymentStatus === "PAID") {
+    return "Stripe confirmed the payment and this session is financially cleared.";
+  }
+
+  return "No payment incident has been recorded.";
+}
+
 function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
   const [state, formAction, pending] = useActionState<CancelBookingActionState, FormData>(
     cancelBookingAction,
@@ -155,6 +181,7 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
   const canCancel = ["PENDING_THERAPIST", "CONFIRMED"].includes(booking.bookingStatus) && booking.startsAt > new Date();
   const lateCancellation = isLateCancellation(booking.startsAt);
   const therapistName = getTherapistName(booking);
+  const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
   return (
     <div className="grid gap-6">
@@ -241,7 +268,22 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                 <dt className="font-medium text-slate-700">Paid at</dt>
                 <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Checkout expires</dt>
+                <dd className="text-right">
+                  {formatDateTime(booking.payment?.checkoutExpiresAt ?? null)}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Refunded at</dt>
+                <dd className="text-right">
+                  {formatDateTime(booking.payment?.refundedAt ?? null)}
+                </dd>
+              </div>
             </dl>
+            <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+              {paymentOutcomeMessage}
+            </div>
           </article>
         </div>
       </section>
@@ -280,6 +322,12 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
           <p className="mt-4 text-sm leading-6 text-slate-600">
             Payment rules are enforced on the server side before Stripe Checkout is created, so this button only activates when the booking is genuinely payable.
           </p>
+          {booking.compensationResolutionType ? (
+            <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+              Compensation state: {booking.compensationResolutionType.toLowerCase()} resolved on{" "}
+              {formatDateTime(booking.compensationResolvedAt ?? null)}.
+            </div>
+          ) : null}
           <PaymentCheckoutButton
             bookingId={booking.id}
             paymentEligibility={paymentEligibility}

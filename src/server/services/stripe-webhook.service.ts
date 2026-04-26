@@ -1,7 +1,12 @@
-import { PaymentStatus } from "@prisma/client";
 import Stripe from "stripe";
-import { prisma } from "@/lib/prisma";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
+import {
+  markStripeChargeRefunded,
+  markStripeCheckoutSessionCompleted,
+  markStripeCheckoutSessionExpired,
+  markStripePaymentIntentFailed,
+  PaymentFlowServiceError,
+} from "@/server/services/payment-flow.service";
 
 export class StripeWebhookServiceError extends Error {
   constructor(
@@ -62,47 +67,16 @@ async function markCheckoutCompleted(session: Stripe.Checkout.Session) {
     typeof session.payment_intent === "string"
       ? session.payment_intent
       : session.payment_intent?.id ?? null;
-  const paidAt = new Date();
-
-  const payment = await prisma.payment.upsert({
-    where: {
-      bookingId,
-    },
-    update: {
-      amount: amountTotal,
-      currency,
-      paymentStatus: PaymentStatus.PAID,
-      stripeCheckoutSessionId: session.id,
-      stripePaymentIntentId: paymentIntentId,
-      paidAt,
-      failedAt: null,
-      refundedAt: null,
-      failedReason: null,
-    },
-    create: {
-      bookingId,
-      amount: amountTotal,
-      currency,
-      paymentStatus: PaymentStatus.PAID,
-      stripeCheckoutSessionId: session.id,
-      stripePaymentIntentId: paymentIntentId,
-      paidAt,
-    },
-    select: {
-      id: true,
-      bookingId: true,
-      paymentStatus: true,
-      amount: true,
-      currency: true,
-      stripeCheckoutSessionId: true,
-      stripePaymentIntentId: true,
-      paidAt: true,
-    },
+  const payment = await markStripeCheckoutSessionCompleted(bookingId, {
+    checkoutSessionId: session.id,
+    paymentIntentId,
+    amount: amountTotal,
+    currency,
   });
 
   await createAuditLogEntryBestEffort({
     entityType: "Payment",
-    entityId: payment.id,
+    entityId: payment.paymentId,
     action: "STRIPE_CHECKOUT_SESSION_COMPLETED",
     after: {
       bookingId,
@@ -126,39 +100,16 @@ async function markPaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 
   const failedReason = getFailedReason(paymentIntent);
-  const failedAt = new Date();
-
-  const payment = await prisma.payment.upsert({
-    where: {
-      bookingId,
-    },
-    update: {
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency ?? "gbp",
-      paymentStatus: PaymentStatus.FAILED,
-      stripePaymentIntentId: paymentIntent.id,
-      failedAt,
-      failedReason,
-    },
-    create: {
-      bookingId,
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency ?? "gbp",
-      paymentStatus: PaymentStatus.FAILED,
-      stripePaymentIntentId: paymentIntent.id,
-      failedAt,
-      failedReason,
-    },
-    select: {
-      id: true,
-      bookingId: true,
-      paymentStatus: true,
-    },
+  const payment = await markStripePaymentIntentFailed(bookingId, {
+    paymentIntentId: paymentIntent.id,
+    amount: paymentIntent.amount,
+    currency: paymentIntent.currency ?? "gbp",
+    failedReason,
   });
 
   await createAuditLogEntryBestEffort({
     entityType: "Payment",
-    entityId: payment.id,
+    entityId: payment.paymentId,
     action: "STRIPE_PAYMENT_INTENT_FAILED",
     after: {
       bookingId,
@@ -179,48 +130,21 @@ async function markCheckoutExpired(session: Stripe.Checkout.Session) {
     );
   }
 
-  const failedAt = new Date();
   const failedReason = "Stripe Checkout session expired before payment completion.";
-
-  const payment = await prisma.payment.upsert({
-    where: {
-      bookingId,
-    },
-    update: {
-      amount: session.amount_total ?? 0,
-      currency: session.currency ?? "gbp",
-      paymentStatus: PaymentStatus.FAILED,
-      stripeCheckoutSessionId: session.id,
-      failedAt,
-      failedReason,
-      checkoutExpiresAt:
-        typeof session.expires_at === "number"
-          ? new Date(session.expires_at * 1000)
-          : null,
-    },
-    create: {
-      bookingId,
-      amount: session.amount_total ?? 0,
-      currency: session.currency ?? "gbp",
-      paymentStatus: PaymentStatus.FAILED,
-      stripeCheckoutSessionId: session.id,
-      failedAt,
-      failedReason,
-      checkoutExpiresAt:
-        typeof session.expires_at === "number"
-          ? new Date(session.expires_at * 1000)
-          : null,
-    },
-    select: {
-      id: true,
-      bookingId: true,
-      paymentStatus: true,
-    },
+  const payment = await markStripeCheckoutSessionExpired(bookingId, {
+    checkoutSessionId: session.id,
+    amount: session.amount_total ?? 0,
+    currency: session.currency ?? "gbp",
+    checkoutExpiresAt:
+      typeof session.expires_at === "number"
+        ? new Date(session.expires_at * 1000)
+        : null,
+    failedReason,
   });
 
   await createAuditLogEntryBestEffort({
     entityType: "Payment",
-    entityId: payment.id,
+    entityId: payment.paymentId,
     action: "STRIPE_CHECKOUT_SESSION_EXPIRED",
     after: {
       bookingId,
@@ -240,41 +164,16 @@ async function markChargeRefunded(charge: Stripe.Charge) {
     );
   }
 
-  const payment = await prisma.payment.findUnique({
-    where: {
-      bookingId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!payment) {
-    throw new StripeWebhookServiceError(
-      "Payment record was not found for Stripe refund event.",
-      "PAYMENT_NOT_FOUND",
-    );
-  }
-
-  const refundedAt = new Date();
   const latestRefund = charge.refunds?.data?.[0] ?? null;
-
-  await prisma.payment.update({
-    where: {
-      id: payment.id,
-    },
-    data: {
-      paymentStatus: PaymentStatus.REFUNDED,
-      refundedAt,
-      refundedAmount: charge.amount_refunded || charge.amount || null,
-      stripeRefundId: latestRefund?.id ?? null,
-      refundReason: latestRefund?.reason?.trim() || "Stripe refund processed.",
-    },
+  const payment = await markStripeChargeRefunded(bookingId, {
+    refundId: latestRefund?.id ?? null,
+    refundedAmount: charge.amount_refunded || charge.amount || null,
+    refundReason: latestRefund?.reason?.trim() || "Stripe refund processed.",
   });
 
   await createAuditLogEntryBestEffort({
     entityType: "Payment",
-    entityId: payment.id,
+    entityId: payment.paymentId,
     action: "STRIPE_CHARGE_REFUNDED",
     after: {
       bookingId,
@@ -319,6 +218,13 @@ export async function processStripeWebhookEventBestEffort(event: Stripe.Event) {
   try {
     await processStripeWebhookEvent(event);
   } catch (error) {
+    if (
+      error instanceof PaymentFlowServiceError &&
+      error.code === "PAYMENT_RECORD_NOT_FOUND"
+    ) {
+      throw new StripeWebhookServiceError(error.message, "PAYMENT_NOT_FOUND");
+    }
+
     if (
       error instanceof StripeWebhookServiceError &&
       error.code === "UNSUPPORTED_EVENT"
