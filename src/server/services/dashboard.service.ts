@@ -26,6 +26,13 @@ type AdminDashboardStat = {
   hint: string;
 };
 
+type AdminFinanceCase = {
+  label: string;
+  value: number;
+  hint: string;
+  tone: "warning" | "danger" | "neutral" | "success";
+};
+
 export async function getClientDashboardData(userId: string) {
   const now = new Date();
 
@@ -287,6 +294,10 @@ export async function getAdminDashboardData() {
     paymentsNeedingAttention,
     verifiedPayouts,
     recentUsers,
+    pendingPayments,
+    failedPayments,
+    refundedPayments,
+    creditBackedPayments,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { role: UserRole.CLIENT } }),
@@ -318,6 +329,28 @@ export async function getAdminDashboardData() {
         createdAt: true,
         firstName: true,
         lastName: true,
+      },
+    }),
+    prisma.payment.count({
+      where: {
+        paymentStatus: PaymentStatus.PENDING,
+      },
+    }),
+    prisma.payment.count({
+      where: {
+        paymentStatus: PaymentStatus.FAILED,
+      },
+    }),
+    prisma.payment.count({
+      where: {
+        paymentStatus: PaymentStatus.REFUNDED,
+      },
+    }),
+    prisma.payment.count({
+      where: {
+        creditAppliedAmount: {
+          gt: 0,
+        },
       },
     }),
   ]);
@@ -367,6 +400,32 @@ export async function getAdminDashboardData() {
 
   return {
     stats,
+    financeCases: [
+      {
+        label: "Pending checkout",
+        value: pendingPayments,
+        hint: "Stripe sessions started but not fully settled yet.",
+        tone: pendingPayments > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "Failed payments",
+        value: failedPayments,
+        hint: "Payment attempts that need retry or manual follow-up.",
+        tone: failedPayments > 0 ? "danger" : "neutral",
+      },
+      {
+        label: "Refunded payments",
+        value: refundedPayments,
+        hint: "Bookings where money was returned through Stripe.",
+        tone: refundedPayments > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "Credit-backed payments",
+        value: creditBackedPayments,
+        hint: "Bookings where client credit reduced or covered the charge.",
+        tone: creditBackedPayments > 0 ? "success" : "neutral",
+      },
+    ] satisfies AdminFinanceCase[],
     recentUsers: recentUsers.map((user) => ({
       id: user.id,
       email: user.email,

@@ -1,4 +1,5 @@
 import type { getAdminDashboardData } from "@/server/services/dashboard.service";
+import { AdminFinanceCases } from "@/components/dashboard/admin/admin-finance-cases";
 
 type AdminDashboardData = Awaited<ReturnType<typeof getAdminDashboardData>>;
 
@@ -109,6 +110,10 @@ export function AdminOverview({ data }: AdminOverviewProps) {
           </div>
         </section>
       </div>
+
+      <section className="xl:col-span-2">
+        <AdminFinanceCases cases={data.financeCases} />
+      </section>
 
       <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 xl:col-span-2">
         <h3 className="text-xl font-semibold text-slate-900">Recent activity</h3>

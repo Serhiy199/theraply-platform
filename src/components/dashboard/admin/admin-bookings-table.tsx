@@ -27,6 +27,35 @@ function getTherapistName(booking: AdminBookingRow) {
   );
 }
 
+function getFinanceSignal(booking: AdminBookingRow) {
+  if (!booking.payment) {
+    return null;
+  }
+
+  if (booking.payment.paymentStatus === "FAILED") {
+    return booking.payment.failedReason || "Failed payment";
+  }
+
+  if (booking.payment.paymentStatus === "REFUNDED") {
+    return booking.payment.refundReason || "Refund completed";
+  }
+
+  if (booking.payment.paymentStatus === "PENDING") {
+    return booking.payment.checkoutExpiresAt
+      ? `Checkout open until ${formatDateTime(booking.payment.checkoutExpiresAt)}`
+      : "Pending checkout";
+  }
+
+  if (booking.payment.creditAppliedAmount) {
+    return `Client credit applied: ${new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: booking.payment.currency.toUpperCase(),
+    }).format(booking.payment.creditAppliedAmount / 100)}`;
+  }
+
+  return null;
+}
+
 type AdminBookingsTableProps = {
   bookings: AdminBookingRow[];
 };
@@ -64,6 +93,7 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
             <tbody className="divide-y divide-slate-200/80">
               {bookings.map((booking) => {
                 const paymentStatus = booking.payment?.paymentStatus ?? null;
+                const financeSignal = getFinanceSignal(booking);
 
                 return (
                   <tr key={booking.id} className="align-top">
@@ -91,13 +121,18 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      {paymentStatus ? (
-                        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(paymentStatus)}`}>
-                          {formatPaymentStatus(paymentStatus)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">No payment</span>
-                      )}
+                      <div className="flex flex-col gap-2">
+                        {paymentStatus ? (
+                          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+                            {formatPaymentStatus(paymentStatus)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">No payment</span>
+                        )}
+                        {financeSignal ? (
+                          <span className="text-xs leading-5 text-slate-500">{financeSignal}</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-slate-600">{formatDateTime(booking.updatedAt)}</td>
                     <td className="px-5 py-4">
