@@ -72,8 +72,11 @@ export async function POST(request: NextRequest) {
         sessionId: checkoutSession.sessionId,
         paymentId: checkoutSession.paymentId,
         amount: checkoutSession.amount,
+        chargeAmount: checkoutSession.chargeAmount,
+        creditAppliedAmount: checkoutSession.creditAppliedAmount,
         currency: checkoutSession.currency,
         expiresAt: checkoutSession.expiresAt?.toISOString() ?? null,
+        completedFromCredit: checkoutSession.completedFromCredit,
       },
       { status: 200 },
     );

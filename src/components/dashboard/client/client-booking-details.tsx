@@ -161,11 +161,17 @@ function PaymentCheckoutButton({
         disabled={disabled}
         className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
-        {isPending ? "Redirecting to Stripe..." : "Pay now"}
+        {isPending
+          ? "Preparing settlement..."
+          : paymentEligibility.projectedStripeChargeAmount === 0
+            ? "Apply credit and settle"
+            : "Pay now"}
       </button>
 
       <p className="text-xs leading-5 text-slate-500">
-        You will be redirected to secure Stripe Checkout to complete this payment.
+        {paymentEligibility.projectedStripeChargeAmount === 0
+          ? "Your available client credit can fully settle this session without leaving the platform."
+          : "You will be redirected to secure Stripe Checkout to complete the remaining balance."}
       </p>
     </div>
   );
@@ -258,6 +264,33 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                 <dt className="font-medium text-slate-700">Session price</dt>
                 <dd className="text-right">
                   {formatAmount(paymentEligibility.amount, paymentEligibility.currency)}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Available credit</dt>
+                <dd className="text-right">
+                  {formatAmount(
+                    paymentEligibility.availableCreditAmount,
+                    paymentEligibility.currency,
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Credit applied next</dt>
+                <dd className="text-right">
+                  {formatAmount(
+                    paymentEligibility.projectedCreditAppliedAmount,
+                    paymentEligibility.currency,
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Remaining card charge</dt>
+                <dd className="text-right">
+                  {formatAmount(
+                    paymentEligibility.projectedStripeChargeAmount,
+                    paymentEligibility.currency,
+                  )}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">

@@ -32,25 +32,31 @@ function getTherapistName(payment: PaymentSummaryItem) {
 }
 
 function getPaymentIncidentSummary(payment: PaymentSummaryItem) {
+  const creditNote = payment.creditAppliedAmount
+    ? `Client credit applied: ${formatAmount(payment.creditAppliedAmount, payment.currency)}. `
+    : "";
+
   if (payment.paymentStatus === "FAILED") {
-    return payment.failedReason || "Stripe reported a failed payment attempt.";
+    return `${creditNote}${payment.failedReason || "Stripe reported a failed payment attempt."}`.trim();
   }
 
   if (payment.paymentStatus === "REFUNDED") {
-    return payment.refundReason || "Stripe completed a refund.";
+    return `${creditNote}${payment.refundReason || "Stripe completed a refund."}`.trim();
   }
 
   if (payment.paymentStatus === "PENDING") {
-    return payment.checkoutExpiresAt
+    const pendingNote = payment.checkoutExpiresAt
       ? `Open until ${formatDateTime(payment.checkoutExpiresAt)}`
       : "Checkout started but not completed";
+
+    return `${creditNote}${pendingNote}`.trim();
   }
 
   if (payment.paymentStatus === "PAID") {
-    return "Payment cleared";
+    return `${creditNote}Payment cleared`.trim();
   }
 
-  return "No incident recorded";
+  return `${creditNote}No incident recorded`.trim();
 }
 
 type AdminPaymentsTableProps = {

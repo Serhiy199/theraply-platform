@@ -23,21 +23,27 @@ function formatAmount(amount: number, currency: string) {
 }
 
 function getPaymentOutcomeNote(payment: PaymentSummaryItem) {
+  const creditNote = payment.creditAppliedAmount
+    ? `Client credit applied: ${formatAmount(payment.creditAppliedAmount, payment.currency)}. `
+    : "";
+
   if (payment.paymentStatus === "FAILED") {
-    return payment.failedReason || "The payment attempt did not complete successfully.";
+    return `${creditNote}${payment.failedReason || "The payment attempt did not complete successfully."}`.trim();
   }
 
   if (payment.paymentStatus === "REFUNDED") {
-    return payment.refundReason || "The payment was refunded through Stripe.";
+    return `${creditNote}${payment.refundReason || "The payment was refunded through Stripe."}`.trim();
   }
 
   if (payment.paymentStatus === "PENDING") {
-    return payment.checkoutExpiresAt
+    const pendingNote = payment.checkoutExpiresAt
       ? `Checkout is still pending and is expected to expire on ${formatDateTime(payment.checkoutExpiresAt)}.`
       : "Checkout was started but has not been finalized yet.";
+
+    return `${creditNote}${pendingNote}`.trim();
   }
 
-  return null;
+  return creditNote.trim() || null;
 }
 
 function getTherapistName(payment: PaymentSummaryItem) {
@@ -81,6 +87,12 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
       </div>
 
       <dl className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
+        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+          <dt className="font-medium text-slate-700">Client credit applied</dt>
+          <dd className="mt-1">
+            {formatAmount(payment.creditAppliedAmount ?? 0, payment.currency)}
+          </dd>
+        </div>
         <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
           <dt className="font-medium text-slate-700">Paid at</dt>
           <dd className="mt-1">{formatDateTime(payment.paidAt)}</dd>

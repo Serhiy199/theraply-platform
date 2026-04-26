@@ -8,6 +8,11 @@ import {
 } from "@/lib/constants/payments";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
+import {
+  applyClientCreditToPayment,
+  issueClientCredit,
+  reverseClientCreditApplication,
+} from "@/server/services/client-credit.service";
 
 const paymentEligibilitySelect = {
   id: true,
@@ -25,6 +30,16 @@ const paymentEligibilitySelect = {
       },
     },
   },
+  client: {
+    select: {
+      clientCreditBalance: {
+        select: {
+          balance: true,
+          currency: true,
+        },
+      },
+    },
+  },
   payment: {
     select: {
       id: true,
@@ -33,6 +48,7 @@ const paymentEligibilitySelect = {
       failedAt: true,
       refundedAt: true,
       checkoutExpiresAt: true,
+      creditAppliedAmount: true,
     },
   },
 } satisfies Prisma.BookingSelect;
@@ -56,6 +72,9 @@ export type PaymentEligibility = {
   code: PaymentEligibilityCode;
   message: string;
   amount: number | null;
+  projectedStripeChargeAmount: number | null;
+  projectedCreditAppliedAmount: number;
+  availableCreditAmount: number;
   currency: string;
   paymentDueBy: Date;
   therapistSessionPricePence: number | null;
@@ -90,6 +109,12 @@ const stripeCheckoutBookingSelect = {
       email: true,
       firstName: true,
       lastName: true,
+      clientCreditBalance: {
+        select: {
+          balance: true,
+          currency: true,
+        },
+      },
     },
   },
   therapist: {
@@ -113,6 +138,7 @@ const stripeCheckoutBookingSelect = {
       failedAt: true,
       refundedAt: true,
       checkoutExpiresAt: true,
+      creditAppliedAmount: true,
     },
   },
 } satisfies Prisma.BookingSelect;
@@ -128,13 +154,23 @@ export type CreateClientStripeCheckoutSessionInput = {
 };
 
 export type StripeCheckoutSessionResult = {
-  checkoutUrl: string;
-  sessionId: string;
+  checkoutUrl: string | null;
+  sessionId: string | null;
   paymentId: string;
   amount: number;
+  chargeAmount: number;
+  creditAppliedAmount: number;
   currency: string;
   expiresAt: Date | null;
+  completedFromCredit: boolean;
 };
+
+function buildCreditSuccessUrl(successUrl: string) {
+  const url = new URL(successUrl);
+  url.searchParams.delete("session_id");
+  url.searchParams.set("source", "credit");
+  return url.toString();
+}
 
 type StripePaymentUpdateResult = {
   paymentId: string;
@@ -172,13 +208,38 @@ function buildStripeCheckoutExpiresAt(paymentDueBy: Date, now = new Date()) {
   return checkoutExpiry > now ? checkoutExpiry : null;
 }
 
-function buildCheckoutLineItem(booking: StripeCheckoutBooking) {
+function getAvailableClientCreditAmount(
+  booking: PaymentEligibilityBooking | StripeCheckoutBooking,
+) {
+  return booking.client.clientCreditBalance?.balance ?? 0;
+}
+
+function getProjectedCreditAmounts(totalAmount: number | null, availableCreditAmount: number) {
+  if (!totalAmount || totalAmount <= 0) {
+    return {
+      availableCreditAmount,
+      projectedCreditAppliedAmount: 0,
+      projectedStripeChargeAmount: totalAmount,
+    };
+  }
+
+  const projectedCreditAppliedAmount = Math.min(availableCreditAmount, totalAmount);
+  const projectedStripeChargeAmount = totalAmount - projectedCreditAppliedAmount;
+
+  return {
+    availableCreditAmount,
+    projectedCreditAppliedAmount,
+    projectedStripeChargeAmount,
+  };
+}
+
+function buildCheckoutLineItem(booking: StripeCheckoutBooking, unitAmountOverride?: number) {
   const therapistName = getTherapistCheckoutName(booking);
   const sessionDate = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(booking.startsAt);
-  const unitAmount = booking.therapist.therapistProfile?.sessionPricePence;
+  const unitAmount = unitAmountOverride ?? booking.therapist.therapistProfile?.sessionPricePence;
 
   if (!unitAmount) {
     throw new PaymentFlowServiceError(
@@ -206,14 +267,21 @@ function buildEligibilityResult(
   message: string,
   canPay: boolean,
 ): PaymentEligibility {
+  const amount = booking.therapist.therapistProfile?.sessionPricePence ?? null;
+  const availableCreditAmount = getAvailableClientCreditAmount(booking);
+  const projectedCredit = getProjectedCreditAmounts(amount, availableCreditAmount);
+
   return {
     canPay,
     code,
     message,
-    amount: booking.therapist.therapistProfile?.sessionPricePence ?? null,
+    amount,
+    projectedStripeChargeAmount: projectedCredit.projectedStripeChargeAmount,
+    projectedCreditAppliedAmount: projectedCredit.projectedCreditAppliedAmount,
+    availableCreditAmount: projectedCredit.availableCreditAmount,
     currency: PAYMENT_CURRENCY,
     paymentDueBy: booking.paymentDueBy ?? getPaymentDueBy(booking.startsAt),
-    therapistSessionPricePence: booking.therapist.therapistProfile?.sessionPricePence ?? null,
+    therapistSessionPricePence: amount,
     paymentStatus: booking.payment?.paymentStatus ?? null,
   };
 }
@@ -323,6 +391,7 @@ async function getStripePaymentBookingOrThrow(bookingId: string) {
     },
     select: {
       id: true,
+      clientId: true,
       bookingStatus: true,
       paymentDueBy: true,
       startsAt: true,
@@ -331,7 +400,11 @@ async function getStripePaymentBookingOrThrow(bookingId: string) {
       payment: {
         select: {
           id: true,
+          amount: true,
+          currency: true,
           paymentStatus: true,
+          creditAppliedAmount: true,
+          stripeRefundId: true,
         },
       },
     },
@@ -369,13 +442,6 @@ export async function createClientStripeCheckoutSession(
   clientUserId: string,
   input: CreateClientStripeCheckoutSessionInput,
 ): Promise<StripeCheckoutSessionResult> {
-  if (!isStripeConfigured()) {
-    throw new PaymentFlowServiceError(
-      "Stripe is not configured yet in this environment.",
-      "STRIPE_NOT_CONFIGURED",
-    );
-  }
-
   const booking = await prisma.booking.findFirst({
     where: {
       id: input.bookingId,
@@ -394,27 +460,145 @@ export async function createClientStripeCheckoutSession(
     throw new PaymentFlowServiceError(eligibility.message, "PAYMENT_NOT_ELIGIBLE");
   }
 
-  const stripe = getStripeClient();
+  const creditAppliedAmount = eligibility.projectedCreditAppliedAmount;
+  const chargeAmount = eligibility.projectedStripeChargeAmount ?? eligibility.amount;
   const checkoutExpiresAt = buildStripeCheckoutExpiresAt(eligibility.paymentDueBy);
 
+  if (chargeAmount <= 0) {
+    const payment = await prisma.payment.upsert({
+      where: {
+        bookingId: booking.id,
+      },
+      update: {
+        amount: eligibility.amount,
+        currency: eligibility.currency,
+        paymentStatus: PaymentStatus.PAID,
+        paidAt: new Date(),
+        failedAt: null,
+        refundedAt: null,
+        failedReason: null,
+        refundReason: null,
+        refundedAmount: null,
+        creditAppliedAmount,
+        stripeCheckoutSessionId: null,
+        stripePaymentIntentId: null,
+        stripeRefundId: null,
+        checkoutExpiresAt: null,
+      },
+      create: {
+        bookingId: booking.id,
+        amount: eligibility.amount,
+        currency: eligibility.currency,
+        paymentStatus: PaymentStatus.PAID,
+        paidAt: new Date(),
+        creditAppliedAmount,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (creditAppliedAmount > 0) {
+      await applyClientCreditToPayment({
+        clientId: clientUserId,
+        bookingId: booking.id,
+        paymentId: payment.id,
+        amount: creditAppliedAmount,
+        currency: eligibility.currency,
+        notes: "Applied in full to settle a confirmed session without Stripe checkout.",
+      });
+    }
+
+    return {
+      checkoutUrl: buildCreditSuccessUrl(input.successUrl),
+      sessionId: null,
+      paymentId: payment.id,
+      amount: eligibility.amount,
+      chargeAmount: 0,
+      creditAppliedAmount,
+      currency: eligibility.currency,
+      expiresAt: null,
+      completedFromCredit: true,
+    };
+  }
+
+  if (!isStripeConfigured()) {
+    throw new PaymentFlowServiceError(
+      "Stripe is not configured yet in this environment.",
+      "STRIPE_NOT_CONFIGURED",
+    );
+  }
+
+  const stripe = getStripeClient();
+
+  let paymentId: string | null = null;
+
   try {
+    const payment = await prisma.payment.upsert({
+      where: {
+        bookingId: booking.id,
+      },
+      update: {
+        amount: eligibility.amount,
+        currency: eligibility.currency,
+        paymentStatus: PaymentStatus.PENDING,
+        checkoutExpiresAt,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        failedReason: null,
+        refundReason: null,
+        refundedAmount: null,
+        stripeRefundId: null,
+        stripeCheckoutSessionId: null,
+        stripePaymentIntentId: null,
+        creditAppliedAmount: null,
+      },
+      create: {
+        bookingId: booking.id,
+        amount: eligibility.amount,
+        currency: eligibility.currency,
+        paymentStatus: PaymentStatus.PENDING,
+        checkoutExpiresAt,
+      },
+      select: {
+        id: true,
+      },
+    });
+    paymentId = payment.id;
+
+    if (creditAppliedAmount > 0) {
+      await applyClientCreditToPayment({
+        clientId: clientUserId,
+        bookingId: booking.id,
+        paymentId: payment.id,
+        amount: creditAppliedAmount,
+        currency: eligibility.currency,
+        notes: "Applied toward the next confirmed session before Stripe checkout.",
+      });
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       customer_email: booking.client.email,
       client_reference_id: booking.id,
-      line_items: [buildCheckoutLineItem(booking)],
+      line_items: [buildCheckoutLineItem(booking, chargeAmount)],
       metadata: {
         bookingId: booking.id,
         clientUserId,
         therapistUserId: booking.therapistId,
+        creditAppliedAmount: String(creditAppliedAmount),
+        grossAmount: String(eligibility.amount),
       },
       payment_intent_data: {
         metadata: {
           bookingId: booking.id,
           clientUserId,
           therapistUserId: booking.therapistId,
+          creditAppliedAmount: String(creditAppliedAmount),
+          grossAmount: String(eligibility.amount),
         },
       },
       expires_at: checkoutExpiresAt
@@ -429,43 +613,17 @@ export async function createClientStripeCheckoutSession(
       );
     }
 
-    const payment = await prisma.payment.upsert({
+    await prisma.payment.update({
       where: {
-        bookingId: booking.id,
+        id: payment.id,
       },
-      update: {
-        amount: eligibility.amount,
-        currency: eligibility.currency,
-        paymentStatus: PaymentStatus.PENDING,
+      data: {
         stripeCheckoutSessionId: checkoutSession.id,
         stripePaymentIntentId:
           typeof checkoutSession.payment_intent === "string"
             ? checkoutSession.payment_intent
             : checkoutSession.payment_intent?.id ?? null,
-        checkoutExpiresAt,
-        paidAt: null,
-        failedAt: null,
-        refundedAt: null,
-        failedReason: null,
-        refundReason: null,
-        refundedAmount: null,
-        creditAppliedAmount: null,
-        stripeRefundId: null,
-      },
-      create: {
-        bookingId: booking.id,
-        amount: eligibility.amount,
-        currency: eligibility.currency,
-        paymentStatus: PaymentStatus.PENDING,
-        stripeCheckoutSessionId: checkoutSession.id,
-        stripePaymentIntentId:
-          typeof checkoutSession.payment_intent === "string"
-            ? checkoutSession.payment_intent
-            : checkoutSession.payment_intent?.id ?? null,
-        checkoutExpiresAt,
-      },
-      select: {
-        id: true,
+        creditAppliedAmount,
       },
     });
 
@@ -474,10 +632,33 @@ export async function createClientStripeCheckoutSession(
       sessionId: checkoutSession.id,
       paymentId: payment.id,
       amount: eligibility.amount,
+      chargeAmount,
+      creditAppliedAmount,
       currency: eligibility.currency,
       expiresAt: checkoutExpiresAt,
+      completedFromCredit: false,
     };
   } catch (error) {
+    if (paymentId && creditAppliedAmount > 0) {
+      await reverseClientCreditApplication({
+        clientId: clientUserId,
+        bookingId: booking.id,
+        paymentId,
+        amount: creditAppliedAmount,
+        currency: eligibility.currency,
+        notes: "Reserved credit was restored because Stripe checkout could not be started.",
+      });
+
+      await prisma.payment.update({
+        where: {
+          id: paymentId,
+        },
+        data: {
+          creditAppliedAmount: null,
+        },
+      });
+    }
+
     if (error instanceof PaymentFlowServiceError) {
       throw error;
     }
@@ -500,14 +681,15 @@ export async function markStripeCheckoutSessionCompleted(
 ): Promise<StripePaymentUpdateResult> {
   const paidAt = new Date();
   const booking = await getStripePaymentBookingOrThrow(bookingId);
+  const existingPayment = booking.payment;
 
   const payment = await prisma.payment.upsert({
     where: {
       bookingId,
     },
     update: {
-      amount: input.amount,
-      currency: input.currency,
+      amount: existingPayment?.amount ?? input.amount,
+      currency: existingPayment?.currency ?? input.currency,
       paymentStatus: PaymentStatus.PAID,
       stripeCheckoutSessionId: input.checkoutSessionId,
       stripePaymentIntentId: input.paymentIntentId,
@@ -518,6 +700,7 @@ export async function markStripeCheckoutSessionCompleted(
       refundReason: null,
       refundedAmount: null,
       stripeRefundId: null,
+      checkoutExpiresAt: null,
     },
     create: {
       bookingId,
@@ -563,18 +746,31 @@ export async function markStripePaymentIntentFailed(
   },
 ): Promise<StripePaymentUpdateResult> {
   const failedAt = new Date();
+  const booking = await getStripePaymentBookingOrThrow(bookingId);
+
+  if (booking.payment?.creditAppliedAmount) {
+    await reverseClientCreditApplication({
+      clientId: booking.clientId,
+      bookingId,
+      paymentId: booking.payment.id,
+      amount: booking.payment.creditAppliedAmount,
+      currency: booking.payment.currency,
+      notes: "Credit was restored after Stripe reported a failed payment attempt.",
+    });
+  }
 
   const payment = await prisma.payment.upsert({
     where: {
       bookingId,
     },
     update: {
-      amount: input.amount,
-      currency: input.currency,
+      amount: booking.payment?.amount ?? input.amount,
+      currency: booking.payment?.currency ?? input.currency,
       paymentStatus: PaymentStatus.FAILED,
       stripePaymentIntentId: input.paymentIntentId,
       failedAt,
       failedReason: input.failedReason,
+      creditAppliedAmount: null,
     },
     create: {
       bookingId,
@@ -610,19 +806,32 @@ export async function markStripeCheckoutSessionExpired(
   },
 ): Promise<StripePaymentUpdateResult> {
   const failedAt = new Date();
+  const booking = await getStripePaymentBookingOrThrow(bookingId);
+
+  if (booking.payment?.creditAppliedAmount) {
+    await reverseClientCreditApplication({
+      clientId: booking.clientId,
+      bookingId,
+      paymentId: booking.payment.id,
+      amount: booking.payment.creditAppliedAmount,
+      currency: booking.payment.currency,
+      notes: "Credit was restored after Stripe checkout expired.",
+    });
+  }
 
   const payment = await prisma.payment.upsert({
     where: {
       bookingId,
     },
     update: {
-      amount: input.amount,
-      currency: input.currency,
+      amount: booking.payment?.amount ?? input.amount,
+      currency: booking.payment?.currency ?? input.currency,
       paymentStatus: PaymentStatus.FAILED,
       stripeCheckoutSessionId: input.checkoutSessionId,
       checkoutExpiresAt: input.checkoutExpiresAt,
       failedAt,
       failedReason: input.failedReason,
+      creditAppliedAmount: null,
     },
     create: {
       bookingId,
@@ -665,6 +874,14 @@ export async function markStripeChargeRefunded(
     );
   }
 
+  if (booking.payment.paymentStatus === PaymentStatus.REFUNDED) {
+    return {
+      paymentId: booking.payment.id,
+      bookingId,
+      paymentStatus: booking.payment.paymentStatus,
+    };
+  }
+
   const refundedAt = new Date();
 
   const payment = await prisma.payment.update({
@@ -694,6 +911,18 @@ export async function markStripeChargeRefunded(
       compensationResolvedAt: refundedAt,
     },
   });
+
+  if (booking.payment.creditAppliedAmount) {
+    await issueClientCredit({
+      clientId: booking.clientId,
+      bookingId,
+      paymentId: booking.payment.id,
+      amount: booking.payment.creditAppliedAmount,
+      currency: booking.payment.currency,
+      notes: "Credit was restored to the client after the booking payment was refunded.",
+      actorUserId: booking.clientId,
+    });
+  }
 
   return {
     paymentId: payment.id,
