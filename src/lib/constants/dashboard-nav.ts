@@ -41,6 +41,12 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       description: "Overview, upcoming sessions, and payment summary.",
     },
     {
+      key: "client-new-booking",
+      href: "/client/book/new",
+      label: "New booking",
+      description: "Find a therapist and reserve the next available session.",
+    },
+    {
       key: "client-bookings",
       href: "/client/bookings",
       label: "Bookings",

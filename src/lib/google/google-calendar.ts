@@ -64,6 +64,7 @@ export type GoogleCalendarListItem = {
   summary: string | null;
   primary: boolean;
   accessRole: string | null;
+  timeZone: string | null;
 };
 
 export async function getGoogleAuthenticatedUserProfile(
@@ -97,6 +98,7 @@ export async function listGoogleCalendars(
     summary: item.summary?.trim() || null,
     primary: Boolean(item.primary),
     accessRole: item.accessRole?.trim() || null,
+    timeZone: item.timeZone?.trim() || null,
   }));
 }
 

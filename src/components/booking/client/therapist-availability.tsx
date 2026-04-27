@@ -1,3 +1,4 @@
+import { formatDateKeyInTimeZone } from "@/lib/google/google-time-zone";
 import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
@@ -25,11 +26,12 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value / 100);
 }
 
-function formatDayLabel(date: Date) {
-  return new Intl.DateTimeFormat("en", {
+function formatDayLabel(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
     weekday: "long",
     month: "long",
     day: "numeric",
+    timeZone,
   }).format(date);
 }
 
@@ -37,7 +39,7 @@ function groupSlotsByDay(slots: TherapistAvailabilitySlot[]) {
   const groups = new Map<string, TherapistAvailabilitySlot[]>();
 
   for (const slot of slots) {
-    const key = slot.startsAt.toISOString().slice(0, 10);
+    const key = formatDateKeyInTimeZone(slot.startsAt, slot.timeZone);
     const existing = groups.get(key);
 
     if (existing) {
@@ -49,7 +51,7 @@ function groupSlotsByDay(slots: TherapistAvailabilitySlot[]) {
 
   return Array.from(groups.entries()).map(([key, daySlots]) => ({
     key,
-    label: formatDayLabel(daySlots[0].startsAt),
+    label: formatDayLabel(daySlots[0].startsAt, daySlots[0].timeZone),
     slots: daySlots,
   }));
 }
@@ -68,6 +70,7 @@ export function TherapistAvailability({
   const slotGroups = groupSlotsByDay(slots);
   const availableCount = slots.filter((slot) => slot.isAvailable).length;
   const unavailableCount = slots.length - availableCount;
+  const displayTimeZone = slots[0]?.timeZone ?? "Europe/London";
   const hasCalendarConnection = Boolean(
     therapist.therapistProfile?.isGoogleCalendarConnected &&
       therapist.therapistProfile?.googleCalendarId,
@@ -125,6 +128,9 @@ export function TherapistAvailability({
             </p>
             <div className="mt-5 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
               Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
+            </div>
+            <div className="mt-3 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+              Times shown in: <span className="font-semibold text-slate-900">{displayTimeZone}</span>
             </div>
             {!hasCalendarConnection ? (
               <div className="mt-4">

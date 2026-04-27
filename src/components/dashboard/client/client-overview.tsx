@@ -36,6 +36,21 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
           quick actions, and the next booking touchpoints all live in one place.
         </p>
 
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/client/book/new"
+            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Book a session
+          </Link>
+          <Link
+            href="/client/bookings"
+            className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-white"
+          >
+            Open bookings
+          </Link>
+        </div>
+
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">

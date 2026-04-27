@@ -3,10 +3,11 @@ import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.s
 import { RequestSlotForm } from "@/components/booking/client/request-slot-form";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 
-function formatTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
+function formatTime(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone,
   }).format(date);
 }
 
@@ -21,7 +22,7 @@ export function SlotCard({ slot }: SlotCardProps) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Session slot</p>
           <h4 className="mt-2 text-xl font-semibold text-slate-900">
-            {formatTime(slot.startsAt)} - {formatTime(slot.endsAt)}
+            {formatTime(slot.startsAt, slot.timeZone)} - {formatTime(slot.endsAt, slot.timeZone)}
           </h4>
         </div>
         <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${slot.isAvailable ? "border-emerald-200 bg-white/80 text-emerald-800" : "border-slate-200 bg-white/70 text-slate-600"}`}>

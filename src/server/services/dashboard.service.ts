@@ -143,6 +143,11 @@ export async function getClientDashboardData(userId: string) {
     },
     quickActions: [
       {
+        label: "Book a session",
+        href: "/client/book/new",
+        description: "Browse approved therapists and start a new booking request.",
+      },
+      {
         label: "Open bookings",
         href: "/client/bookings",
         description: "Review the next sessions and booking history.",

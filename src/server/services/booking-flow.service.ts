@@ -51,6 +51,7 @@ export type TherapistAvailabilitySlot = {
   startsAt: Date;
   endsAt: Date;
   isAvailable: boolean;
+  timeZone: string;
 };
 
 export type CreateBookingRequestInput = {

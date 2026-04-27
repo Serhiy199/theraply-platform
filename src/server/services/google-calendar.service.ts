@@ -9,6 +9,7 @@ import {
   getGooglePrimaryCalendar,
   refreshGoogleAccessToken,
 } from "@/lib/google/google-calendar";
+import { DEFAULT_THERAPIST_TIME_ZONE } from "@/lib/google/google-time-zone";
 import {
   buildGoogleOAuthConsentUrl,
   createGoogleOAuthClient,
@@ -57,6 +58,7 @@ export type TherapistGoogleCalendarOption = {
   id: string;
   summary: string;
   primary: boolean;
+  timeZone: string | null;
 };
 
 export type CreateTherapistGoogleCalendarEventInput = {
@@ -403,6 +405,7 @@ export async function getTherapistSelectableGoogleCalendars(
         summary: string | null;
         primary: boolean;
         accessRole: string | null;
+        timeZone: string | null;
       } =>
         Boolean(calendar.id) &&
         ["owner", "writer"].includes(calendar.accessRole ?? ""),
@@ -411,7 +414,25 @@ export async function getTherapistSelectableGoogleCalendars(
       id: calendar.id,
       summary: calendar.summary ?? calendar.id,
       primary: calendar.primary,
+      timeZone: calendar.timeZone,
     }));
+}
+
+export async function getTherapistSelectedGoogleCalendarTimeZone(therapistUserId: string) {
+  const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
+
+  if (!connection.googleCalendarId) {
+    return DEFAULT_THERAPIST_TIME_ZONE;
+  }
+
+  try {
+    const calendars = await getTherapistSelectableGoogleCalendars(therapistUserId);
+    const selectedCalendar = calendars.find((calendar) => calendar.id === connection.googleCalendarId);
+
+    return selectedCalendar?.timeZone?.trim() || DEFAULT_THERAPIST_TIME_ZONE;
+  } catch {
+    return DEFAULT_THERAPIST_TIME_ZONE;
+  }
 }
 
 export async function updateTherapistSelectedGoogleCalendar(

@@ -1,3 +1,8 @@
+import {
+  createDateInTimeZone,
+  getDateTimePartsInTimeZone,
+} from "@/lib/google/google-time-zone";
+
 export type AvailabilityTimeRange = {
   startsAt: Date;
   endsAt: Date;
@@ -5,6 +10,7 @@ export type AvailabilityTimeRange = {
 
 export type DiscreteAvailabilitySlot = AvailabilityTimeRange & {
   isAvailable: boolean;
+  timeZone: string;
 };
 
 export type AvailabilitySlotMapperOptions = {
@@ -13,6 +19,7 @@ export type AvailabilitySlotMapperOptions = {
   slotDurationMinutes: number;
   businessHoursStart: number;
   businessHoursEnd: number;
+  timeZone: string;
 };
 
 function addMinutes(date: Date, minutes: number) {
@@ -83,18 +90,40 @@ export function buildDiscreteAvailabilitySlots(
 ): DiscreteAvailabilitySlot[] {
   const mergedBusyRanges = mergeAvailabilityBusyRanges(busyRanges, options.from, options.to);
   const slots: DiscreteAvailabilitySlot[] = [];
-  let cursor = new Date(options.from);
+  const startParts = getDateTimePartsInTimeZone(options.from, options.timeZone);
+  let dayCursor = createDateInTimeZone(
+    startParts.year,
+    startParts.month,
+    startParts.day,
+    0,
+    0,
+    0,
+    options.timeZone,
+  );
 
-  while (cursor < options.to) {
-    const startsAt = new Date(cursor);
-    const endsAt = addMinutes(startsAt, options.slotDurationMinutes);
+  while (dayCursor < options.to) {
+    const dayParts = getDateTimePartsInTimeZone(dayCursor, options.timeZone);
 
-    const withinBusinessHours =
-      startsAt.getHours() >= options.businessHoursStart &&
-      endsAt.getHours() <= options.businessHoursEnd &&
-      endsAt <= options.to;
+    for (
+      let hour = options.businessHoursStart;
+      hour < options.businessHoursEnd;
+      hour += options.slotDurationMinutes / 60
+    ) {
+      const startsAt = createDateInTimeZone(
+        dayParts.year,
+        dayParts.month,
+        dayParts.day,
+        hour,
+        0,
+        0,
+        options.timeZone,
+      );
+      const endsAt = addMinutes(startsAt, options.slotDurationMinutes);
 
-    if (withinBusinessHours) {
+      if (startsAt < options.from || endsAt > options.to) {
+        continue;
+      }
+
       const isAvailable = !mergedBusyRanges.some((range) =>
         overlaps(startsAt, endsAt, range.startsAt, range.endsAt),
       );
@@ -103,10 +132,19 @@ export function buildDiscreteAvailabilitySlots(
         startsAt,
         endsAt,
         isAvailable,
+        timeZone: options.timeZone,
       });
     }
 
-    cursor = addMinutes(cursor, options.slotDurationMinutes);
+    dayCursor = createDateInTimeZone(
+      dayParts.year,
+      dayParts.month,
+      dayParts.day + 1,
+      0,
+      0,
+      0,
+      options.timeZone,
+    );
   }
 
   return slots;

@@ -30,6 +30,7 @@ export function RequestSlotForm({ therapistId, startsAt, endsAt }: RequestSlotFo
     createBookingRequestAction,
     initialBookingRequestActionState,
   );
+  const buttonDisabled = pending;
 
   return (
     <form action={formAction} className="mt-4 grid gap-3">
@@ -52,8 +53,14 @@ export function RequestSlotForm({ therapistId, startsAt, endsAt }: RequestSlotFo
 
       <button
         type="submit"
-        disabled={pending}
-        className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        disabled={buttonDisabled}
+        className={[
+          "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition",
+          buttonDisabled
+            ? "cursor-not-allowed bg-slate-300 !text-slate-800"
+            : "cursor-pointer bg-slate-900 !text-white hover:bg-slate-800",
+        ].join(" ")}
+        style={{ color: buttonDisabled ? "#1f2937" : "#ffffff" }}
       >
         {pending ? "Sending request..." : "Request this slot"}
       </button>

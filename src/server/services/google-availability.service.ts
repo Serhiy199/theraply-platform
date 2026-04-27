@@ -8,6 +8,7 @@ import {
 import {
   GoogleCalendarServiceError,
   getAuthenticatedTherapistGoogleCalendarClient,
+  getTherapistSelectedGoogleCalendarTimeZone,
 } from "@/server/services/google-calendar.service";
 import {
   createAuditLogEntryBestEffort,
@@ -29,6 +30,7 @@ export type TherapistGoogleAvailabilitySlot = {
   startsAt: Date;
   endsAt: Date;
   isAvailable: boolean;
+  timeZone: string;
 };
 
 export class GoogleAvailabilityServiceError extends Error {
@@ -133,9 +135,13 @@ async function getGoogleCalendarBusyRanges(
   therapistId: string,
   from: Date,
   to: Date,
-): Promise<AvailabilityTimeRange[]> {
+): Promise<{
+  busyRanges: AvailabilityTimeRange[];
+  timeZone: string;
+}> {
   try {
     const { connection, calendar } = await getAuthenticatedTherapistGoogleCalendarClient(therapistId);
+    const timeZone = await getTherapistSelectedGoogleCalendarTimeZone(therapistId);
 
     if (!connection.googleCalendarId) {
       await createAuditLogEntryBestEffort({
@@ -159,6 +165,7 @@ async function getGoogleCalendarBusyRanges(
       requestBody: {
         timeMin: from.toISOString(),
         timeMax: to.toISOString(),
+        timeZone,
         items: [{ id: connection.googleCalendarId }],
       },
     });
@@ -166,7 +173,9 @@ async function getGoogleCalendarBusyRanges(
     const busyRanges =
       response.data.calendars?.[connection.googleCalendarId]?.busy ?? [];
 
-    return busyRanges
+    return {
+      timeZone,
+      busyRanges: busyRanges
       .map((range) => {
         const startsAt = range.start ? new Date(range.start) : null;
         const endsAt = range.end ? new Date(range.end) : null;
@@ -180,7 +189,8 @@ async function getGoogleCalendarBusyRanges(
           endsAt,
         };
       })
-      .filter((range): range is AvailabilityTimeRange => Boolean(range));
+      .filter((range): range is AvailabilityTimeRange => Boolean(range)),
+    };
   } catch (error) {
     if (error instanceof GoogleAvailabilityServiceError) {
       throw error;
@@ -235,7 +245,11 @@ export async function hasTherapistGoogleCalendarBusyConflict(
 ) {
   validateDateRange(startsAt, endsAt);
 
-  const googleBusyRanges = await getGoogleCalendarBusyRanges(therapistId, startsAt, endsAt);
+  const { busyRanges: googleBusyRanges } = await getGoogleCalendarBusyRanges(
+    therapistId,
+    startsAt,
+    endsAt,
+  );
 
   return googleBusyRanges.some((range) =>
     rangesOverlap(startsAt, endsAt, range.startsAt, range.endsAt),
@@ -249,10 +263,12 @@ export async function getTherapistGoogleAvailability(
 ): Promise<TherapistGoogleAvailabilitySlot[]> {
   validateDateRange(from, to);
 
-  const [googleBusyRanges, localBusyRanges] = await Promise.all([
+  const [googleCalendarResult, localBusyRanges] = await Promise.all([
     getGoogleCalendarBusyRanges(therapistId, from, to),
     getLocalBookingBusyRanges(therapistId, from, to),
   ]);
+
+  const { busyRanges: googleBusyRanges, timeZone } = googleCalendarResult;
 
   const slots = buildDiscreteAvailabilitySlots(
     [...googleBusyRanges, ...localBusyRanges],
@@ -262,6 +278,7 @@ export async function getTherapistGoogleAvailability(
       slotDurationMinutes: DEFAULT_SLOT_DURATION_MINUTES,
       businessHoursStart: BUSINESS_HOURS_START,
       businessHoursEnd: BUSINESS_HOURS_END,
+      timeZone,
     },
   );
 
@@ -270,5 +287,6 @@ export async function getTherapistGoogleAvailability(
     startsAt: slot.startsAt,
     endsAt: slot.endsAt,
     isAvailable: slot.isAvailable,
+    timeZone: slot.timeZone,
   }));
 }
