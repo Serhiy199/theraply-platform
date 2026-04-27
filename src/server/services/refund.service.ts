@@ -44,6 +44,26 @@ function isStandardRefundWindow(startsAt: Date, now = new Date()) {
   return startsAt.getTime() - now.getTime() >= CANCELLATION_POLICY_HOURS * 60 * 60 * 1000;
 }
 
+async function logRefundSkipped(input: {
+  actorUserId: string | null;
+  bookingId: string;
+  paymentId: string | null;
+  trigger: RefundTrigger;
+  reason: RefundExecutionResult["reason"];
+}) {
+  await createAuditLogEntryBestEffort({
+    actorUserId: input.actorUserId,
+    entityType: "Payment",
+    entityId: input.paymentId ?? input.bookingId,
+    action: "STRIPE_REFUND_SKIPPED",
+    after: {
+      bookingId: input.bookingId,
+      trigger: input.trigger,
+      reason: input.reason,
+    },
+  });
+}
+
 async function getBookingPaymentContextOrThrow(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: {
@@ -82,6 +102,14 @@ export async function refundClientCancellationIfEligible(
   const booking = await getBookingPaymentContextOrThrow(bookingId);
 
   if (!booking.payment) {
+    await logRefundSkipped({
+      actorUserId,
+      bookingId,
+      paymentId: null,
+      trigger: "CLIENT_STANDARD_CANCELLATION",
+      reason: "PAYMENT_NOT_FOUND",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_FOUND",
@@ -91,6 +119,14 @@ export async function refundClientCancellationIfEligible(
   }
 
   if (booking.payment.paymentStatus === PaymentStatus.REFUNDED) {
+    await logRefundSkipped({
+      actorUserId,
+      bookingId,
+      paymentId: booking.payment.id,
+      trigger: "CLIENT_STANDARD_CANCELLATION",
+      reason: "ALREADY_REFUNDED",
+    });
+
     return {
       status: "skipped",
       reason: "ALREADY_REFUNDED",
@@ -100,6 +136,14 @@ export async function refundClientCancellationIfEligible(
   }
 
   if (booking.payment.paymentStatus !== PaymentStatus.PAID) {
+    await logRefundSkipped({
+      actorUserId,
+      bookingId,
+      paymentId: booking.payment.id,
+      trigger: "CLIENT_STANDARD_CANCELLATION",
+      reason: "PAYMENT_NOT_PAID",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_PAID",
@@ -109,6 +153,14 @@ export async function refundClientCancellationIfEligible(
   }
 
   if (!isStandardRefundWindow(booking.startsAt)) {
+    await logRefundSkipped({
+      actorUserId,
+      bookingId,
+      paymentId: booking.payment.id,
+      trigger: "CLIENT_STANDARD_CANCELLATION",
+      reason: "LATE_CANCELLATION_POLICY",
+    });
+
     return {
       status: "skipped",
       reason: "LATE_CANCELLATION_POLICY",
@@ -135,6 +187,14 @@ export async function refundPlatformCancellationIfEligible(input: {
   const booking = await getBookingPaymentContextOrThrow(input.bookingId);
 
   if (!booking.payment) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: null,
+      trigger: input.trigger,
+      reason: "PAYMENT_NOT_FOUND",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_FOUND",
@@ -144,6 +204,14 @@ export async function refundPlatformCancellationIfEligible(input: {
   }
 
   if (booking.payment.paymentStatus === PaymentStatus.REFUNDED) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: booking.payment.id,
+      trigger: input.trigger,
+      reason: "ALREADY_REFUNDED",
+    });
+
     return {
       status: "skipped",
       reason: "ALREADY_REFUNDED",
@@ -153,6 +221,14 @@ export async function refundPlatformCancellationIfEligible(input: {
   }
 
   if (booking.payment.paymentStatus !== PaymentStatus.PAID) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: booking.payment.id,
+      trigger: input.trigger,
+      reason: "PAYMENT_NOT_PAID",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_PAID",
@@ -188,6 +264,14 @@ async function requestStripeRefundForBooking(input: {
   const payment = booking.payment;
 
   if (!payment) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: null,
+      trigger: input.trigger,
+      reason: "PAYMENT_NOT_FOUND",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_FOUND",
@@ -197,6 +281,14 @@ async function requestStripeRefundForBooking(input: {
   }
 
   if (payment.paymentStatus === PaymentStatus.REFUNDED) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: payment.id,
+      trigger: input.trigger,
+      reason: "ALREADY_REFUNDED",
+    });
+
     return {
       status: "skipped",
       reason: "ALREADY_REFUNDED",
@@ -206,6 +298,14 @@ async function requestStripeRefundForBooking(input: {
   }
 
   if (payment.paymentStatus !== PaymentStatus.PAID) {
+    await logRefundSkipped({
+      actorUserId: input.actorUserId,
+      bookingId: input.bookingId,
+      paymentId: payment.id,
+      trigger: input.trigger,
+      reason: "PAYMENT_NOT_PAID",
+    });
+
     return {
       status: "skipped",
       reason: "PAYMENT_NOT_PAID",
@@ -271,6 +371,18 @@ async function requestStripeRefundForBooking(input: {
       paymentId: payment.id,
       trigger: input.trigger,
       error: error instanceof Error ? error.message : String(error),
+    });
+
+    await createAuditLogEntryBestEffort({
+      actorUserId: input.actorUserId,
+      entityType: "Payment",
+      entityId: payment.id,
+      action: "STRIPE_REFUND_CREATE_FAILED",
+      after: {
+        bookingId: booking.id,
+        trigger: input.trigger,
+        error: error instanceof Error ? error.message : String(error),
+      },
     });
 
     throw new RefundServiceError(

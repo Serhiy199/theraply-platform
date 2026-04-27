@@ -13,6 +13,7 @@ import {
   issueClientCredit,
   reverseClientCreditApplication,
 } from "@/server/services/client-credit.service";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 
 const paymentEligibilitySelect = {
   id: true,
@@ -509,6 +510,19 @@ export async function createClientStripeCheckoutSession(
       });
     }
 
+    await createAuditLogEntryBestEffort({
+      actorUserId: clientUserId,
+      entityType: "Payment",
+      entityId: payment.id,
+      action: "PAYMENT_SETTLED_WITH_CLIENT_CREDIT",
+      after: {
+        bookingId: booking.id,
+        amount: eligibility.amount,
+        currency: eligibility.currency,
+        creditAppliedAmount,
+      },
+    });
+
     return {
       checkoutUrl: buildCreditSuccessUrl(input.successUrl),
       sessionId: null,
@@ -627,6 +641,25 @@ export async function createClientStripeCheckoutSession(
       },
     });
 
+    await createAuditLogEntryBestEffort({
+      actorUserId: clientUserId,
+      entityType: "Payment",
+      entityId: payment.id,
+      action: "STRIPE_CHECKOUT_SESSION_CREATED",
+      after: {
+        bookingId: booking.id,
+        sessionId: checkoutSession.id,
+        paymentIntentId:
+          typeof checkoutSession.payment_intent === "string"
+            ? checkoutSession.payment_intent
+            : checkoutSession.payment_intent?.id ?? null,
+        grossAmount: eligibility.amount,
+        chargeAmount,
+        creditAppliedAmount,
+        expiresAt: checkoutExpiresAt,
+      },
+    });
+
     return {
       checkoutUrl: checkoutSession.url,
       sessionId: checkoutSession.id,
@@ -658,6 +691,20 @@ export async function createClientStripeCheckoutSession(
         },
       });
     }
+
+    await createAuditLogEntryBestEffort({
+      actorUserId: clientUserId,
+      entityType: "StripeCheckout",
+      entityId: paymentId ?? booking.id,
+      action: "STRIPE_CHECKOUT_SESSION_CREATE_FAILED",
+      after: {
+        bookingId: booking.id,
+        grossAmount: eligibility.amount,
+        creditAppliedAmount,
+        chargeAmount,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
 
     if (error instanceof PaymentFlowServiceError) {
       throw error;
