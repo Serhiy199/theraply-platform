@@ -19,10 +19,6 @@ export type BookingRequestActionState = {
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
-export const initialBookingRequestActionState: BookingRequestActionState = {
-  status: "idle",
-};
-
 export async function createBookingRequestAction(
   _prevState: BookingRequestActionState,
   formData: FormData,

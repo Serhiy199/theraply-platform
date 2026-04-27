@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import {
   createBookingRequestAction,
-  initialBookingRequestActionState,
   type BookingRequestActionState,
 } from "@/app/client/book/actions";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
@@ -12,6 +11,10 @@ type RequestSlotFormProps = {
   therapistId: string;
   startsAt: string;
   endsAt: string;
+};
+
+const initialBookingRequestActionState: BookingRequestActionState = {
+  status: "idle",
 };
 
 function getErrorTone(state: BookingRequestActionState) {
