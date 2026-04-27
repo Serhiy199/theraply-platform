@@ -19,17 +19,9 @@ export type PayoutDetailsActionState = {
   fieldErrors?: Record<string, string[]>;
 };
 
-export const initialPayoutDetailsActionState: PayoutDetailsActionState = {
-  status: "idle",
-};
-
 export type GoogleCalendarSelectionActionState = {
   status: "idle" | "success" | "error";
   message?: string;
-};
-
-export const initialGoogleCalendarSelectionActionState: GoogleCalendarSelectionActionState = {
-  status: "idle",
 };
 
 export async function payoutDetailsAction(

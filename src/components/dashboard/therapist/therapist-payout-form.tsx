@@ -4,8 +4,6 @@ import { useActionState } from "react";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import {
   googleCalendarSelectionAction,
-  initialGoogleCalendarSelectionActionState,
-  initialPayoutDetailsActionState,
   payoutDetailsAction,
   type GoogleCalendarSelectionActionState,
   type PayoutDetailsActionState,
@@ -20,6 +18,14 @@ type TherapistPayoutFormProps = {
     status: "success" | "error";
     message: string;
   } | null;
+};
+
+const initialPayoutDetailsActionState: PayoutDetailsActionState = {
+  status: "idle",
+};
+
+const initialGoogleCalendarSelectionActionState: GoogleCalendarSelectionActionState = {
+  status: "idle",
 };
 
 function formatSessionPriceInput(value: number | null) {
