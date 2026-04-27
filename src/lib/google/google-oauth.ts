@@ -82,6 +82,7 @@ export function normalizeGoogleOAuthTokens(
 export async function exchangeGoogleAuthorizationCode(code: string) {
   const client = createGoogleOAuthClient();
   const { tokens } = await client.getToken(code);
+  client.setCredentials(tokens);
 
   return {
     client,
