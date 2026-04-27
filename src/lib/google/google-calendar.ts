@@ -63,6 +63,7 @@ export type GoogleCalendarListItem = {
   id: string | null;
   summary: string | null;
   primary: boolean;
+  accessRole: string | null;
 };
 
 export async function getGoogleAuthenticatedUserProfile(
@@ -95,6 +96,7 @@ export async function listGoogleCalendars(
     id: item.id?.trim() || null,
     summary: item.summary?.trim() || null,
     primary: Boolean(item.primary),
+    accessRole: item.accessRole?.trim() || null,
   }));
 }
 

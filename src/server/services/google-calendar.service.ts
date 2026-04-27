@@ -395,8 +395,17 @@ export async function getTherapistSelectableGoogleCalendars(
   const calendars = await listGoogleCalendars(auth);
 
   return calendars
-    .filter((calendar): calendar is { id: string; summary: string | null; primary: boolean } =>
-      Boolean(calendar.id),
+    .filter(
+      (
+        calendar,
+      ): calendar is {
+        id: string;
+        summary: string | null;
+        primary: boolean;
+        accessRole: string | null;
+      } =>
+        Boolean(calendar.id) &&
+        ["owner", "writer"].includes(calendar.accessRole ?? ""),
     )
     .map((calendar) => ({
       id: calendar.id,

@@ -27,8 +27,8 @@ export function DashboardShell({
   user,
 }: DashboardShellProps) {
   return (
-    <main className="site-shell mx-auto min-h-screen w-full max-w-7xl px-6 py-8 md:px-10 lg:py-10">
-      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+    <main className="site-shell mx-auto min-h-screen w-full max-w-[1440px] px-6 py-8 md:px-10 lg:py-10">
+      <div className="grid gap-6 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
         <DashboardSidebar
           eyebrow={eyebrow}
           title={title}

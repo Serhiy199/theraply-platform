@@ -74,6 +74,8 @@ export function TherapistPayoutForm({
     googleCalendarSelectionAction,
     initialGoogleCalendarSelectionActionState,
   );
+  const payoutButtonDisabled = pending;
+  const calendarButtonDisabled = !googleCalendars.length || calendarPending;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -112,16 +114,23 @@ export function TherapistPayoutForm({
             <input name="bankName" defaultValue={data.payoutDetails?.bankName ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
           </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">IBAN</span>
-              <input name="iban" defaultValue={data.payoutDetails?.iban ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
-            </label>
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">SWIFT</span>
-              <input name="swift" defaultValue={data.payoutDetails?.swift ?? ""} className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500" />
-            </label>
-          </div>
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span className="font-medium">IBAN</span>
+            <input
+              name="iban"
+              defaultValue={data.payoutDetails?.iban ?? ""}
+              className="min-w-0 rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
+            />
+          </label>
+
+          <label className="grid gap-2 text-sm text-slate-700">
+            <span className="font-medium">SWIFT</span>
+            <input
+              name="swift"
+              defaultValue={data.payoutDetails?.swift ?? ""}
+              className="min-w-0 rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
+            />
+          </label>
 
           <label className="grid gap-2 text-sm text-slate-700">
             <span className="font-medium">Country</span>
@@ -147,7 +156,17 @@ export function TherapistPayoutForm({
             ) : null}
           </label>
 
-          <button type="submit" disabled={pending} className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button
+            type="submit"
+            disabled={payoutButtonDisabled}
+            className={[
+              "inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold transition",
+              payoutButtonDisabled
+                ? "cursor-not-allowed border-slate-300 bg-slate-100 !text-slate-800"
+                : "cursor-pointer border-slate-900 bg-slate-900 !text-white hover:bg-slate-800",
+            ].join(" ")}
+            style={{ color: payoutButtonDisabled ? "#1f2937" : "#ffffff" }}
+          >
             {pending ? "Saving..." : "Save payout details"}
           </button>
         </form>
@@ -209,6 +228,9 @@ export function TherapistPayoutForm({
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Choose which Google Calendar should receive confirmed session events. The primary calendar is selected automatically after the first connection, but you can change it here.
           </p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Only calendars that this Google account can write to are shown here.
+          </p>
 
           <form action={calendarFormAction} className="mt-5 grid gap-4">
             {calendarState.message ? (
@@ -225,8 +247,8 @@ export function TherapistPayoutForm({
               <select
                 name="googleCalendarId"
                 defaultValue={data.profile.googleCalendarId ?? ""}
-                disabled={!googleCalendars.length || calendarPending}
-                className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                disabled={calendarButtonDisabled}
+                className="rounded-[1rem] border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600"
               >
                 <option value="">
                   {googleCalendars.length
@@ -244,8 +266,14 @@ export function TherapistPayoutForm({
 
             <button
               type="submit"
-              disabled={!googleCalendars.length || calendarPending}
-              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              disabled={calendarButtonDisabled}
+              className={[
+                "inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold transition",
+                calendarButtonDisabled
+                  ? "cursor-not-allowed border-slate-300 bg-slate-100 !text-slate-800"
+                  : "cursor-pointer border-slate-900 bg-slate-900 !text-white hover:bg-slate-800",
+              ].join(" ")}
+              style={{ color: calendarButtonDisabled ? "#1f2937" : "#ffffff" }}
             >
               {calendarPending ? "Saving..." : "Save target calendar"}
             </button>

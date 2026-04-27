@@ -78,7 +78,7 @@ export function DashboardSidebar({
               className={[
                 "rounded-3xl border px-4 py-4 transition",
                 active
-                  ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15"
+                  ? "border-slate-900 bg-white text-slate-950 shadow-lg shadow-slate-200/70"
                   : "border-slate-200/70 bg-white/60 text-slate-900 hover:border-slate-300 hover:bg-white",
               ].join(" ")}
             >
@@ -86,7 +86,7 @@ export function DashboardSidebar({
               <span
                 className={[
                   "mt-1 block text-sm leading-5",
-                  active ? "text-slate-200" : "text-slate-600",
+                  active ? "text-slate-700" : "text-slate-600",
                 ].join(" ")}
               >
                 {item.description}
