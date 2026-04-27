@@ -8,7 +8,7 @@ Theraply Platform is the product application built with Next.js for three core r
 - therapists
 - administrators
 
-The marketing website remains outside this repository. This codebase contains the platform application that will run on a dedicated product subdomain.
+The marketing website remains outside this repository. This codebase contains the private product workspace that runs on the platform subdomain.
 
 ## Current Status
 
@@ -21,32 +21,25 @@ Completed phases:
 - `Stages 5-7` - operational modules for client, therapist, and admin
 - `Phase 8` - end-to-end booking flow
 - `Phase 9` - Google Calendar integration
+- `Phase 10` - Stripe payments, refunds, client credit, and finance visibility
 
 The current application already includes:
 
-- client self-signup
-- credentials-based login with `NextAuth`
+- client self-signup and credentials-based login with `NextAuth`
 - forgot-password and reset-password flows
 - protected role-based routes
-- a shared private dashboard shell
-- role-specific overview dashboards for `client`, `therapist`, and `admin`
-- a real client module for bookings, booking details, payments, and cancellation
-- a real therapist module for requests, sessions, clients, and payout details
-- a real admin module for users, therapists, bookings, payments, manual cancellation, and audit visibility
-- strict server-side role guards for mutation actions
-- shared empty, loading, success, and error states across the private workspace
-- a server-side Prisma service layer for dashboards, bookings, sessions, payments, admin operations, and booking flow
-- therapist selection and slot selection for the new client booking flow
-- booking request creation with the `PENDING_THERAPIST` status
-- a unified end-to-end booking flow between client, therapist, and admin
-- therapist-owned Google Calendar connection and target calendar selection
-- real therapist availability from Google Calendar `freeBusy`
-- conflict-aware booking creation with database and Google Calendar guards
-- automatic Google Calendar event creation after therapist confirmation
-- automatic Google Meet link generation and storage in `Session`
-- Google Calendar event cleanup on reject / cancel flows
-- Google Calendar audit logging and diagnostics for connect, sync, and failure events
-- booking-flow-specific empty, loading, conflict, and success states
+- private dashboards for `client`, `therapist`, and `admin`
+- real booking, payment, and cancellation flows for clients
+- therapist requests, sessions, clients, payout details, and pricing
+- admin oversight for users, therapists, bookings, payments, and audit logs
+- end-to-end Google Calendar sync with therapist-owned calendars
+- Stripe Checkout from client booking details
+- Stripe webhook processing for success, failure, expiry, and refund events
+- refund flow for standard client cancellation and platform-driven paid cancellation
+- client credit issuance, application, reversal, and balance tracking
+- late cancellation UX for `< 24 hours`
+- admin finance visibility for pending, failed, refunded, and credit-backed cases
+- audit logging across Google Calendar, Stripe, refund, and client-credit lifecycle events
 
 ## Tech Stack
 
@@ -60,137 +53,58 @@ The current application already includes:
 - PostgreSQL
 - bcryptjs
 - Zod
+- Stripe
 
 ## Implemented Phases
-
-### Phase 1
-
-Completed foundation work:
-
-- initialized the application with the Next.js App Router
-- connected Ant Design through a global provider
-- created base public pages:
-  - `/`
-  - `/login`
-  - `/register`
-  - `/forgot-password`
-  - `/403`
-  - `not-found`
-- configured Prisma
-- configured local environment variables
-- prepared local PostgreSQL in WSL
-
-### Phase 2
-
-Completed database design and local bootstrap:
-
-- designed and implemented the Prisma schema
-- created and applied the first domain migration
-- added the auth migration for password reset tokens
-- created and executed seed data for local development
-- verified database access through Prisma Client and Prisma Studio
-
-### Phase 3
-
-Completed the authentication and authorization foundation:
-
-- configured `NextAuth` with `CredentialsProvider`
-- added password hashing with `bcryptjs`
-- implemented client self-signup
-- implemented credentials-based login
-- implemented forgot-password flow
-- implemented reset-password flow
-- added JWT session support
-- added route protection through `proxy.ts`
-- added role-based redirects after login
-- created protected base dashboards for all three roles
-- verified registration, login, reset token generation, and password update locally and in the deployed environment
-
-### Phase 4
-
-Completed the private product workspace foundation:
-
-- built a shared dashboard shell with header, sidebar, and logout controls
-- added role-aware layouts for `client`, `therapist`, and `admin`
-- configured live internal navigation for private routes
-- created child routes for future bookings, payments, therapist, and admin modules
-- implemented role-specific overview dashboards:
-  - client workspace with upcoming sessions, payment summary, quick actions, and account summary
-  - therapist workspace with pending requests, client summary, and profile/payout completion
-  - admin workspace with users, approvals, bookings, payments, and recent activity
-- added a server-side dashboard data layer in `dashboard.service.ts`
-- made the private shell auth-aware so the signed-in user can see identity, role, session state, and logout controls
-
-### Stages 5-7
-
-Completed the first operational block for all three roles:
-
-- added shared booking and payment contracts in `src/lib/contracts/bookings.ts`
-- added shared labels, badge mappings, and policy helpers for booking and payment statuses
-- created role-specific service layers:
-  - `client-bookings.service.ts`
-  - `therapist-bookings.service.ts`
-  - `admin-operations.service.ts`
-- implemented the client module:
-  - upcoming sessions
-  - past sessions
-  - booking details page
-  - payments page
-  - client cancellation flow
-  - late cancellation warning for sessions under 24 hours
-  - meeting link visibility when available
-- implemented the therapist module:
-  - pending requests
-  - upcoming sessions
-  - session history
-  - clients list
-  - request detail page
-  - confirm and reject actions
-  - payout details view and update flow
-- implemented the admin module:
-  - users list
-  - therapists list
-  - bookings list
-  - booking details page
-  - payments list
-  - manual admin cancellation
-  - audit trail visibility
-- protected server actions with shared role guards so every mutation is enforced on the server
-- added shared empty, loading, and status states across the private workspace
 
 ### Phase 8
 
 Completed the core booking flow end-to-end:
 
-- added a dedicated booking flow service in `src/server/services/booking-flow.service.ts`
-- added shared contracts, constants, and validation for booking flow:
-  - `src/lib/contracts/booking-flow.ts`
-  - `src/lib/constants/booking-flow.ts`
-  - `src/lib/validations/booking-flow.ts`
-- implemented the client booking flow:
-  - therapist selection page
-  - therapist availability page
-  - slot request submission
-  - conflict-aware states in the booking request form
-- integrated therapist confirm and reject actions with the new booking flow service
-- automatically generate and store a meeting link after therapist confirmation
-- added dedicated empty, loading, and conflict states for the booking flow
-- added the end-to-end verification script `scripts/verify-stage-8.ts`
+- therapist selection and slot selection for the client flow
+- booking request creation with `PENDING_THERAPIST`
+- therapist confirm / reject flow
+- meeting link creation and session linkage
+- end-to-end verification script in `scripts/verify-stage-8.ts`
 
 ### Phase 9
 
 Completed Google Calendar integration:
 
-- added Google OAuth configuration and therapist connection flow
-- added Google callback handling and token storage in `TherapistProfile`
-- added target calendar selection for therapist-owned Google accounts
-- replaced local slot generation with Google Calendar availability from `freeBusy`
-- added booking creation protection against Google and database slot conflicts
-- create a real Google Calendar event after therapist confirmation
-- store Google event references and Google Meet links in `Session`
-- delete Google Calendar events on reject and cancel flows
-- added dashboard UI indicators for connection state and Google Meet sync state
-- added audit logging and runtime diagnostics for Google Calendar integration lifecycle events
+- therapist-owned Google OAuth connection
+- target calendar selection
+- real availability from Google Calendar `freeBusy`
+- conflict-aware booking creation with database and Google checks
+- Google Calendar event creation after therapist confirmation
+- Google Meet link storage in `Session`
+- synced event cleanup on reject / cancel
+- UI indicators and audit logging for the Google integration lifecycle
+
+### Phase 10
+
+Completed Stripe payment and compensation implementation:
+
+- therapist-specific pricing through `sessionPricePence`
+- server-side payment eligibility checks
+- `GBP` payment flow after therapist confirmation
+- payment deadline enforcement at `24 hours` before session start
+- `Stripe Checkout` session creation from client booking details
+- payment success and failed pages
+- webhook handling for:
+  - `checkout.session.completed`
+  - `payment_intent.payment_failed`
+  - `checkout.session.expired`
+  - `charge.refunded`
+- standard client cancellation refund logic
+- platform-side paid cancellation refund logic
+- client credit balance and transaction model
+- automatic client credit application before Stripe charge
+- partial credit + Stripe mixed settlement
+- full settlement by client credit without opening Stripe Checkout
+- credit reversal on failed or expired checkout
+- refund-time restoration of previously applied credit
+- admin finance visibility for problematic payment states
+- audit logging for checkout, webhook, refund, and client credit lifecycle events
 
 ## Implemented Routes
 
@@ -203,7 +117,7 @@ Completed Google Calendar integration:
 - `/reset-password/[token]`
 - `/403`
 
-### Protected routes for client
+### Client routes
 
 - `/client/dashboard`
 - `/client/book/new`
@@ -211,8 +125,10 @@ Completed Google Calendar integration:
 - `/client/bookings`
 - `/client/bookings/[bookingId]`
 - `/client/payments`
+- `/client/payments/success`
+- `/client/payments/failed`
 
-### Protected routes for therapist
+### Therapist routes
 
 - `/therapist/dashboard`
 - `/therapist/requests`
@@ -220,7 +136,7 @@ Completed Google Calendar integration:
 - `/therapist/clients`
 - `/therapist/payout-details`
 
-### Protected routes for admin
+### Admin routes
 
 - `/admin/dashboard`
 - `/admin/users`
@@ -229,14 +145,13 @@ Completed Google Calendar integration:
 - `/admin/bookings/[bookingId]`
 - `/admin/payments`
 
-### Auth API
+### API routes
 
 - `/api/auth/[...nextauth]`
-
-### Integration API
-
 - `/api/integrations/google/connect`
 - `/api/integrations/google/callback`
+- `/api/stripe/checkout`
+- `/api/stripe/webhook`
 
 ## Database Model
 
@@ -247,6 +162,8 @@ Completed Google Calendar integration:
 - `BookingStatus`
 - `SessionStatus`
 - `PaymentStatus`
+- `CompensationResolutionType`
+- `ClientCreditTransactionType`
 - `EmailStatus`
 
 ### Models
@@ -257,6 +174,8 @@ Completed Google Calendar integration:
 - `Booking`
 - `Session`
 - `Payment`
+- `ClientCreditBalance`
+- `ClientCreditTransaction`
 - `TherapistPayoutDetails`
 - `EmailLog`
 - `AuditLog`
@@ -265,53 +184,15 @@ Completed Google Calendar integration:
 ### Important domain notes
 
 - roles are stored in `User.role`
-- `ClientProfile` and `TherapistProfile` are separate one-to-one role profiles
-- `Booking` describes booking state and booking intent
-- `Session` describes the actual session and is linked one-to-one with `Booking`
-- `Payment` is stored separately from `Booking`
-- password recovery tokens are stored in `PasswordResetToken`
-- therapist availability is planned around Google Calendar
-- therapist availability is read from Google Calendar `freeBusy`
-- Google Calendar replaced Calendly in the updated requirements
-- each therapist will connect their own Google account for calendar sync
-- booking requests stay in `PENDING_THERAPIST` until the therapist decides
-- after therapist confirmation, the platform creates the Google Calendar event and stores the resulting meeting link
-- reject and cancel flows remove the synced Google Calendar event when one exists
-- Google Calendar lifecycle events are written into `AuditLog`
-
-## Project Structure
-
-```text
-theraply-platform/
-|- prisma/
-|  |- migrations/
-|  |- schema.prisma
-|  \- seed.ts
-|- public/
-|- scripts/
-|- src/
-|  |- app/
-|  |- components/
-|  |- lib/
-|  |- server/
-|  |- types/
-|  \- proxy.ts
-|- .env
-|- .env.example
-|- .env.production.local.example
-|- package.json
-|- prisma.config.ts
-|- README.md
-\- README.ua.md
-```
+- `Booking` tracks booking state and intent
+- `Session` tracks the actual session and meeting metadata
+- `Payment` tracks Stripe identifiers, checkout expiry, refund metadata, and applied credit
+- `ClientCreditBalance` and `ClientCreditTransaction` treat platform credit as a first-class domain concept
+- booking compensation is resolved through `compensationResolutionType`
+- therapist availability is sourced from Google Calendar `freeBusy`
+- payment starts only after therapist confirmation
 
 ## Local Environment
-
-Example local database connection:
-
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
-```
 
 Environment variables expected by the project:
 
@@ -332,24 +213,55 @@ Environment variables expected by the project:
 
 Phase 9 uses therapist-owned Google accounts.
 
-Setup requirements:
-
-- enable `Google Calendar API` in Google Cloud
-- create an OAuth 2.0 Web application client
-- register `http://localhost:3000/api/integrations/google/callback` for local development
-- register `https://your-domain/api/integrations/google/callback` for deployed environments
-- set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALENDAR_REDIRECT_URI`
-
 Current runtime behavior:
 
 - therapists connect their own Google account from `/therapist/payout-details`
-- Theraply reads available slots from Google Calendar `freeBusy`
-- booking requests remain in `PENDING_THERAPIST` until therapist action
-- therapist confirmation creates a Google Calendar event and stores the Google Meet link
+- Theraply reads availability from Google Calendar `freeBusy`
+- bookings remain in `PENDING_THERAPIST` until therapist action
+- confirmation creates the Google Calendar event and stores the Google Meet link
 - reject and cancel flows delete the synced Google Calendar event
-- connection, token refresh, event sync, and failure scenarios are logged to `AuditLog`
+- connection, token refresh, sync, and failure events are logged to `AuditLog`
 
-More details are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
+More details: [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md)
+
+## Stripe Payments
+
+Phase 10 is implemented with Stripe test-mode support for development and hosted testing.
+
+Current runtime behavior:
+
+- therapist confirms first, then the client can pay
+- the payable amount comes from therapist-specific `GBP` pricing
+- client credit is applied automatically before Stripe Checkout
+- full-credit bookings settle without opening Stripe Checkout
+- partial-credit bookings charge only the remainder through Stripe
+- Stripe webhooks remain the source of truth for payment confirmation
+- standard client cancellation (`24h+`) can create a Stripe refund
+- late cancellation (`< 24h`) requires explicit confirmation and is treated as non-refundable once payment is captured
+- paid platform-side cancellation can create a Stripe refund
+- checkout, webhook, refund, and credit events are written to `AuditLog`
+
+Required Stripe variables:
+
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+Recommended local Stripe setup:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+Use `pk_test` and `sk_test` from Stripe Dashboard, then copy the CLI-provided `whsec_...` into local `.env`.
+
+Hosted test setup:
+
+- keep Stripe in `Test mode`
+- create a webhook endpoint for `https://your-domain/api/stripe/webhook`
+- place that hosted signing secret into `STRIPE_WEBHOOK_SECRET`
+
+More details: [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md)
 
 ## Useful Commands
 
@@ -395,16 +307,16 @@ Run seed manually:
 npx prisma db seed
 ```
 
-Run the verification script for Stages 5-7:
+Forward Stripe webhooks locally:
 
 ```bash
-npx tsx scripts/verify-stages-5-7.ts
+stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-Run the verification script for Phase 8:
+Run the Phase 10 verification script:
 
 ```bash
-npx tsx scripts/verify-stage-8.ts
+npm run verify:phase10
 ```
 
 ## Remote production / Vercel database
@@ -419,15 +331,15 @@ cp .env.production.local.example .env.production.local
 
 2. Paste the remote `DATABASE_URL` from Vercel / Prisma Postgres into `.env.production.local`.
 
-3. If you want the local project itself to use the remote database as the primary datasource, mirror the same `DATABASE_URL` into `.env`.
+3. If you want the local project to use the remote database as the primary datasource, mirror the same `DATABASE_URL` into `.env`.
 
-4. Run migrations for the remote database:
+4. Run remote migrations:
 
 ```bash
 npm run prisma:migrate:remote
 ```
 
-5. Run seed for the remote database only when you explicitly want to write seed data into that shared environment:
+5. Run remote seed only when you intentionally want to write seed data into that shared environment:
 
 ```bash
 npm run prisma:seed:remote
@@ -461,10 +373,11 @@ npm run prisma:seed:remote
 Current verified state:
 
 - `Phase 3` is verified through registration, login, reset flow, and JWT session behavior
-- `Phase 4` is verified through the build and private role routes
-- `Stages 5-7` are verified through `scripts/verify-stages-5-7.ts`
-- `Phase 8` is verified through `scripts/verify-stage-8.ts`
+- `Phase 4` is verified through build and private role routes
+- `Stages 5-7` are verified through operational flows and route checks
+- `Phase 8` is verified through booking creation, confirmation, and session linkage
 - `Phase 9` is verified through Google Calendar connect, availability, confirm, and cancellation sync flows
+- `Phase 10` is verified through `scripts/verify-phase-10.ts`, plus build-passing Stripe checkout, webhook, refund-state, credit, late-cancellation, and admin-finance flows
 - `npm run build` passes successfully
 - `npm run dev` starts correctly
 
@@ -472,12 +385,6 @@ Current verified state:
 
 The most logical next steps are:
 
-- Stripe payments and webhook logic
 - email notifications
 - production hardening, filters, pagination, and monitoring
-
-Phase 9 implementation notes are documented in [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
-
-Phase 10 payment contract is documented in [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).
-
-Current Stripe setup can begin with placeholder values in env templates, and real key values can be added later when the Stripe account credentials are available.
+- final end-to-end payment verification in hosted test mode

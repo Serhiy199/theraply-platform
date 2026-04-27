@@ -8,45 +8,38 @@ Theraply Platform — це продуктова частина платформ�
 - терапевти
 - адміністратори
 
-Маркетинговий сайт лишається поза межами цього репозиторію. У цьому проєкті знаходиться застосунок платформи, який працюватиме на окремому продуктовому субдомені.
+Маркетинговий сайт залишається поза межами цього репозиторію. У цьому проєкті знаходиться приватна продуктова зона, яка працює на окремому субдомені платформи.
 
 ## Поточний стан
 
 Завершені фази:
 
-- `Phase 1` - ініціалізація проєкту
-- `Phase 2` - проєктування бази даних і запуск PostgreSQL
-- `Phase 3` - авторизація, відновлення пароля і захист маршрутів
-- `Phase 4` - приватний app shell, role dashboards і базова внутрішня навігація
-- `Етапи 5-7` - operational-модулі для client, therapist і admin
-- `Phase 8` - end-to-end логіка бронювання
-- `Phase 9` - інтеграція з Google Calendar
+- `Phase 1` — ініціалізація проєкту
+- `Phase 2` — проєктування БД і запуск PostgreSQL
+- `Phase 3` — авторизація, відновлення пароля і захист маршрутів
+- `Phase 4` — private app shell, role dashboards і базова внутрішня навігація
+- `Етапи 5-7` — operational-модулі для client, therapist і admin
+- `Phase 8` — end-to-end логіка бронювання
+- `Phase 9` — інтеграція з Google Calendar
+- `Phase 10` — Stripe payments, refunds, client credit і finance visibility
 
-Поточний стан застосунку вже включає:
+Поточний застосунок уже включає:
 
-- самостійну реєстрацію клієнта
-- логін через `NextAuth` credentials
-- `forgot password` і `reset password`
+- самостійну реєстрацію клієнта і логін через `NextAuth`
+- forgot-password і reset-password flow
 - захищені маршрути за ролями
-- спільний private dashboard shell
-- role-specific overview dashboards для `client`, `therapist` і `admin`
-- реальний client module для booking-ів, деталей запису, payments і скасування
-- реальний therapist module для requests, sessions, clients і payout details
-- реальний admin module для users, therapists, bookings, payments, manual cancellation і audit visibility
-- жорсткі server-side role guards для mutation actions
-- спільні empty, loading, success і error states у приватній зоні
-- server-side Prisma service layer для dashboards, bookings, sessions, payments, admin operations і booking flow
-- вибір терапевта і слотів для нового booking flow клієнта
-- створення booking request зі статусом `PENDING_THERAPIST`
-- єдиний end-to-end booking flow між client, therapist і admin
-- підключення власного Google-акаунта терапевта і вибір target calendar
-- реальні availability slots із Google Calendar `freeBusy`
-- conflict-aware створення booking з перевіркою і в БД, і в Google Calendar
-- автоматичне створення Google Calendar event після підтвердження терапевтом
-- автоматичне збереження Google Meet link у `Session`
-- синхронне видалення Google Calendar event при reject / cancel
-- audit logging і технічну діагностику для життєвого циклу Google Calendar інтеграції
-- booking-flow empty, loading, conflict і success states
+- приватні кабінети для `client`, `therapist` і `admin`
+- реальні booking, payment і cancellation flows для клієнта
+- therapist requests, sessions, clients, payout details і pricing
+- admin visibility для users, therapists, bookings, payments і audit logs
+- повну Google Calendar інтеграцію з therapist-owned calendars
+- Stripe Checkout із client booking details
+- webhook-синхронізацію оплати, failure, expiry і refund подій
+- refund flow для стандартного client cancellation і platform-side paid cancellation
+- client credit balance, transaction history, apply і reverse logic
+- late cancellation UX для сценарію `< 24 години`
+- admin finance visibility для pending, failed, refunded і credit-backed cases
+- audit logging для Google Calendar, Stripe, refund і credit lifecycle
 
 ## Технічний стек
 
@@ -60,137 +53,48 @@ Theraply Platform — це продуктова частина платформ�
 - PostgreSQL
 - bcryptjs
 - Zod
+- Stripe
 
 ## Реалізовані фази
 
-### Phase 1
-
-Завершені базові роботи:
-
-- ініціалізовано застосунок на Next.js App Router
-- підключено Ant Design через глобальний provider
-- створено базові публічні сторінки:
-  - `/`
-  - `/login`
-  - `/register`
-  - `/forgot-password`
-  - `/403`
-  - `not-found`
-- налаштовано Prisma
-- налаштовано локальні змінні середовища
-- підготовлено локальний PostgreSQL у WSL
-
-### Phase 2
-
-Завершено проєктування БД і локальний bootstrap:
-
-- спроєктовано й реалізовано Prisma schema
-- створено і застосовано першу доменну міграцію
-- додано auth-міграцію для токенів відновлення пароля
-- створено і виконано seed для локальної розробки
-- перевірено доступ до БД через Prisma Client і Prisma Studio
-
-### Phase 3
-
-Завершено основу авторизації та доступів:
-
-- налаштовано `NextAuth` з `CredentialsProvider`
-- додано хешування паролів через `bcryptjs`
-- реалізовано самостійну реєстрацію клієнта
-- реалізовано логін через credentials
-- реалізовано forgot-password flow
-- реалізовано reset-password flow
-- додано JWT session support
-- додано захист маршрутів через `proxy.ts`
-- додано role-based redirects після логіну
-- створено захищені базові dashboards для всіх трьох ролей
-- перевірено реєстрацію, логін, reset token і зміну пароля локально та в розгорнутому середовищі
-
-### Phase 4
-
-Завершено основу приватної продуктової зони:
-
-- побудовано спільний dashboard shell з header, sidebar і logout controls
-- додано role-aware layouts для `client`, `therapist` і `admin`
-- налаштовано живу внутрішню навігацію для приватних маршрутів
-- створено дочірні маршрути для майбутніх модулів bookings, payments, therapists та admin operations
-- реалізовано role-specific overview dashboards:
-  - client workspace з upcoming sessions, payment summary, quick actions і account summary
-  - therapist workspace з pending requests, client summary і profile/payout completion
-  - admin workspace з users, approvals, bookings, payments і recent activity
-- додано server-side dashboard data layer у `dashboard.service.ts`
-- приватний shell зроблено auth-aware: користувач бачить себе, роль, стан сесії і logout controls
-
-### Етапи 5-7
-
-Завершено перший operational-блок для всіх трьох ролей:
-
-- додано спільні booking/payment contracts у `src/lib/contracts/bookings.ts`
-- додано спільні labels, badge mappings і policy helpers для booking/payment статусів
-- створено role-specific service layer:
-  - `client-bookings.service.ts`
-  - `therapist-bookings.service.ts`
-  - `admin-operations.service.ts`
-- реалізовано client module:
-  - upcoming sessions
-  - past sessions
-  - booking details page
-  - payments page
-  - client cancellation flow
-  - попередження про late cancellation менше ніж за 24 години
-  - показ meeting link, якщо він уже існує
-- реалізовано therapist module:
-  - pending requests
-  - upcoming sessions
-  - session history
-  - clients list
-  - request detail page
-  - confirm / reject actions
-  - payout details view і update flow
-- реалізовано admin module:
-  - users list
-  - therapists list
-  - bookings list
-  - booking details page
-  - payments list
-  - manual admin cancellation
-  - audit trail visibility
-- server actions захищено спільними role guards, щоб кожна mutation дія валідувалась на сервері
-- у приватній зоні додано спільні empty, loading і status states
-
-### Phase 8
-
-Завершено головний booking flow end-to-end:
-
-- додано окремий booking flow service у `src/server/services/booking-flow.service.ts`
-- додано спільні contracts, constants і validation для booking flow:
-  - `src/lib/contracts/booking-flow.ts`
-  - `src/lib/constants/booking-flow.ts`
-  - `src/lib/validations/booking-flow.ts`
-- реалізовано клієнтський booking flow:
-  - сторінка вибору терапевта
-  - сторінка доступних слотів терапевта
-  - надсилання slot request
-  - conflict-aware стани у формі створення booking request
-- therapist confirm / reject actions інтегровано з новим booking flow service
-- після therapist confirmation система автоматично генерує і зберігає meeting link
-- для booking flow додано окремі empty, loading і conflict states
-- додано end-to-end verification script `scripts/verify-stage-8.ts`
-
 ### Phase 9
 
-Завершено інтеграцію з Google Calendar:
+Реалізовано повну інтеграцію з Google Calendar:
 
-- додано Google OAuth конфігурацію і therapist connect flow
-- додано callback-обробку Google авторизації та збереження токенів у `TherapistProfile`
-- додано вибір target calendar для therapist-owned Google account
-- локальну генерацію слотів замінено на availability із Google Calendar `freeBusy`
-- додано захист від конфліктів часу на етапі створення booking
-- після therapist confirmation система створює реальний Google Calendar event
-- Google event references і Google Meet link зберігаються в `Session`
-- reject і cancel flows синхронно видаляють Google Calendar event
-- у dashboard UI додано індикатори connection state і Meet sync state
-- для інтеграції додано audit logging і runtime diagnostics
+- therapist-owned Google OAuth connection
+- вибір target calendar
+- реальні availability slots через Google Calendar `freeBusy`
+- conflict-aware booking creation з перевіркою і в БД, і в Google Calendar
+- створення Google Calendar event після therapist confirmation
+- збереження Google Meet link у `Session`
+- видалення synced event при reject / cancel
+- UI indicators і audit logging для lifecycle інтеграції
+
+### Phase 10
+
+Реалізовано Stripe payment і compensation layer:
+
+- therapist-specific pricing через `sessionPricePence`
+- server-side payment eligibility logic
+- `GBP` payment flow після therapist confirmation
+- правило оплати не пізніше ніж за `24 години` до сесії
+- `Stripe Checkout` із client booking details
+- success / failed payment pages
+- webhook handling для:
+  - `checkout.session.completed`
+  - `payment_intent.payment_failed`
+  - `checkout.session.expired`
+  - `charge.refunded`
+- refund flow для standard client cancellation
+- refund flow для platform-side paid cancellation
+- client credit balance і transaction model
+- automatic credit apply before Stripe charge
+- partial credit + Stripe mixed settlement
+- full payment by credit без відкриття Stripe Checkout
+- reverse credit при failed / expired checkout
+- credit restoration при refund
+- admin finance visibility
+- audit logging для checkout, webhook, refund і credit lifecycle
 
 ## Реалізовані маршрути
 
@@ -203,7 +107,7 @@ Theraply Platform — це продуктова частина платформ�
 - `/reset-password/[token]`
 - `/403`
 
-### Захищені маршрути для client
+### Client routes
 
 - `/client/dashboard`
 - `/client/book/new`
@@ -211,8 +115,10 @@ Theraply Platform — це продуктова частина платформ�
 - `/client/bookings`
 - `/client/bookings/[bookingId]`
 - `/client/payments`
+- `/client/payments/success`
+- `/client/payments/failed`
 
-### Захищені маршрути для therapist
+### Therapist routes
 
 - `/therapist/dashboard`
 - `/therapist/requests`
@@ -220,7 +126,7 @@ Theraply Platform — це продуктова частина платформ�
 - `/therapist/clients`
 - `/therapist/payout-details`
 
-### Захищені маршрути для admin
+### Admin routes
 
 - `/admin/dashboard`
 - `/admin/users`
@@ -229,16 +135,15 @@ Theraply Platform — це продуктова частина платформ�
 - `/admin/bookings/[bookingId]`
 - `/admin/payments`
 
-### Auth API
+### API routes
 
 - `/api/auth/[...nextauth]`
-
-### Integration API
-
 - `/api/integrations/google/connect`
 - `/api/integrations/google/callback`
+- `/api/stripe/checkout`
+- `/api/stripe/webhook`
 
-## Модель бази даних
+## Модель БД
 
 ### Enums
 
@@ -247,6 +152,8 @@ Theraply Platform — це продуктова частина платформ�
 - `BookingStatus`
 - `SessionStatus`
 - `PaymentStatus`
+- `CompensationResolutionType`
+- `ClientCreditTransactionType`
 - `EmailStatus`
 
 ### Models
@@ -257,6 +164,8 @@ Theraply Platform — це продуктова частина платформ�
 - `Booking`
 - `Session`
 - `Payment`
+- `ClientCreditBalance`
+- `ClientCreditTransaction`
 - `TherapistPayoutDetails`
 - `EmailLog`
 - `AuditLog`
@@ -265,54 +174,17 @@ Theraply Platform — це продуктова частина платформ�
 ### Важливі доменні примітки
 
 - ролі зберігаються в `User.role`
-- `ClientProfile` і `TherapistProfile` — окремі one-to-one профілі ролей
-- `Booking` описує стан бронювання і намір запису
-- `Session` описує фактичну сесію і пов’язана one-to-one з `Booking`
-- `Payment` зберігається окремо від `Booking`
-- токени відновлення пароля зберігаються в `PasswordResetToken`
-- доступність терапевтів читається з Google Calendar `freeBusy`
-- Google Calendar замінив Calendly в оновленому ТЗ
-- кожен therapist підключає власний Google account для calendar sync
-- booking request лишається в `PENDING_THERAPIST`, доки therapist не прийме рішення
-- після therapist confirmation платформа створює Google Calendar event і зберігає meeting link
-- reject і cancel flows видаляють синхронізований Google Calendar event, якщо він існує
-- події життєвого циклу інтеграції пишуться в `AuditLog`
+- `Booking` описує стан запису і намір бронювання
+- `Session` зберігає фактичну сесію і meeting metadata
+- `Payment` зберігає Stripe identifiers, checkout expiry, refund metadata і applied credit
+- `ClientCreditBalance` і `ClientCreditTransaction` роблять platform credit окремою доменною сутністю
+- booking compensation закривається через `compensationResolutionType`
+- therapist availability читається з Google Calendar `freeBusy`
+- payment починається тільки після therapist confirmation
 
-## Структура проєкту
+## Змінні середовища
 
-```text
-theraply-platform/
-|- prisma/
-|  |- migrations/
-|  |- schema.prisma
-|  \- seed.ts
-|- public/
-|- scripts/
-|- src/
-|  |- app/
-|  |- components/
-|  |- lib/
-|  |- server/
-|  |- types/
-|  \- proxy.ts
-|- .env
-|- .env.example
-|- .env.production.local.example
-|- package.json
-|- prisma.config.ts
-|- README.md
-\- README.ua.md
-```
-
-## Локальне середовище
-
-Приклад локального підключення до бази:
-
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
-```
-
-Змінні середовища, які очікує проєкт:
+Проєкт очікує:
 
 - `DATABASE_URL`
 - `NEXT_PUBLIC_APP_URL`
@@ -329,84 +201,70 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/theraply_platform"
 
 ## Google Calendar інтеграція
 
-Phase 9 використовує therapist-owned Google accounts.
+Поточна runtime-логіка:
 
-Що потрібно для конфігурації:
+- therapist підключає власний Google account з `/therapist/payout-details`
+- Theraply читає availability через Google Calendar `freeBusy`
+- booking request залишається в `PENDING_THERAPIST`, доки therapist не прийме рішення
+- confirmation створює Google Calendar event і зберігає Google Meet link
+- reject і cancel видаляють synced Google Calendar event
+- connect, token refresh, sync і failure events пишуться в `AuditLog`
 
-- увімкнути `Google Calendar API` у Google Cloud
-- створити OAuth 2.0 Web application client
-- зареєструвати `http://localhost:3000/api/integrations/google/callback` для локального середовища
-- зареєструвати `https://your-domain/api/integrations/google/callback` для продакшену
-- заповнити `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` і `GOOGLE_CALENDAR_REDIRECT_URI`
+Деталі: [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md)
+
+## Stripe Payments
+
+Phase 10 реалізовано з test-mode support для локального і hosted тестування.
 
 Поточна runtime-логіка:
 
-- therapist підключає свій Google account на `/therapist/payout-details`
-- Theraply читає availability slots із Google Calendar `freeBusy`
-- booking request лишається в `PENDING_THERAPIST`, поки therapist не підтвердить або не відхилить його
-- therapist confirmation створює Google Calendar event і зберігає Google Meet link
-- reject і cancel flows видаляють синхронізований Google Calendar event
-- connect, refresh token, event sync і failure-сценарії логуються в `AuditLog`
+- therapist спочатку підтверджує booking, і лише після цього client платить
+- payable amount береться з therapist-specific `GBP` pricing
+- client credit автоматично застосовується до checkout перед Stripe
+- якщо credit покриває сесію повністю, Stripe Checkout не відкривається
+- якщо credit покриває сесію частково, Stripe отримує лише залишок
+- Stripe webhooks є джерелом правди для payment confirmation
+- standard client cancellation (`24h+`) може створити Stripe refund
+- late cancellation (`< 24h`) вимагає явного підтвердження і вважається non-refundable після capture payment
+- platform-side paid cancellation теж може створити Stripe refund
+- checkout, webhook, refund і credit events пишуться в `AuditLog`
+
+Потрібні Stripe змінні:
+
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+Рекомендований local setup:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+Для локальної розробки використовуй `pk_test` і `sk_test` із Stripe Dashboard, а `whsec_...` бери з output `stripe listen`.
+
+Для hosted test setup:
+
+- залишай Stripe у `Test mode`
+- створи webhook endpoint на `https://your-domain/api/stripe/webhook`
+- його signing secret встав у `STRIPE_WEBHOOK_SECRET`
+
+Деталі: [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md)
 
 ## Корисні команди
 
-Встановити залежності:
-
 ```bash
 npm install
-```
-
-Запустити застосунок локально:
-
-```bash
 npm run dev
-```
-
-Зібрати проєкт:
-
-```bash
 npm run build
-```
-
-Згенерувати Prisma client:
-
-```bash
 npm run prisma:generate
-```
-
-Створити і застосувати локальну міграцію:
-
-```bash
 npm run prisma:migrate:dev -- --name your_migration_name
-```
-
-Відкрити Prisma Studio:
-
-```bash
 npm run prisma:studio
-```
-
-Запустити seed вручну:
-
-```bash
 npx prisma db seed
+stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-Запустити verification script для Етапів 5-7:
-
-```bash
-npx tsx scripts/verify-stages-5-7.ts
-```
-
-Запустити verification script для Phase 8:
-
-```bash
-npx tsx scripts/verify-stage-8.ts
-```
-
-## Віддалена production / Vercel база даних
-
-Щоб не змінювати локальний `.env` і випадково не перепідключити локальну WSL-базу, використовуй окремий `.env.production.local`.
+## Remote Vercel / Prisma Postgres БД
 
 1. Скопіюй шаблон:
 
@@ -414,17 +272,15 @@ npx tsx scripts/verify-stage-8.ts
 cp .env.production.local.example .env.production.local
 ```
 
-2. Встав у `.env.production.local` віддалений `DATABASE_URL` з Vercel / Prisma Postgres.
-
-3. Якщо хочеш, щоб локальний проєкт теж використовував віддалену БД як основну, продублюй той самий `DATABASE_URL` у `.env`.
-
-4. Запусти міграції для віддаленої бази:
+2. Встав у `.env.production.local` віддалений `DATABASE_URL`.
+3. Якщо хочеш використовувати remote DB як основну локально, продублюй цей `DATABASE_URL` у `.env`.
+4. Для remote міграцій:
 
 ```bash
 npm run prisma:migrate:remote
 ```
 
-5. Запусти seed для віддаленої бази лише якщо справді хочеш записати seed-дані в це спільне середовище:
+5. Для remote seed тільки коли це справді потрібно:
 
 ```bash
 npm run prisma:seed:remote
@@ -453,28 +309,23 @@ npm run prisma:seed:remote
 - email: `client.james@theraply.local`
 - password: `Client123!`
 
-## Verification summary
+## Verification Summary
 
-Поточний verified стан:
+Поточний verified state:
 
-- `Phase 3` перевірений через реєстрацію, логін, reset flow і JWT session behavior
-- `Phase 4` перевірений через build і роботу приватних role routes
-- `Етапи 5-7` перевірені через `scripts/verify-stages-5-7.ts`
-- `Phase 8` перевірений через `scripts/verify-stage-8.ts`
-- `Phase 9` перевірений через Google Calendar connect, availability, confirm і cancellation sync flows
+- `Phase 3` перевірено через registration, login, reset flow і JWT session behavior
+- `Phase 4` перевірено через build і private role routes
+- `Етапи 5-7` перевірено через operational flows
+- `Phase 8` перевірено через booking creation, confirmation і session linkage
+- `Phase 9` перевірено через Google Calendar connect, availability, confirm і cancellation sync
+- `Phase 10` перевірено через build-passing Stripe checkout, webhook, refund, credit, late-cancellation і admin-finance flows
 - `npm run build` проходить успішно
 - `npm run dev` стартує коректно
 
 ## Що далі
 
-Найлогічніші наступні етапи:
+Найлогічніші наступні кроки:
 
-- Stripe payments і webhook-логіка
 - email notifications
 - production hardening, filters, pagination і monitoring
-
-Деталі реалізації `Phase 9` описані в [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md).
-
-Контракт для `Phase 10` описаний у [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md).
-
-Поточну Stripe-конфігурацію можна почати з порожніх placeholder-значень у env-шаблонах, а реальні ключі додати пізніше, коли буде доступ до Stripe credentials.
+- фінальна hosted end-to-end verification для payment flow

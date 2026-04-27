@@ -1,209 +1,215 @@
 # Phase 10: Stripe Payments
 
-This document fixes the agreed business and implementation scenario for Phase 10 so Stripe work can continue without ambiguity.
+This document reflects the implemented state of Phase 10.
 
-## Final Scope
+## Scope
 
-Phase 10 is built around therapist-confirmed sessions that become payable by the client after confirmation.
+Phase 10 covers:
 
-Implemented business direction for this phase:
+- therapist-confirmed sessions that become payable by the client
+- `GBP` pricing stored per therapist
+- Stripe Checkout for one-time payments
+- webhook-driven payment synchronization
+- refund logic
+- client credit logic
+- late cancellation policy
+- admin finance visibility
+- audit logging for the Stripe and credit lifecycle
+
+## Implemented Business Rules
 
 - the client pays the full session price, not a deposit
 - payment is mandatory
-- the therapist confirms first, and only then the client pays
-- payment must be completed no later than 24 hours before the session
-- pricing is therapist-specific
-- currency is `GBP`
-- Stripe integration uses `Stripe Checkout`
-- payment state is synchronized through `Stripe webhooks`
-- failed payment does not automatically cancel the booking
-- the client can retry payment after a failed attempt
-- refund logic is required in MVP
-- credit logic is also required in MVP and is treated as a separate domain submodule
+- the therapist confirms first, then the client pays
+- payment must be completed no later than `24 hours` before the session
+- failed payment does not auto-cancel the booking
+- the client can retry payment after failure
+- client cancellation `24h+` can trigger refund logic if payment was captured
+- client cancellation `< 24h` is still allowed but is treated as non-refundable once payment was captured
+- platform-side paid cancellation can trigger refund logic
+- compensation can be resolved either by refund or by platform credit
 
-## Source Of Truth
-
-- Theraply remains the source of truth for booking state
-- Stripe remains the source of truth for payment event confirmation
-- booking and payment state are tracked separately
-
-Current booking status model:
-
-- `PENDING_THERAPIST`
-- `CONFIRMED`
-- `REJECTED`
-- `CANCELLED`
-- `AUTO_CANCELLED`
-- `COMPLETED`
-
-Current payment status model:
-
-- `UNPAID`
-- `PENDING`
-- `PAID`
-- `FAILED`
-- `REFUNDED`
-
-## Agreed User Flow
+## Payment Flow
 
 1. Client creates a booking request.
-2. Therapist confirms or rejects the request.
+2. Therapist confirms or rejects it.
 3. If rejected before payment:
    - no payment is created
    - no refund is needed
-   - the client can return to therapist selection and choose another slot
 4. If confirmed:
-   - booking is confirmed
-   - the Google Calendar event is created
-   - the meeting link appears in therapist and client dashboards
-   - the client sees an обязательну оплату for that session
-5. The client completes payment through Stripe Checkout.
-6. Stripe webhooks update payment state in Theraply.
+   - booking becomes payable
+   - therapist-specific `sessionPricePence` is used
+   - `paymentDueBy` is stored as `startsAt - 24 hours`
+5. Before Stripe Checkout:
+   - any available client credit is applied automatically
+   - if credit covers the whole amount, the booking is settled without opening Stripe
+   - if credit covers part of the amount, Stripe charges only the remainder
+6. Stripe webhooks finalize the authoritative payment state.
 
-## Failed Payment Logic
+## Stripe Events
 
-When payment is unsuccessful:
-
-- `bookingStatus` does not change to `CANCELLED`
-- `paymentStatus = FAILED`
-- the client is allowed to retry payment
-
-## Cancellation And Refund Rules
-
-### Client cancellation
-
-If the client cancels at least 24 hours before the session:
-
-- cancellation is allowed
-- refund logic is allowed
-
-If the client cancels less than 24 hours before the session:
-
-- cancellation is still allowed
-- the UI must show a warning before confirmation
-- the booked time is treated as non-refundable
-
-### Therapist rejection before payment
-
-If the therapist rejects before the client pays:
-
-- no payment is created
-- no refund is needed
-
-### Therapist cancellation after payment
-
-If the therapist cancels after the client has already paid:
-
-- the client must receive compensation
-- compensation can be:
-  - full refund
-  - platform credit for a future session
-
-## Credit Logic
-
-Credit support is explicitly in scope for MVP.
-
-That means the platform must support:
-
-- client balance tracking
-- credit issuance
-- credit application to a future session
-- partial credit usage
-- credit history
-- credit visibility in the client cabinet
-- admin visibility over refund and credit cases
-
-## Pricing Rules
-
-- currency: `GBP`
-- the session price is different for each therapist
-- the price is stored at therapist profile level
-- implementation should use the smallest currency unit:
-  - `pence`
-  - example: `7500` = `£75.00`
-
-## Stripe Integration Rules
-
-Phase 10 should use:
-
-- `Stripe Checkout`
-- `Stripe webhooks`
-
-Local development:
-
-- Stripe webhook testing will run through `Stripe CLI`
-
-Production:
-
-- the final webhook URL will be added later when the production domain is ready
-
-## Stripe Events Required For MVP
-
-The minimum agreed Stripe events are:
+Implemented webhook handling:
 
 - `checkout.session.completed`
 - `payment_intent.payment_failed`
 - `checkout.session.expired`
 - `charge.refunded`
 
-Optional fallback if needed:
+## Refund Logic
 
-- `payment_intent.canceled`
+Implemented refund scenarios:
 
-## Email Boundary
+- client standard cancellation (`24h+`) after a paid session
+- admin / platform-side cancellation after a paid session
 
-Full payment email logic is not part of Phase 10.
+Current behavior:
 
-That means:
+- refund creation happens through Stripe
+- refunded payments are synchronized back into local `Payment`
+- booking compensation is resolved through:
+  - `compensationResolutionType`
+  - `compensationResolvedAt`
 
-- `payment success`
-- `payment failed`
-- `refund confirmation`
-- `credit notification`
+Refund skip states are also logged:
 
-should be implemented in `Phase 11`, not inside the Stripe phase itself.
+- payment not found
+- payment not paid
+- already refunded
+- late cancellation policy
 
-## Admin Visibility
+## Client Credit Logic
 
-Admin involvement is required for commercial safety.
+Implemented credit capabilities:
 
-The admin side should be able to see:
+- `ClientCreditBalance`
+- `ClientCreditTransaction`
+- issued credit
+- applied credit
+- reversed credit
+- full-credit settlement
+- partial-credit settlement
+- restoring credit when checkout fails or expires
+- restoring credit when a refunded payment previously used client credit
 
-- therapist cancellation after payment
-- failed payments
-- expired checkout sessions
-- refund cases
-- credit issuance cases
+Transaction types in use:
 
-The recommended MVP approach is:
+- `ISSUED`
+- `APPLIED`
+- `REVERSED`
 
-- log every important payment and compensation event in `AuditLog`
-- surface critical refund and credit cases in the admin workspace
+## Late Cancellation UX
+
+The client booking details page now:
+
+- shows whether the session is inside or outside the `24 hours` window
+- explains the refund consequence before cancellation
+- requires explicit acknowledgment for late cancellation
+- distinguishes between:
+  - standard cancellation with possible refund path
+  - late cancellation without refund after payment capture
+
+## Admin Finance Visibility
+
+Implemented admin finance surfaces:
+
+- `Pending checkout`
+- `Failed payments`
+- `Refunded payments`
+- `Credit-backed payments`
+
+Visibility is available on:
+
+- admin dashboard overview
+- admin payments page
+- admin bookings table
+- admin booking details
+
+## Audit Logging
+
+Implemented Stripe and credit audit events include:
+
+- `STRIPE_CHECKOUT_SESSION_CREATED`
+- `STRIPE_CHECKOUT_SESSION_CREATE_FAILED`
+- `STRIPE_CHECKOUT_SESSION_COMPLETED`
+- `STRIPE_PAYMENT_INTENT_FAILED`
+- `STRIPE_CHECKOUT_SESSION_EXPIRED`
+- `STRIPE_CHARGE_REFUNDED`
+- `STRIPE_REFUND_CREATED`
+- `STRIPE_REFUND_SKIPPED`
+- `STRIPE_REFUND_CREATE_FAILED`
+- `STRIPE_WEBHOOK_PROCESSING_FAILED`
+- `PAYMENT_SETTLED_WITH_CLIENT_CREDIT`
+- `CLIENT_CREDIT_ISSUED`
+- `CLIENT_CREDIT_APPLIED`
+- `CLIENT_CREDIT_REVERSED`
 
 ## Required Environment Variables
 
-Phase 10 expects these Stripe variables:
+Stripe-related variables:
 
-- `STRIPE_SECRET_KEY`
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 
-They can exist as empty placeholders during the early implementation steps.
+## Local Stripe Testing
 
-Real Stripe integration testing requires actual values for:
+Recommended setup:
 
-- checkout session creation
-- webhook signature validation
-- Stripe CLI forwarding
+1. Use `pk_test` and `sk_test` from Stripe Dashboard.
+2. Start local webhook forwarding:
 
-## End-Of-Step Outcome
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
 
-After Step 1, the payment contract is fixed:
+3. Copy the CLI-provided `whsec_...` into local `.env`.
 
-- pricing model is agreed
-- payment timing is agreed
-- failed payment logic is agreed
-- refund and credit rules are agreed
-- `24 hours` cancellation policy is agreed
-- Stripe integration direction is agreed
-- admin visibility expectations are agreed
+Useful local triggers:
+
+```bash
+stripe trigger checkout.session.completed
+stripe trigger payment_intent.payment_failed
+```
+
+Automated verification command:
+
+```bash
+npm run verify:phase10
+```
+
+This script verifies the internal Phase 10 business flow without requiring live Stripe network calls. It covers:
+
+- full payment settlement by client credit
+- failed payment credit reversal
+- expired checkout credit reversal
+- webhook-driven payment completion
+- webhook-driven refund state sync
+- late cancellation refund-policy handling
+- admin finance visibility and payment listings
+
+## Hosted Test Mode
+
+For Vercel or another hosted test environment:
+
+- keep Stripe in `Test mode`
+- create a hosted webhook endpoint:
+
+```text
+https://your-domain/api/stripe/webhook
+```
+
+- use that hosted endpoint signing secret as `STRIPE_WEBHOOK_SECRET`
+
+## Current Outcome
+
+By the end of Step 19, Phase 10 has:
+
+- Stripe Checkout
+- webhook-based payment sync
+- refund flow
+- client credit flow
+- late cancellation UX
+- admin finance visibility
+- lifecycle audit logging
+- env template documentation for local and hosted Stripe testing
+- an automated end-to-end verification script for the internal payment lifecycle
