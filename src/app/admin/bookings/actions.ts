@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
@@ -13,10 +13,6 @@ import {
 export type AdminCancelBookingActionState = {
   status: "idle" | "success" | "error";
   message?: string;
-};
-
-export const initialAdminCancelBookingActionState: AdminCancelBookingActionState = {
-  status: "idle",
 };
 
 export async function adminCancelBookingAction(

@@ -70,6 +70,12 @@ export function TherapistAvailability({
   const slotGroups = groupSlotsByDay(slots);
   const availableCount = slots.filter((slot) => slot.isAvailable).length;
   const unavailableCount = slots.length - availableCount;
+  const leadTimeBlockedCount = slots.filter(
+    (slot) => !slot.isAvailable && slot.unavailableReason === "lead_time",
+  ).length;
+  const conflictBlockedCount = slots.filter(
+    (slot) => !slot.isAvailable && slot.unavailableReason === "conflict",
+  ).length;
   const displayTimeZone = slots[0]?.timeZone ?? "Europe/London";
   const hasCalendarConnection = Boolean(
     therapist.therapistProfile?.isGoogleCalendarConnected &&
@@ -126,6 +132,9 @@ export function TherapistAvailability({
             <p className="mt-3 text-sm leading-6 text-slate-600">
               {BOOKING_FLOW_MESSAGES.pendingLabel}. Slot request submission is the next step, so this screen focuses on availability and timing selection.
             </p>
+            <div className="mt-3 rounded-[1.25rem] border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+              Sessions must be requested at least 25 hours before the start time so the therapist can confirm them and the payment window still remains valid.
+            </div>
             <div className="mt-5 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
               Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
             </div>
@@ -199,8 +208,22 @@ export function TherapistAvailability({
 
             {unavailableCount > 0 ? (
               <div className="mt-6">
-                <BookingStatusAlert tone="info" title="Conflict visibility is enabled">
-                  {unavailableCount} slot{unavailableCount === 1 ? " is" : "s are"} currently unavailable because they overlap with another active request or confirmed booking.
+                <BookingStatusAlert
+                  tone="info"
+                  title={
+                    conflictBlockedCount > 0 && leadTimeBlockedCount > 0
+                      ? "Availability guardrails are enabled"
+                      : leadTimeBlockedCount > 0
+                        ? "Short-notice protection is enabled"
+                        : "Conflict visibility is enabled"
+                  }
+                >
+                  {conflictBlockedCount > 0
+                    ? `${conflictBlockedCount} slot${conflictBlockedCount === 1 ? " is" : "s are"} currently unavailable because they overlap with another active request or confirmed booking.`
+                    : "Active booking conflicts are not blocking any visible slots right now."}
+                  {leadTimeBlockedCount > 0
+                    ? ` ${leadTimeBlockedCount} more slot${leadTimeBlockedCount === 1 ? " is" : "s are"} blocked because they are less than 25 hours away.`
+                    : ""}
                 </BookingStatusAlert>
               </div>
             ) : null}

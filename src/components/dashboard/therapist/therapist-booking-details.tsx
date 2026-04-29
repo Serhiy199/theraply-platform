@@ -10,12 +10,14 @@ import {
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
 import {
-  initialRequestDecisionActionState,
   requestDecisionAction,
+  therapistCancelSessionAction,
   type RequestDecisionActionState,
+  type TherapistCancelSessionActionState,
 } from "@/app/therapist/requests/actions";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
+import { Button } from "@/components/ui/button";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -57,6 +59,9 @@ function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
 }
 
 function DecisionForm({ bookingId, intent, label }: { bookingId: string; intent: "confirm" | "reject"; label: string }) {
+  const initialRequestDecisionActionState: RequestDecisionActionState = {
+    status: "idle",
+  };
   const [state, formAction, pending] = useActionState<RequestDecisionActionState, FormData>(
     requestDecisionAction,
     initialRequestDecisionActionState,
@@ -71,13 +76,49 @@ function DecisionForm({ bookingId, intent, label }: { bookingId: string; intent:
           {state.message}
         </DashboardStatusAlert>
       ) : null}
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className={`inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-300 ${intent === "confirm" ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"}`}
+        loading={pending}
+        loadingText={`${label}...`}
+        fullWidth
+        variant={intent === "confirm" ? "primary" : "danger"}
       >
-        {pending ? `${label}...` : label}
-      </button>
+        {label}
+      </Button>
+    </form>
+  );
+}
+
+function CancelConfirmedSessionForm({ bookingId, hasPaidSession }: { bookingId: string; hasPaidSession: boolean }) {
+  const initialTherapistCancelSessionActionState: TherapistCancelSessionActionState = {
+    status: "idle",
+  };
+  const [state, formAction, pending] = useActionState<
+    TherapistCancelSessionActionState,
+    FormData
+  >(therapistCancelSessionAction, initialTherapistCancelSessionActionState);
+
+  return (
+    <form action={formAction} className="grid gap-4">
+      <input type="hidden" name="bookingId" value={bookingId} />
+      {state.message ? (
+        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
+          {state.message}
+        </DashboardStatusAlert>
+      ) : null}
+      <DashboardStatusAlert tone={hasPaidSession ? "warning" : "info"}>
+        {hasPaidSession
+          ? "If you cancel this confirmed and paid session, the client will be able to choose either a full refund or platform credit from their booking page."
+          : "Cancelling this confirmed session will remove it from the schedule and stop the booking flow for the client."}
+      </DashboardStatusAlert>
+      <Button
+        type="submit"
+        loading={pending}
+        loadingText="Cancelling session..."
+        fullWidth
+      >
+        Cancel session
+      </Button>
     </form>
   );
 }
@@ -89,6 +130,7 @@ type TherapistBookingDetailsProps = {
 export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProps) {
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canDecide = booking.bookingStatus === "PENDING_THERAPIST";
+  const canCancelConfirmed = booking.bookingStatus === "CONFIRMED" && booking.startsAt > new Date();
   const clientName = getClientName(booking);
   const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
@@ -200,12 +242,23 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
           <h3 className="text-xl font-semibold text-slate-900">Decision panel</h3>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            {canDecide ? "Confirm the request to schedule the session, or reject it if the time or case is not a fit." : "This request is already in a final state, so no further therapist action is needed from this page."}
+            {canDecide
+              ? "Confirm the request to schedule the session, or reject it if the time or case is not a fit."
+              : canCancelConfirmed
+                ? "This session is already confirmed. If circumstances change, you can cancel it here and the client will be notified."
+                : "This request is already in a final state, so no further therapist action is needed from this page."}
           </p>
           {canDecide ? (
             <div className="mt-5 grid gap-4">
               <DecisionForm bookingId={booking.id} intent="confirm" label="Confirm booking" />
               <DecisionForm bookingId={booking.id} intent="reject" label="Reject booking" />
+            </div>
+          ) : canCancelConfirmed ? (
+            <div className="mt-5">
+              <CancelConfirmedSessionForm
+                bookingId={booking.id}
+                hasPaidSession={paymentStatus === "PAID"}
+              />
             </div>
           ) : (
             <div className="mt-5">

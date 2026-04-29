@@ -1,10 +1,12 @@
 ﻿import { z } from "zod";
 import {
+  BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION,
   BOOKING_FLOW_MESSAGES,
   BOOKING_FLOW_SLOT_DURATION_MINUTES,
 } from "@/lib/constants/booking-flow";
 
 const isoDateSchema = z.coerce.date();
+const minimumLeadTimeMs = BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION * 60 * 60 * 1000;
 
 export const bookingRequestSchema = z
   .object({
@@ -19,6 +21,10 @@ export const bookingRequestSchema = z
   })
   .refine((data) => data.startsAt > new Date(), {
     message: BOOKING_FLOW_MESSAGES.futureOnly,
+    path: ["startsAt"],
+  })
+  .refine((data) => data.startsAt.getTime() - Date.now() >= minimumLeadTimeMs, {
+    message: BOOKING_FLOW_MESSAGES.minimumLeadTime,
     path: ["startsAt"],
   })
   .refine(

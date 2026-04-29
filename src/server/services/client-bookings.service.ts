@@ -1,4 +1,4 @@
-﻿import { BookingStatus, SessionStatus } from "@prisma/client";
+import { BookingStatus, PaymentStatus, SessionStatus } from "@prisma/client";
 import {
   bookingDetailsSelect,
   bookingListSelect,
@@ -12,8 +12,10 @@ import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
+import { issueClientCredit } from "@/server/services/client-credit.service";
 import {
   refundClientCancellationIfEligible,
+  refundPlatformCancellationIfEligible,
   RefundServiceError,
   type RefundExecutionResult,
 } from "@/server/services/refund.service";
@@ -38,6 +40,8 @@ export class ClientBookingsServiceError extends Error {
     public readonly code:
       | "BOOKING_NOT_FOUND"
       | "BOOKING_NOT_CANCELLABLE"
+      | "COMPENSATION_ALREADY_RESOLVED"
+      | "COMPENSATION_NOT_ELIGIBLE"
       | "GOOGLE_CALENDAR_SYNC_FAILED"
       | "REFUND_FAILED",
   ) {
@@ -49,6 +53,13 @@ export class ClientBookingsServiceError extends Error {
 export type ClientBookingCancellationResult = {
   booking: BookingDetailsItem;
   refund: RefundExecutionResult;
+};
+
+export type ClientCompensationResolutionResult = {
+  booking: BookingDetailsItem;
+  resolution: "refund" | "credit";
+  refund: RefundExecutionResult | null;
+  issuedCreditAmount: number | null;
 };
 
 function getNow() {
@@ -232,3 +243,121 @@ export async function cancelClientBooking(
   });
 }
 
+export async function resolveClientCancellationCompensation(
+  userId: string,
+  bookingId: string,
+  resolution: "refund" | "credit",
+): Promise<ClientCompensationResolutionResult> {
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      clientId: userId,
+    },
+    select: {
+      id: true,
+      clientId: true,
+      therapistId: true,
+      bookingStatus: true,
+      cancelledByUserId: true,
+      compensationResolutionType: true,
+      payment: {
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          paymentStatus: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new ClientBookingsServiceError("Booking not found for this client.", "BOOKING_NOT_FOUND");
+  }
+
+  if (booking.compensationResolutionType) {
+    throw new ClientBookingsServiceError(
+      "Compensation has already been resolved for this booking.",
+      "COMPENSATION_ALREADY_RESOLVED",
+    );
+  }
+
+  const compensationChoiceAvailable =
+    booking.bookingStatus === BookingStatus.CANCELLED &&
+    booking.cancelledByUserId === booking.therapistId &&
+    booking.payment?.paymentStatus === PaymentStatus.PAID;
+
+  if (!compensationChoiceAvailable || !booking.payment) {
+    throw new ClientBookingsServiceError(
+      "Compensation choice is not available for this booking.",
+      "COMPENSATION_NOT_ELIGIBLE",
+    );
+  }
+
+  if (resolution === "refund") {
+    let refund: RefundExecutionResult;
+
+    try {
+      refund = await refundPlatformCancellationIfEligible({
+        bookingId: booking.id,
+        actorUserId: userId,
+        trigger: "THERAPIST_CANCELLATION",
+        businessReason:
+          "Client chose a full refund after the therapist cancelled the confirmed session.",
+      });
+    } catch (error) {
+      if (error instanceof RefundServiceError) {
+        throw new ClientBookingsServiceError(error.message, "REFUND_FAILED");
+      }
+
+      throw error;
+    }
+
+    const updatedBooking = await prisma.booking.findUnique({
+      where: {
+        id: booking.id,
+      },
+      select: bookingDetailsSelect,
+    });
+
+    if (!updatedBooking) {
+      throw new ClientBookingsServiceError("Booking not found after update.", "BOOKING_NOT_FOUND");
+    }
+
+    return {
+      booking: updatedBooking,
+      resolution: "refund",
+      refund,
+      issuedCreditAmount: null,
+    };
+  }
+
+  const issuedCreditAmount = await issueClientCredit({
+    clientId: userId,
+    bookingId: booking.id,
+    paymentId: booking.payment.id,
+    amount: booking.payment.amount,
+    currency: booking.payment.currency,
+    notes:
+      "Client chose platform credit after the therapist cancelled the confirmed session.",
+    actorUserId: userId,
+  });
+
+  const updatedBooking = await prisma.booking.update({
+    where: {
+      id: booking.id,
+    },
+    data: {
+      compensationResolutionType: "CREDIT",
+      compensationResolvedAt: new Date(),
+    },
+    select: bookingDetailsSelect,
+  });
+
+  return {
+    booking: updatedBooking,
+    resolution: "credit",
+    refund: null,
+    issuedCreditAmount,
+  };
+}

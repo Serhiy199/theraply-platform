@@ -10,6 +10,7 @@ import {
 } from "@/app/therapist/payout-details/actions";
 import type { TherapistPayoutDetailsView } from "@/server/services/therapist-bookings.service";
 import type { TherapistGoogleCalendarOption } from "@/server/services/google-calendar.service";
+import { Button } from "@/components/ui/button";
 
 type TherapistPayoutFormProps = {
   data: TherapistPayoutDetailsView;
@@ -156,19 +157,13 @@ export function TherapistPayoutForm({
             ) : null}
           </label>
 
-          <button
+          <Button
             type="submit"
-            disabled={payoutButtonDisabled}
-            className={[
-              "inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold transition",
-              payoutButtonDisabled
-                ? "cursor-not-allowed border-slate-300 bg-slate-100 !text-slate-800"
-                : "cursor-pointer border-slate-900 bg-slate-900 !text-white hover:bg-slate-800",
-            ].join(" ")}
-            style={{ color: payoutButtonDisabled ? "#1f2937" : "#ffffff" }}
+            loading={pending}
+            loadingText="Saving..."
           >
-            {pending ? "Saving..." : "Save payout details"}
-          </button>
+            Save payout details
+          </Button>
         </form>
       </section>
 
@@ -264,19 +259,14 @@ export function TherapistPayoutForm({
               </select>
             </label>
 
-            <button
+            <Button
               type="submit"
-              disabled={calendarButtonDisabled}
-              className={[
-                "inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold transition",
-                calendarButtonDisabled
-                  ? "cursor-not-allowed border-slate-300 bg-slate-100 !text-slate-800"
-                  : "cursor-pointer border-slate-900 bg-slate-900 !text-white hover:bg-slate-800",
-              ].join(" ")}
-              style={{ color: calendarButtonDisabled ? "#1f2937" : "#ffffff" }}
+              disabled={!googleCalendars.length}
+              loading={calendarPending}
+              loadingText="Saving..."
             >
-              {calendarPending ? "Saving..." : "Save target calendar"}
-            </button>
+              Save target calendar
+            </Button>
           </form>
         </article>
 

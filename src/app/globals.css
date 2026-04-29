@@ -37,6 +37,42 @@ a {
   color: inherit;
 }
 
+input,
+select,
+optgroup,
+textarea {
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  margin: 0;
+}
+
+button,
+[type="button"],
+[type="submit"],
+[type="reset"] {
+  color: unset;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  margin: 0;
+}
+
+button,
+[type="button"],
+[type="submit"],
+[type="reset"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled {
+  cursor: not-allowed;
+}
+
 .site-shell {
   background: transparent;
 }

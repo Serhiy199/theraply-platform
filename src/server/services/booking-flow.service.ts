@@ -1,14 +1,19 @@
-import { BookingStatus, Prisma, SessionStatus, UserRole } from "@prisma/client";
+import { BookingStatus, PaymentStatus, Prisma, SessionStatus, UserRole } from "@prisma/client";
 import {
   bookingDetailsSelect,
   type BookingDetailsItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import {
   GoogleAvailabilityServiceError,
   getTherapistGoogleAvailability,
   hasTherapistGoogleCalendarBusyConflict,
 } from "@/server/services/google-availability.service";
+import {
+  BOOKING_FLOW_MESSAGES,
+  BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION,
+} from "@/lib/constants/booking-flow";
 import {
   createTherapistGoogleCalendarEvent,
   deleteTherapistGoogleCalendarEvent,
@@ -52,6 +57,7 @@ export type TherapistAvailabilitySlot = {
   endsAt: Date;
   isAvailable: boolean;
   timeZone: string;
+  unavailableReason?: "conflict" | "lead_time";
 };
 
 export type CreateBookingRequestInput = {
@@ -66,7 +72,9 @@ export class BookingFlowServiceError extends Error {
     message: string,
     public readonly code:
       | "BOOKING_NOT_FOUND"
+      | "BOOKING_NOT_CANCELLABLE"
       | "BOOKING_NOT_PENDING"
+      | "BOOKING_LEAD_TIME"
       | "CLIENT_NOT_ELIGIBLE"
       | "INVALID_DATE_RANGE"
       | "INVALID_MEETING_URL"
@@ -143,6 +151,23 @@ function buildBookingSlotLockKey(therapistId: string, startsAt: Date, endsAt: Da
   return `${therapistId}:${startsAt.toISOString()}:${endsAt.toISOString()}`;
 }
 
+function getMinimumBookingLeadTimeMs() {
+  return BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION * 60 * 60 * 1000;
+}
+
+function meetsBookingLeadTime(startsAt: Date, now = new Date()) {
+  return startsAt.getTime() - now.getTime() >= getMinimumBookingLeadTimeMs();
+}
+
+function assertBookingLeadTime(startsAt: Date, now = new Date()) {
+  if (!meetsBookingLeadTime(startsAt, now)) {
+    throw new BookingFlowServiceError(
+      BOOKING_FLOW_MESSAGES.minimumLeadTime,
+      "BOOKING_LEAD_TIME",
+    );
+  }
+}
+
 async function acquireBookingSlotCreationLock(
   tx: Prisma.TransactionClient,
   therapistId: string,
@@ -150,10 +175,19 @@ async function acquireBookingSlotCreationLock(
   endsAt: Date,
 ) {
   const lockKey = buildBookingSlotLockKey(therapistId, startsAt, endsAt);
-
-  await tx.$queryRaw`
-    SELECT pg_advisory_xact_lock(hashtext(${therapistId}), hashtext(${lockKey}))
+  const lockResult = await tx.$queryRaw<Array<{ locked: boolean }>>`
+    SELECT pg_try_advisory_xact_lock(
+      hashtext(${therapistId}),
+      hashtext(${lockKey})
+    ) AS "locked"
   `;
+
+  if (!lockResult[0]?.locked) {
+    throw new BookingFlowServiceError(
+      "The selected slot is being booked right now. Please try again.",
+      "SLOT_CONFLICT",
+    );
+  }
 }
 
 async function getBookableTherapistOrThrow(therapistId: string) {
@@ -306,7 +340,27 @@ export async function getTherapistAvailability(
     validateDateRange(from, to);
   }
 
-  return getTherapistGoogleAvailability(therapistId, from, to);
+  const now = new Date();
+  const slots = await getTherapistGoogleAvailability(therapistId, from, to);
+
+  return slots.map((slot) => {
+    if (!slot.isAvailable) {
+      return {
+        ...slot,
+        unavailableReason: "conflict" as const,
+      };
+    }
+
+    if (!meetsBookingLeadTime(slot.startsAt, now)) {
+      return {
+        ...slot,
+        isAvailable: false,
+        unavailableReason: "lead_time" as const,
+      };
+    }
+
+    return slot;
+  });
 }
 
 export async function createBookingRequest(
@@ -323,6 +377,8 @@ export async function createBookingRequest(
       "INVALID_DATE_RANGE",
     );
   }
+
+  assertBookingLeadTime(input.startsAt);
 
   return prisma.$transaction(async (tx) => {
     await acquireBookingSlotCreationLock(tx, input.therapistId, input.startsAt, input.endsAt);
@@ -589,6 +645,139 @@ export async function rejectBookingRequest(
     if (!updatedBooking) {
       throw new BookingFlowServiceError(
         "Booking not found after rejection.",
+        "BOOKING_NOT_FOUND",
+      );
+    }
+
+    return updatedBooking;
+  });
+}
+
+export async function cancelConfirmedBookingByTherapist(
+  therapistUserId: string,
+  bookingId: string,
+): Promise<BookingDetailsItem> {
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      therapistId: therapistUserId,
+    },
+    select: {
+      id: true,
+      bookingStatus: true,
+      cancelledAt: true,
+      cancelledByUserId: true,
+      therapistId: true,
+      session: {
+        select: {
+          id: true,
+          sessionStatus: true,
+          googleCalendarEventId: true,
+        },
+      },
+      payment: {
+        select: {
+          id: true,
+          paymentStatus: true,
+          amount: true,
+          currency: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new BookingFlowServiceError(
+      "Booking not found for this therapist.",
+      "BOOKING_NOT_FOUND",
+    );
+  }
+
+  if (booking.bookingStatus !== BookingStatus.CONFIRMED) {
+    throw new BookingFlowServiceError(
+      "Only confirmed sessions can be cancelled from the therapist area.",
+      "BOOKING_NOT_CANCELLABLE",
+    );
+  }
+
+  if (booking.session?.googleCalendarEventId) {
+    try {
+      await deleteTherapistGoogleCalendarEvent(
+        therapistUserId,
+        booking.session.googleCalendarEventId,
+      );
+    } catch (error) {
+      if (error instanceof GoogleCalendarServiceError) {
+        throw new BookingFlowServiceError(
+          error.message,
+          "GOOGLE_CALENDAR_SYNC_FAILED",
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    await tx.booking.update({
+      where: {
+        id: booking.id,
+      },
+      data: {
+        bookingStatus: BookingStatus.CANCELLED,
+        cancelledAt: now,
+        cancelledByUserId: therapistUserId,
+      },
+    });
+
+    if (booking.session?.id && booking.session.sessionStatus !== SessionStatus.CANCELLED) {
+      await tx.session.update({
+        where: {
+          id: booking.session.id,
+        },
+        data: {
+          sessionStatus: SessionStatus.CANCELLED,
+          meetingUrl: null,
+          googleCalendarEventId: null,
+          googleCalendarConferenceId: null,
+          googleCalendarEventHtmlLink: null,
+        },
+      });
+    }
+
+    await createAuditLogEntryBestEffort({
+      actorUserId: therapistUserId,
+      entityType: "Booking",
+      entityId: booking.id,
+      action: "THERAPIST_CANCEL_BOOKING",
+      before: {
+        bookingStatus: booking.bookingStatus,
+        cancelledAt: booking.cancelledAt,
+        cancelledByUserId: booking.cancelledByUserId,
+        sessionStatus: booking.session?.sessionStatus ?? null,
+        paymentStatus: booking.payment?.paymentStatus ?? null,
+      },
+      after: {
+        bookingStatus: BookingStatus.CANCELLED,
+        cancelledAt: now,
+        cancelledByUserId: therapistUserId,
+        sessionStatus: SessionStatus.CANCELLED,
+        paymentStatus: booking.payment?.paymentStatus ?? null,
+        compensationPending:
+          booking.payment?.paymentStatus === PaymentStatus.PAID,
+      },
+    });
+
+    const updatedBooking = await tx.booking.findUnique({
+      where: { id: booking.id },
+      select: bookingDetailsSelect,
+    });
+
+    if (!updatedBooking) {
+      throw new BookingFlowServiceError(
+        "Booking not found after therapist cancellation.",
         "BOOKING_NOT_FOUND",
       );
     }

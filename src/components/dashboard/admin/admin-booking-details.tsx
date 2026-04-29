@@ -11,11 +11,11 @@ import {
 } from "@/lib/utils/format-booking";
 import {
   adminCancelBookingAction,
-  initialAdminCancelBookingActionState,
   type AdminCancelBookingActionState,
 } from "@/app/admin/bookings/actions";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
+import { Button } from "@/components/ui/button";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -65,6 +65,9 @@ function getPaymentIncidentSummary(booking: BookingDetailsItem) {
 }
 
 function ManualCancelForm({ bookingId }: { bookingId: string }) {
+  const initialAdminCancelBookingActionState: AdminCancelBookingActionState = {
+    status: "idle",
+  };
   const [state, formAction, pending] = useActionState<AdminCancelBookingActionState, FormData>(
     adminCancelBookingAction,
     initialAdminCancelBookingActionState,
@@ -78,13 +81,14 @@ function ManualCancelForm({ bookingId }: { bookingId: string }) {
           {state.message}
         </div>
       ) : null}
-      <button
+      <Button
         type="submit"
-        disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        loading={pending}
+        loadingText="Cancelling..."
+        fullWidth
       >
-        {pending ? "Cancelling..." : "Cancel booking manually"}
-      </button>
+        Cancel booking manually
+      </Button>
     </form>
   );
 }

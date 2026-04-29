@@ -73,7 +73,12 @@ export async function createBookingRequestAction(
     if (error instanceof BookingFlowServiceError) {
       return {
         status: "error",
-        code: error.code === "SLOT_CONFLICT" ? "conflict" : "unknown",
+        code:
+          error.code === "SLOT_CONFLICT"
+            ? "conflict"
+            : error.code === "BOOKING_LEAD_TIME"
+              ? "validation"
+              : "unknown",
         message: error.message,
       };
     }

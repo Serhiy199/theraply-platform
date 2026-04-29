@@ -1,0 +1,114 @@
+"use client";
+
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+
+type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "ghost";
+type ButtonSize = "sm" | "md";
+
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  loading?: boolean;
+  loadingText?: ReactNode;
+  children: ReactNode;
+};
+
+function joinClasses(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function getVariantClasses(variant: ButtonVariant, disabled: boolean) {
+  switch (variant) {
+    case "secondary":
+      return disabled
+        ? "border border-slate-200 bg-slate-100 text-slate-400"
+        : "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50";
+    case "danger":
+      return disabled
+        ? "border border-slate-200 bg-slate-100 text-slate-400"
+        : "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100";
+    case "success":
+      return disabled
+        ? "border border-slate-200 bg-slate-100 text-slate-400"
+        : "border border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100";
+    case "ghost":
+      return disabled
+        ? "bg-transparent text-slate-400"
+        : "bg-transparent text-slate-700 hover:bg-slate-100";
+    case "primary":
+    default:
+      return disabled
+        ? "bg-slate-300 text-slate-800"
+        : "bg-slate-900 text-white hover:bg-slate-800";
+  }
+}
+
+function getVariantColor(variant: ButtonVariant, disabled: boolean) {
+  if (disabled) {
+    return variant === "primary" ? "#1f2937" : "#94a3b8";
+  }
+
+  switch (variant) {
+    case "secondary":
+      return "#0f172a";
+    case "danger":
+      return "#9f1239";
+    case "success":
+      return "#14532d";
+    case "ghost":
+      return "#334155";
+    case "primary":
+    default:
+      return "#ffffff";
+  }
+}
+
+function getSizeClasses(size: ButtonSize) {
+  switch (size) {
+    case "sm":
+      return "px-4 py-2 text-sm";
+    case "md":
+    default:
+      return "px-5 py-3 text-sm";
+  }
+}
+
+export function Button({
+  type = "button",
+  variant = "primary",
+  size = "md",
+  fullWidth = false,
+  disabled = false,
+  loading = false,
+  loadingText,
+  className,
+  style,
+  children,
+  ...props
+}: ButtonProps) {
+  const isDisabled = disabled || loading;
+  const mergedStyle: CSSProperties = {
+    color: getVariantColor(variant, isDisabled),
+    ...style,
+  };
+
+  return (
+    <button
+      type={type}
+      disabled={isDisabled}
+      className={joinClasses(
+        "inline-flex items-center justify-center rounded-full font-semibold transition",
+        isDisabled ? "cursor-not-allowed" : "cursor-pointer",
+        getSizeClasses(size),
+        getVariantClasses(variant, isDisabled),
+        fullWidth && "w-full",
+        className,
+      )}
+      style={mergedStyle}
+      {...props}
+    >
+      {loading ? (loadingText ?? children) : children}
+    </button>
+  );
+}

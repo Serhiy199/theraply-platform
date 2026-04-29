@@ -15,11 +15,13 @@ import {
 } from "@/lib/utils/format-booking";
 import {
   cancelBookingAction,
-  initialCancelBookingActionState,
+  resolveCompensationAction,
   type CancelBookingActionState,
+  type ResolveCompensationActionState,
 } from "@/app/client/bookings/actions";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
+import { Button } from "@/components/ui/button";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -74,6 +76,9 @@ function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
 }
 
 function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
+  const initialCancelBookingActionState: CancelBookingActionState = {
+    status: "idle",
+  };
   const [state, formAction, pending] = useActionState<CancelBookingActionState, FormData>(
     cancelBookingAction,
     initialCancelBookingActionState,
@@ -115,17 +120,63 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
           </span>
         </label>
       ) : null}
-      <button
+      <Button
         type="submit"
-        disabled={disabled}
-        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        disabled={lateCancellation && !lateAcknowledged}
+        loading={pending}
+        loadingText="Cancelling..."
+        fullWidth
       >
-        {pending
-          ? "Cancelling..."
-          : lateCancellation
-            ? "Confirm late cancellation"
-            : "Cancel booking"}
-      </button>
+        {lateCancellation ? "Confirm late cancellation" : "Cancel booking"}
+      </Button>
+    </form>
+  );
+}
+
+function CompensationChoiceForm({ bookingId }: { bookingId: string }) {
+  const initialResolveCompensationActionState: ResolveCompensationActionState = {
+    status: "idle",
+  };
+  const [state, formAction, pending] = useActionState<
+    ResolveCompensationActionState,
+    FormData
+  >(resolveCompensationAction, initialResolveCompensationActionState);
+
+  return (
+    <form action={formAction} className="mt-5 grid gap-4">
+      <input type="hidden" name="bookingId" value={bookingId} />
+      {state.message ? (
+        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
+          {state.message}
+        </DashboardStatusAlert>
+      ) : null}
+      <DashboardStatusAlert tone="warning" title="Therapist cancelled this paid session">
+        Choose whether you want the money returned to your card or kept as platform credit for a future booking.
+      </DashboardStatusAlert>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button
+          type="submit"
+          name="resolution"
+          value="refund"
+          loading={pending}
+          loadingText="Processing..."
+        >
+          Choose refund
+        </Button>
+        <Button
+          type="submit"
+          name="resolution"
+          value="credit"
+          loading={pending}
+          loadingText="Processing..."
+          variant="success"
+        >
+          Keep as credit
+        </Button>
+      </div>
+      <p className="text-xs leading-5 text-slate-500">
+        Refund returns the paid amount through Stripe. Credit keeps the full session value on your Theraply balance for your next booking.
+      </p>
     </form>
   );
 }
@@ -188,18 +239,17 @@ function PaymentCheckoutButton({
         </DashboardStatusAlert>
       ) : null}
 
-      <button
+      <Button
         type="button"
         onClick={handleCheckout}
-        disabled={disabled}
-        className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        disabled={!paymentEligibility.canPay}
+        loading={isPending}
+        loadingText="Preparing settlement..."
       >
-        {isPending
-          ? "Preparing settlement..."
-          : paymentEligibility.projectedStripeChargeAmount === 0
-            ? "Apply credit and settle"
-            : "Pay now"}
-      </button>
+        {paymentEligibility.projectedStripeChargeAmount === 0
+          ? "Apply credit and settle"
+          : "Pay now"}
+      </Button>
 
       <p className="text-xs leading-5 text-slate-500">
         {paymentEligibility.projectedStripeChargeAmount === 0
@@ -219,6 +269,11 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canCancel = ["PENDING_THERAPIST", "CONFIRMED"].includes(booking.bookingStatus) && booking.startsAt > new Date();
   const lateCancellation = isLateCancellation(booking.startsAt);
+  const compensationChoiceAvailable =
+    booking.bookingStatus === "CANCELLED" &&
+    booking.cancelledByUserId === booking.therapist.id &&
+    paymentStatus === "PAID" &&
+    !booking.compensationResolutionType;
   const therapistName = getTherapistName(booking);
   const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
@@ -370,34 +425,42 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
-          <h3 className="text-xl font-semibold text-slate-900">Payment readiness</h3>
-          <div className="mt-5">
-            <DashboardStatusAlert
-              tone={
-                paymentEligibility.canPay
-                  ? "success"
-                  : paymentEligibility.code === "PAYMENT_DEADLINE_PASSED"
-                    ? "warning"
-                    : "info"
-              }
-              title={paymentEligibility.canPay ? "Checkout can be started" : "Checkout is not available yet"}
-            >
-              {paymentEligibility.message}
-            </DashboardStatusAlert>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            Payment rules are enforced on the server side before Stripe Checkout is created, so this button only activates when the booking is genuinely payable.
-          </p>
-          {booking.compensationResolutionType ? (
-            <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
-              Compensation state: {booking.compensationResolutionType.toLowerCase()} resolved on{" "}
-              {formatDateTime(booking.compensationResolvedAt ?? null)}.
-            </div>
-          ) : null}
-          <PaymentCheckoutButton
-            bookingId={booking.id}
-            paymentEligibility={paymentEligibility}
-          />
+          <h3 className="text-xl font-semibold text-slate-900">
+            {compensationChoiceAvailable ? "Compensation options" : "Payment readiness"}
+          </h3>
+          {compensationChoiceAvailable ? (
+            <CompensationChoiceForm bookingId={booking.id} />
+          ) : (
+            <>
+              <div className="mt-5">
+                <DashboardStatusAlert
+                  tone={
+                    paymentEligibility.canPay
+                      ? "success"
+                      : paymentEligibility.code === "PAYMENT_DEADLINE_PASSED"
+                        ? "warning"
+                        : "info"
+                  }
+                  title={paymentEligibility.canPay ? "Checkout can be started" : "Checkout is not available yet"}
+                >
+                  {paymentEligibility.message}
+                </DashboardStatusAlert>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                Payment rules are enforced on the server side before Stripe Checkout is created, so this button only activates when the booking is genuinely payable.
+              </p>
+              {booking.compensationResolutionType ? (
+                <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+                  Compensation state: {booking.compensationResolutionType.toLowerCase()} resolved on{" "}
+                  {formatDateTime(booking.compensationResolvedAt ?? null)}.
+                </div>
+              ) : null}
+              <PaymentCheckoutButton
+                bookingId={booking.id}
+                paymentEligibility={paymentEligibility}
+              />
+            </>
+          )}
         </article>
 
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
