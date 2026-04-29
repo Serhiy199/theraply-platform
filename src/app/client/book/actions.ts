@@ -24,6 +24,8 @@ export async function createBookingRequestAction(
   formData: FormData,
 ): Promise<BookingRequestActionState> {
   const user = await getCurrentUser();
+  let bookingId: string | null = null;
+  let therapistId: string | null = null;
 
   try {
     assertActionRole(
@@ -49,6 +51,8 @@ export async function createBookingRequestAction(
     }
 
     const booking = await createBookingRequest(user.id, parsed.data);
+    bookingId = booking.id;
+    therapistId = parsed.data.therapistId;
 
     revalidatePath("/client/bookings");
     revalidatePath("/client/dashboard");
@@ -57,8 +61,6 @@ export async function createBookingRequestAction(
     revalidatePath("/therapist/dashboard");
     revalidatePath("/admin/bookings");
     revalidatePath("/admin/dashboard");
-
-    redirect(`/client/bookings/${booking.id}`);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
       return {
@@ -82,4 +84,14 @@ export async function createBookingRequestAction(
       message: "Something went wrong while creating the booking request.",
     };
   }
+
+  if (!bookingId || !therapistId) {
+    return {
+      status: "error",
+      code: "unknown",
+      message: "Something went wrong while creating the booking request.",
+    };
+  }
+
+  redirect(`/client/bookings/${bookingId}`);
 }
