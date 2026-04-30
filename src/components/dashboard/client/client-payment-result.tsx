@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui/button";
 
 type ClientPaymentResultProps = {
   tone: "success" | "warning";
@@ -72,25 +72,16 @@ export function ClientPaymentResult({
           <h3 className="text-lg font-semibold text-slate-900">Quick links</h3>
           <div className="mt-4 grid gap-3">
             {bookingHref ? (
-              <Link
-                href={bookingHref}
-                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
+              <ButtonLink href={bookingHref}>
                 {bookingLabel}
-              </Link>
+              </ButtonLink>
             ) : null}
-            <Link
-              href="/client/payments"
-              className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
+            <ButtonLink href="/client/payments" variant="secondary">
               View payment history
-            </Link>
-            <Link
-              href="/client/bookings"
-              className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
+            </ButtonLink>
+            <ButtonLink href="/client/bookings" variant="secondary">
               Back to bookings
-            </Link>
+            </ButtonLink>
           </div>
         </article>
       </div>

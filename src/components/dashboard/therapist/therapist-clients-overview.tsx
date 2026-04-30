@@ -1,5 +1,6 @@
 ﻿import type { TherapistClientListItem } from "@/server/services/therapist-bookings.service";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { Badge } from "@/components/ui/badge";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
@@ -37,9 +38,9 @@ export function TherapistClientsOverview({ clients }: TherapistClientsOverviewPr
                 <h3 className="text-xl font-semibold text-slate-900">{getClientName(client)}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{client.email}</p>
               </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
+              <Badge variant="neutral">
                 {client.upcomingBookings} upcoming
-              </div>
+              </Badge>
             </div>
             <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-3">
               <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">

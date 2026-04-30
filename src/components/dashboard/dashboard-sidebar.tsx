@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { DashboardNavItem } from "@/lib/constants/dashboard-nav";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { getUserDisplayName, getUserInitials } from "@/lib/auth/user-display";
+import { Badge } from "@/components/ui/badge";
 
 type DashboardSidebarProps = {
   eyebrow: string;
@@ -58,12 +59,8 @@ export function DashboardSidebar({
           </div>
         </div>
         <div className="mt-4 flex items-center justify-between gap-3">
-          <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
-            {roleLabel}
-          </span>
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-            Active
-          </span>
+          <Badge variant="white">{roleLabel}</Badge>
+          <Badge variant="success">Active</Badge>
         </div>
       </section>
 

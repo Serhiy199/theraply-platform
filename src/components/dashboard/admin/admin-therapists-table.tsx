@@ -1,5 +1,6 @@
 ﻿import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import type { AdminTherapistListItem } from "@/server/services/admin-operations.service";
+import { Badge } from "@/components/ui/badge";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
@@ -52,18 +53,18 @@ export function AdminTherapistsTable({ therapists }: AdminTherapistsTableProps) 
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex flex-col gap-2">
-                      <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${therapist.isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                      <Badge className={`w-fit ${therapist.isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                         {therapist.approvalStatus.replaceAll("_", " ")}
-                      </span>
+                      </Badge>
                     </div>
                   </td>
                   <td className="px-5 py-4 text-slate-600">{therapist.specialization ?? "Not set"}</td>
                   <td className="px-5 py-4 text-slate-600">{therapist.googleCalendarEmail ?? "Not connected"}</td>
                   <td className="px-5 py-4">
                     <div className="flex flex-col gap-2 text-slate-600">
-                      <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${therapist.payoutVerified ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}`}>
+                      <Badge className={`w-fit ${therapist.payoutVerified ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}`}>
                         {therapist.payoutVerified ? "Verified" : "Pending"}
-                      </span>
+                      </Badge>
                       <span>{therapist.payoutCountry ?? "No country yet"}</span>
                     </div>
                   </td>

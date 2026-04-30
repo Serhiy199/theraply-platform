@@ -6,6 +6,7 @@ import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.s
 import { SlotCard } from "@/components/booking/client/slot-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
+import { ButtonLink } from "@/components/ui/button";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
@@ -97,12 +98,9 @@ export function TherapistAvailability({
             <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
               <span className="font-semibold text-slate-900">{availableCount}</span> available slot{availableCount === 1 ? "" : "s"}
             </div>
-            <Link
-              href="/client/book/new"
-              className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
+            <ButtonLink href="/client/book/new" variant="secondary" size="sm">
               Change therapist
-            </Link>
+            </ButtonLink>
           </div>
         </div>
 
@@ -239,12 +237,9 @@ export function TherapistAvailability({
                   : BOOKING_FLOW_MESSAGES.noSlots)
               }
               action={
-                <Link
-                  href="/client/book/new"
-                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                >
+                <ButtonLink href="/client/book/new" variant="secondary" size="sm">
                   Choose another therapist
-                </Link>
+                </ButtonLink>
               }
             />
           </div>

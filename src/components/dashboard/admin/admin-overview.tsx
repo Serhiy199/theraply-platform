@@ -1,5 +1,6 @@
 import type { getAdminDashboardData } from "@/server/services/dashboard.service";
 import { AdminFinanceCases } from "@/components/dashboard/admin/admin-finance-cases";
+import { Badge } from "@/components/ui/badge";
 
 type AdminDashboardData = Awaited<ReturnType<typeof getAdminDashboardData>>;
 
@@ -129,13 +130,13 @@ export function AdminOverview({ data }: AdminOverviewProps) {
                   <p className="mt-1 text-sm text-slate-600">{user.email}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">{user.role}</span>
-                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">
+                  <Badge variant="white">{user.role}</Badge>
+                  <Badge variant="white">
                     {user.isActive ? "Active" : "Inactive"}
-                  </span>
-                  <span className="rounded-full border border-slate-200/70 bg-white px-3 py-1">
+                  </Badge>
+                  <Badge variant="white">
                     {formatDate(user.createdAt)}
-                  </span>
+                  </Badge>
                 </div>
               </article>
             ))}

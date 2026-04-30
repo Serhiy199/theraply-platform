@@ -6,6 +6,8 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -40,13 +42,13 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(booking.bookingStatus)}`}>
+          <Badge className={getBookingStatusBadgeClass(booking.bookingStatus)}>
             {formatBookingStatus(booking.bookingStatus)}
-          </span>
+          </Badge>
           {paymentStatus ? (
-            <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+            <Badge className={getPaymentStatusBadgeClass(paymentStatus)}>
               {formatPaymentStatus(paymentStatus)}
-            </span>
+            </Badge>
           ) : null}
         </div>
       </div>
@@ -66,12 +68,9 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-500">Request ID <span className="font-medium text-slate-700">{booking.id}</span></p>
-        <Link
-          href={`/therapist/requests/${booking.id}`}
-          className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400"
-        >
+        <ButtonLink href={`/therapist/requests/${booking.id}`} variant="secondary" size="sm">
           Review details
-        </Link>
+        </ButtonLink>
       </div>
     </article>
   );

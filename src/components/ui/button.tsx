@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+import type { UrlObject } from "url";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "ghost";
 type ButtonSize = "sm" | "md";
@@ -11,6 +13,15 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   fullWidth?: boolean;
   loading?: boolean;
   loadingText?: ReactNode;
+  children: ReactNode;
+};
+
+type ButtonLinkProps = {
+  href: string | UrlObject;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  className?: string;
   children: ReactNode;
 };
 
@@ -74,6 +85,29 @@ function getSizeClasses(size: ButtonSize) {
   }
 }
 
+function getButtonClasses({
+  variant,
+  size,
+  fullWidth,
+  disabled,
+  className,
+}: {
+  variant: ButtonVariant;
+  size: ButtonSize;
+  fullWidth: boolean;
+  disabled: boolean;
+  className?: string;
+}) {
+  return joinClasses(
+    "inline-flex items-center justify-center rounded-full font-semibold transition",
+    disabled ? "cursor-not-allowed" : "cursor-pointer",
+    getSizeClasses(size),
+    getVariantClasses(variant, disabled),
+    fullWidth && "w-full",
+    className,
+  );
+}
+
 export function Button({
   type = "button",
   variant = "primary",
@@ -97,18 +131,42 @@ export function Button({
     <button
       type={type}
       disabled={isDisabled}
-      className={joinClasses(
-        "inline-flex items-center justify-center rounded-full font-semibold transition",
-        isDisabled ? "cursor-not-allowed" : "cursor-pointer",
-        getSizeClasses(size),
-        getVariantClasses(variant, isDisabled),
-        fullWidth && "w-full",
+      className={getButtonClasses({
+        variant,
+        size,
+        fullWidth,
+        disabled: isDisabled,
         className,
-      )}
+      })}
       style={mergedStyle}
       {...props}
     >
       {loading ? (loadingText ?? children) : children}
     </button>
+  );
+}
+
+export function ButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  fullWidth = false,
+  className,
+  children,
+}: ButtonLinkProps) {
+  return (
+    <Link
+      href={href}
+      className={getButtonClasses({
+        variant,
+        size,
+        fullWidth,
+        disabled: false,
+        className,
+      })}
+      style={{ color: getVariantColor(variant, false) }}
+    >
+      {children}
+    </Link>
   );
 }

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { getTherapistDashboardData } from "@/server/services/dashboard.service";
 import { GoogleCalendarConnectionStatus } from "@/components/dashboard/shared/google-calendar-status";
+import { ButtonLink } from "@/components/ui/button";
 
 type TherapistDashboardData = Awaited<ReturnType<typeof getTherapistDashboardData>>;
 
@@ -148,12 +148,9 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             ))}
           </div>
           <div className="mt-5">
-            <Link
-              href="/therapist/payout-details"
-              className="text-sm font-medium text-slate-900 underline underline-offset-4"
-            >
+            <ButtonLink href="/therapist/payout-details" variant="ghost" size="sm">
               Open payout and calendar settings
-            </Link>
+            </ButtonLink>
           </div>
         </section>
       </div>

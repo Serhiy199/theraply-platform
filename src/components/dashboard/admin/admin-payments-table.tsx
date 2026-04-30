@@ -6,6 +6,7 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { Badge } from "@/components/ui/badge";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -110,9 +111,9 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                     {formatAmount(payment.amount, payment.currency)}
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(payment.paymentStatus)}`}>
+                    <Badge className={getPaymentStatusBadgeClass(payment.paymentStatus)}>
                       {formatPaymentStatus(payment.paymentStatus)}
-                    </span>
+                    </Badge>
                     <p className="mt-2 text-xs leading-5 text-slate-500">
                       {payment.checkoutExpiresAt && payment.paymentStatus === "PENDING"
                         ? `Expires ${formatDateTime(payment.checkoutExpiresAt)}`
@@ -120,9 +121,9 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                     </p>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(payment.booking.bookingStatus)}`}>
+                    <Badge className={getBookingStatusBadgeClass(payment.booking.bookingStatus)}>
                       {formatBookingStatus(payment.booking.bookingStatus)}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.paidAt)}</td>
                   <td className="px-5 py-4 text-slate-600">{formatDateTime(payment.refundedAt)}</td>

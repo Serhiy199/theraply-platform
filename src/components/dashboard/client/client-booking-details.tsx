@@ -21,7 +21,8 @@ import {
 } from "@/app/client/bookings/actions";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Button, ButtonLink } from "@/components/ui/button";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -289,13 +290,13 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(booking.bookingStatus)}`}>
+            <Badge className={getBookingStatusBadgeClass(booking.bookingStatus)}>
               {formatBookingStatus(booking.bookingStatus)}
-            </span>
+            </Badge>
             {paymentStatus ? (
-              <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+              <Badge className={getPaymentStatusBadgeClass(paymentStatus)}>
                 {formatPaymentStatus(paymentStatus)}
-              </span>
+              </Badge>
             ) : null}
           </div>
         </div>
@@ -466,9 +467,9 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
         <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-xl font-semibold text-slate-900">Cancellation policy</h3>
-            <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${lateCancellation ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+            <Badge variant={lateCancellation ? "danger" : "success"}>
               {lateCancellation ? "Less than 24h" : "24h+"}
-            </span>
+            </Badge>
           </div>
           <p className="mt-4 text-sm leading-7 text-slate-600">{getCancellationPolicyMessage(booking.startsAt)}</p>
           {canCancel ? (
@@ -481,9 +482,9 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
             </div>
           )}
           <div className="mt-5">
-            <Link href="/client/bookings" className="text-sm font-medium text-slate-900 underline underline-offset-4">
+            <ButtonLink href="/client/bookings" variant="ghost" size="sm">
               Back to bookings
-            </Link>
+            </ButtonLink>
           </div>
         </article>
       </section>

@@ -7,6 +7,8 @@ import {
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -123,9 +125,9 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                     <td className="px-5 py-4">
                       <div className="flex flex-col gap-2">
                         {paymentStatus ? (
-                          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+                          <Badge className={getPaymentStatusBadgeClass(paymentStatus)}>
                             {formatPaymentStatus(paymentStatus)}
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-slate-500">No payment</span>
                         )}
@@ -136,9 +138,9 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                     </td>
                     <td className="px-5 py-4 text-slate-600">{formatDateTime(booking.updatedAt)}</td>
                     <td className="px-5 py-4">
-                      <Link href={`/admin/bookings/${booking.id}`} className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400">
+                      <ButtonLink href={`/admin/bookings/${booking.id}`} variant="secondary" size="sm">
                         View details
-                      </Link>
+                      </ButtonLink>
                     </td>
                   </tr>
                 );

@@ -2,6 +2,7 @@
 import type { BookingListItem } from "@/lib/contracts/bookings";
 import { ClientBookingCard } from "@/components/dashboard/client/client-booking-card";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { ButtonLink } from "@/components/ui/button";
 
 type ClientBookingsOverviewProps = {
   upcomingBookings: BookingListItem[];
@@ -24,12 +25,9 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
             <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
               <span className="font-semibold text-slate-900">{upcomingBookings.length}</span> active booking item{upcomingBookings.length === 1 ? "" : "s"}
             </div>
-            <Link
-              href="/client/book/new"
-              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
+            <ButtonLink href="/client/book/new">
               Book a new session
-            </Link>
+            </ButtonLink>
           </div>
         </div>
 
@@ -42,12 +40,9 @@ export function ClientBookingsOverview({ upcomingBookings, pastBookings }: Clien
               title="No upcoming sessions yet"
               description="As soon as confirmed or pending requests exist for this account, they will appear here with therapist details and payment status."
               action={
-                <Link
-                  href="/client/book/new"
-                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
+                <ButtonLink href="/client/book/new" size="sm">
                   Book your first session
-                </Link>
+                </ButtonLink>
               }
             />
           )}

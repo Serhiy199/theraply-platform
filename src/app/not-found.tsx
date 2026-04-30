@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
@@ -9,12 +9,9 @@ export default function NotFound() {
         <p className="mt-4 text-base text-slate-600">
           The page you are looking for is not available in this build yet.
         </p>
-        <Link
-          href="/"
-          className="mt-8 inline-flex rounded-full bg-blue-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-800"
-        >
+        <ButtonLink href="/" className="mt-8">
           Back to home
-        </Link>
+        </ButtonLink>
       </div>
     </main>
   );

@@ -1,5 +1,6 @@
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { getUserDisplayName } from "@/lib/auth/user-display";
+import { Badge } from "@/components/ui/badge";
 
 type DashboardHeaderProps = {
   email: string | null | undefined;
@@ -23,12 +24,8 @@ export function DashboardHeader({ email, firstName, lastName, roleLabel }: Dashb
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700">
-            {roleLabel}
-          </span>
-          <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-            Session active
-          </span>
+          <Badge variant="white" size="sm">{roleLabel}</Badge>
+          <Badge variant="success" size="sm">Session active</Badge>
           <LogoutButton size="large" />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import { TherapistCard } from "@/components/booking/client/therapist-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
+import { ButtonLink } from "@/components/ui/button";
 
 type TherapistPickerProps = {
   therapists: TherapistListItem[];
@@ -43,12 +44,9 @@ export function TherapistPicker({ therapists }: TherapistPickerProps) {
                 title="No therapists available right now"
                 description={BOOKING_FLOW_MESSAGES.noTherapists}
                 action={
-                  <Link
-                    href="/client/bookings"
-                    className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                  >
+                  <ButtonLink href="/client/bookings" variant="secondary" size="sm">
                     Back to bookings
-                  </Link>
+                  </ButtonLink>
                 }
               />
             </div>

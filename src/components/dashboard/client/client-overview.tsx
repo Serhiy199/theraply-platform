@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { getClientDashboardData } from "@/server/services/dashboard.service";
+import { ButtonLink } from "@/components/ui/button";
 
 type ClientDashboardData = Awaited<ReturnType<typeof getClientDashboardData>>;
 
@@ -37,18 +38,12 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/client/book/new"
-            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
+          <ButtonLink href="/client/book/new">
             Book a session
-          </Link>
-          <Link
-            href="/client/bookings"
-            className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/80 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-white"
-          >
+          </ButtonLink>
+          <ButtonLink href="/client/bookings" variant="secondary">
             Open bookings
-          </Link>
+          </ButtonLink>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">

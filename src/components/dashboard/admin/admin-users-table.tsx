@@ -1,5 +1,6 @@
 ﻿import type { AdminUserListItem } from "@/server/services/admin-operations.service";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { Badge } from "@/components/ui/badge";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
@@ -50,14 +51,14 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
                     <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">ID {user.id}</p>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
+                    <Badge variant="neutral">
                       {user.role}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${user.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}`}>
+                    <Badge variant={user.isActive ? "success" : "neutral"}>
                       {user.isActive ? "Active" : "Inactive"}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
                   <td className="px-5 py-4 text-slate-600">{formatDate(user.updatedAt)}</td>

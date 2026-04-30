@@ -2,6 +2,7 @@ import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
 import { RequestSlotForm } from "@/components/booking/client/request-slot-form";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
+import { Badge } from "@/components/ui/badge";
 
 function formatTime(date: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -27,9 +28,9 @@ export function SlotCard({ slot }: SlotCardProps) {
             {formatTime(slot.startsAt, slot.timeZone)} - {formatTime(slot.endsAt, slot.timeZone)}
           </h4>
         </div>
-        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${slot.isAvailable ? "border-emerald-200 bg-white/80 text-emerald-800" : "border-slate-200 bg-white/70 text-slate-600"}`}>
+        <Badge className={slot.isAvailable ? "border-emerald-200 bg-white/80 text-emerald-800" : "border-slate-200 bg-white/70 text-slate-600"}>
           {slot.isAvailable ? BOOKING_FLOW_MESSAGES.availableLabel : BOOKING_FLOW_MESSAGES.unavailableLabel}
-        </span>
+        </Badge>
       </div>
 
       <p className="mt-4 text-sm leading-6 text-slate-600">

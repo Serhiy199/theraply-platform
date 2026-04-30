@@ -5,6 +5,7 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { Badge } from "@/components/ui/badge";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -78,12 +79,12 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getPaymentStatusBadgeClass(payment.paymentStatus)}`}>
+        <Badge className={getPaymentStatusBadgeClass(payment.paymentStatus)}>
           {formatPaymentStatus(payment.paymentStatus)}
-        </span>
-        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getBookingStatusBadgeClass(payment.booking.bookingStatus)}`}>
+        </Badge>
+        <Badge className={getBookingStatusBadgeClass(payment.booking.bookingStatus)}>
           {formatBookingStatus(payment.booking.bookingStatus)}
-        </span>
+        </Badge>
       </div>
 
       <dl className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">

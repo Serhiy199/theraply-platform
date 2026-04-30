@@ -1,5 +1,7 @@
 ﻿import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
@@ -38,16 +40,9 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
           <h3 className="mt-2 text-2xl font-semibold text-slate-900">{getDisplayName(therapist)}</h3>
           <p className="mt-2 text-sm text-slate-600">{therapist.email}</p>
         </div>
-        <span
-          className={[
-            "inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]",
-            hasCalendarConnection
-              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border border-amber-200 bg-amber-50 text-amber-800",
-          ].join(" ")}
-        >
+        <Badge variant={hasCalendarConnection ? "success" : "warning"}>
           {hasCalendarConnection ? "Calendar ready" : "Calendar setup pending"}
-        </span>
+        </Badge>
       </div>
 
       <dl className="mt-5 grid gap-4 text-sm text-slate-600">
@@ -73,12 +68,9 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
       </dl>
 
       <div className="mt-6 flex flex-1 items-end">
-        <Link
-          href={`/client/book/${therapist.id}`}
-          className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-        >
+        <ButtonLink href={`/client/book/${therapist.id}`}>
           View available slots
-        </Link>
+        </ButtonLink>
       </div>
     </article>
   );

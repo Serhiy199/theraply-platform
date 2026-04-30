@@ -10,7 +10,7 @@ import {
 } from "@/app/therapist/payout-details/actions";
 import type { TherapistPayoutDetailsView } from "@/server/services/therapist-bookings.service";
 import type { TherapistGoogleCalendarOption } from "@/server/services/google-calendar.service";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 
 type TherapistPayoutFormProps = {
   data: TherapistPayoutDetailsView;
@@ -209,12 +209,11 @@ export function TherapistPayoutForm({
             </div>
           </dl>
           <div className="mt-6">
-            <a
+            <ButtonLink
               href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
-              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
-            </a>
+            </ButtonLink>
           </div>
         </article>
 
