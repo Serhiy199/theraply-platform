@@ -5,17 +5,9 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
 import { InsetCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date | null) {
-  if (!date) return "Not available";
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en", {
@@ -39,7 +31,7 @@ function getPaymentOutcomeNote(payment: PaymentSummaryItem) {
 
   if (payment.paymentStatus === "PENDING") {
     const pendingNote = payment.checkoutExpiresAt
-      ? `Checkout is still pending and is expected to expire on ${formatDateTime(payment.checkoutExpiresAt)}.`
+      ? `Checkout is still pending and is expected to expire on ${formatAppDateTime(payment.checkoutExpiresAt)}.`
       : "Checkout was started but has not been finalized yet.";
 
     return `${creditNote}${pendingNote}`.trim();
@@ -70,7 +62,7 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Payment record</p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">{getTherapistName(payment)}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Session window: {formatDateTime(payment.booking.startsAt)} to {formatDateTime(payment.booking.endsAt)}
+            Session window: {formatAppDateTime(payment.booking.startsAt)} to {formatAppDateTime(payment.booking.endsAt)}
           </p>
         </div>
         <div className="text-right">
@@ -97,15 +89,15 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Paid at</dt>
-          <dd className="mt-1">{formatDateTime(payment.paidAt)}</dd>
+          <dd className="mt-1">{formatAppDateTime(payment.paidAt)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Failed at</dt>
-          <dd className="mt-1">{formatDateTime(payment.failedAt)}</dd>
+          <dd className="mt-1">{formatAppDateTime(payment.failedAt)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none md:col-span-2">
           <dt className="font-medium text-slate-700">Refunded at</dt>
-          <dd className="mt-1">{formatDateTime(payment.refundedAt)}</dd>
+          <dd className="mt-1">{formatAppDateTime(payment.refundedAt)}</dd>
         </InsetCard>
       </dl>
 

@@ -1,12 +1,10 @@
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import type { AdminAuditLogItem } from "@/server/services/admin-operations.service";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAppDateTime(date);
 }
 
 function getActorName(log: AdminAuditLogItem) {

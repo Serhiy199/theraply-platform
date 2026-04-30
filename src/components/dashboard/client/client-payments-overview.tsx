@@ -1,5 +1,6 @@
 import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import type { ClientCreditSummary } from "@/server/services/client-credit.service";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { ClientPaymentCard } from "@/components/dashboard/client/client-payment-card";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
@@ -14,13 +15,6 @@ function formatAmount(amount: number, currency: string) {
     style: "currency",
     currency: currency.toUpperCase(),
   }).format(amount / 100);
-}
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
 
 export function ClientPaymentsOverview({
@@ -85,7 +79,7 @@ export function ClientPaymentsOverview({
                         {formatAmount(transaction.amount, transaction.currency)}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {formatDateTime(transaction.createdAt)}
+                        {formatAppDateTime(transaction.createdAt)}
                       </p>
                     </div>
                   </div>

@@ -6,16 +6,10 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getClientName(booking: TherapistRequestItem) {
   return [booking.client.firstName, booking.client.lastName].filter(Boolean).join(" ") || booking.client.email;
@@ -39,7 +33,7 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
           </p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">{clientName}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            {formatDateTime(booking.startsAt)} to {formatDateTime(booking.endsAt)}
+            {formatAppDateTime(booking.startsAt)} to {formatAppDateTime(booking.endsAt)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

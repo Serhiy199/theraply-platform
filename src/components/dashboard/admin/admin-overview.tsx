@@ -1,4 +1,5 @@
 import type { getAdminDashboardData } from "@/server/services/dashboard.service";
+import { formatAppDate } from "@/lib/utils/date-time";
 import { AdminFinanceCases } from "@/components/dashboard/admin/admin-finance-cases";
 import { Badge } from "@/components/ui/badge";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
@@ -10,9 +11,7 @@ type AdminOverviewProps = {
 };
 
 function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-  }).format(date);
+  return formatAppDate(date);
 }
 
 function getStatValue(data: AdminDashboardData, label: string) {

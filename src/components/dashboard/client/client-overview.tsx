@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { getClientDashboardData } from "@/server/services/dashboard.service";
+import { formatAppDate, formatAppDateTime } from "@/lib/utils/date-time";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
@@ -9,19 +10,6 @@ type ClientOverviewProps = {
   email?: string | null;
   data: ClientDashboardData;
 };
-
-function formatDate(date: Date | null) {
-  if (!date) return "Not available yet";
-
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
-}
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 export function ClientOverview({ email, data }: ClientOverviewProps) {
   const upcomingSessions = data.stats.find((item) => item.label === "Upcoming sessions")?.value ?? 0;
@@ -102,7 +90,7 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
             </div>
             <div className="flex items-start justify-between gap-4">
               <dt className="font-medium text-slate-700">Member since</dt>
-              <dd className="text-right">{formatDate(data.accountSummary.memberSince)}</dd>
+              <dd className="text-right">{formatAppDate(data.accountSummary.memberSince)}</dd>
             </div>
           </dl>
         </SurfaceCard>
@@ -115,7 +103,7 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
             {data.recentBookings.map((booking) => (
               <InsetCard key={booking.id} tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
                 <p className="text-sm font-semibold text-slate-900">{booking.therapistName}</p>
-                <p className="mt-1 text-sm text-slate-600">{formatDateTime(booking.startsAt)}</p>
+                <p className="mt-1 text-sm text-slate-600">{formatAppDateTime(booking.startsAt)}</p>
                 <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
                   {booking.status.replaceAll("_", " ")}
                 </p>

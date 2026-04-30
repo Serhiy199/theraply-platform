@@ -1,10 +1,11 @@
 import type { TherapistClientListItem } from "@/server/services/therapist-bookings.service";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { formatAppDate } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
+  return formatAppDate(date);
 }
 
 function getClientName(client: TherapistClientListItem) {

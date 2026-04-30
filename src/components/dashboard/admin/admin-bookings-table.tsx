@@ -5,17 +5,11 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getClientName(booking: AdminBookingRow) {
   return [booking.client.firstName, booking.client.lastName].filter(Boolean).join(" ") || booking.client.email;
@@ -44,7 +38,7 @@ function getFinanceSignal(booking: AdminBookingRow) {
 
   if (booking.payment.paymentStatus === "PENDING") {
     return booking.payment.checkoutExpiresAt
-      ? `Checkout open until ${formatDateTime(booking.payment.checkoutExpiresAt)}`
+      ? `Checkout open until ${formatAppDateTime(booking.payment.checkoutExpiresAt)}`
       : "Pending checkout";
   }
 
@@ -103,8 +97,8 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                 return (
                   <tr key={booking.id} className="align-top">
                     <td className="px-5 py-4">
-                      <p className="font-semibold text-slate-900">{formatDateTime(booking.startsAt)}</p>
-                      <p className="mt-1 text-slate-600">to {formatDateTime(booking.endsAt)}</p>
+                      <p className="font-semibold text-slate-900">{formatAppDateTime(booking.startsAt)}</p>
+                      <p className="mt-1 text-slate-600">to {formatAppDateTime(booking.endsAt)}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
                         ID {booking.id}
                       </p>
@@ -124,7 +118,7 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                         </Badge>
                         {booking.cancelledAt ? (
                           <span className="text-xs text-slate-500">
-                            Cancelled {formatDateTime(booking.cancelledAt)}
+                            Cancelled {formatAppDateTime(booking.cancelledAt)}
                           </span>
                         ) : null}
                       </div>
@@ -143,7 +137,7 @@ export function AdminBookingsTable({ bookings }: AdminBookingsTableProps) {
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{formatDateTime(booking.updatedAt)}</td>
+                    <td className="px-5 py-4 text-slate-600">{formatAppDateTime(booking.updatedAt)}</td>
                     <td className="px-5 py-4">
                       <ButtonLink href={`/admin/bookings/${booking.id}`} variant="secondary" size="sm">
                         View details

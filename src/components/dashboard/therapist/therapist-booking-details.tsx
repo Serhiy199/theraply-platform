@@ -9,6 +9,7 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
   requestDecisionAction,
   therapistCancelSessionAction,
@@ -20,15 +21,6 @@ import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-st
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date | null) {
-  if (!date) return "Not available";
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getClientName(booking: BookingDetailsItem) {
   return [booking.client.firstName, booking.client.lastName].filter(Boolean).join(" ") || booking.client.email;
@@ -49,7 +41,7 @@ function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
 
   if (booking.payment.paymentStatus === "PENDING") {
     return booking.payment.checkoutExpiresAt
-      ? `Client checkout is still open until approximately ${formatDateTime(booking.payment.checkoutExpiresAt)}.`
+      ? `Client checkout is still open until approximately ${formatAppDateTime(booking.payment.checkoutExpiresAt)}.`
       : "Client checkout has started but has not completed yet.";
   }
 
@@ -165,11 +157,11 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
             <dl className="mt-4 space-y-3 text-sm text-slate-600">
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Starts</dt>
-                <dd className="text-right">{formatDateTime(booking.startsAt)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.startsAt)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Ends</dt>
-                <dd className="text-right">{formatDateTime(booking.endsAt)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.endsAt)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Meeting link</dt>
@@ -207,12 +199,12 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Paid at</dt>
-                <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Checkout expires</dt>
                 <dd className="text-right">
-                  {formatDateTime(booking.payment?.checkoutExpiresAt ?? null)}
+                  {formatAppDateTime(booking.payment?.checkoutExpiresAt ?? null)}
                 </dd>
               </div>
             </dl>

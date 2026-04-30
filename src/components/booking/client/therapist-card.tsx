@@ -79,7 +79,9 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
       </dl>
 
       <div className="mt-6 flex flex-1 items-end">
-        <ButtonLink href={`/client/book/${therapist.id}`}>View available slots</ButtonLink>
+        <ButtonLink href={`/client/book/${therapist.id}`} variant="secondary">
+          View available slots
+        </ButtonLink>
       </div>
     </InsetCard>
   );

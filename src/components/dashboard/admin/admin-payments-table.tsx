@@ -6,16 +6,14 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
 
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAppDateTime(date);
 }
 
 function formatAmount(amount: number, currency: string) {

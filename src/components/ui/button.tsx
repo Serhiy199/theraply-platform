@@ -122,8 +122,10 @@ export function Button({
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const resolvedColor = getVariantColor(variant, isDisabled);
   const mergedStyle: CSSProperties = {
-    color: getVariantColor(variant, isDisabled),
+    color: resolvedColor,
+    WebkitTextFillColor: resolvedColor,
     ...style,
   };
 
@@ -154,6 +156,8 @@ export function ButtonLink({
   className,
   children,
 }: ButtonLinkProps) {
+  const resolvedColor = getVariantColor(variant, false);
+
   return (
     <Link
       href={href}
@@ -164,7 +168,11 @@ export function ButtonLink({
         disabled: false,
         className,
       })}
-      style={{ color: getVariantColor(variant, false) }}
+      style={{
+        color: resolvedColor,
+        WebkitTextFillColor: resolvedColor,
+        textDecoration: "none",
+      }}
     >
       {children}
     </Link>

@@ -774,8 +774,39 @@ export async function syncClientStripeCheckoutSuccess(
     };
   }
 
+  if (
+    !checkoutSessionId.trim() ||
+    checkoutSessionId.includes("{CHECKOUT_SESSION_ID}") ||
+    checkoutSessionId.includes("%7BCHECKOUT_SESSION_ID%7D")
+  ) {
+    return {
+      status: "pending",
+      bookingId: booking.id,
+      reason: "NOT_FOUND",
+    };
+  }
+
   const stripe = getStripeClient();
-  const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  let session: Stripe.Checkout.Session;
+
+  try {
+    session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  } catch (error) {
+    const stripeLikeError =
+      typeof error === "object" && error !== null
+        ? (error as { code?: string })
+        : null;
+
+    if (stripeLikeError?.code === "resource_missing") {
+      return {
+        status: "pending",
+        bookingId: booking.id,
+        reason: "NOT_FOUND",
+      };
+    }
+
+    throw error;
+  }
   const sessionBookingId =
     session.metadata?.bookingId?.trim() ||
     session.client_reference_id?.trim() ||

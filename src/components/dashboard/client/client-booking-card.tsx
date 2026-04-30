@@ -6,16 +6,10 @@ import {
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
+import { formatAppDate, formatAppDateTime } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getTherapistName(booking: BookingListItem) {
   return (
@@ -43,7 +37,7 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
           </p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">{therapistName}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            {formatDateTime(booking.startsAt)} to {formatDateTime(booking.endsAt)}
+            {formatAppDateTime(booking.startsAt)} to {formatAppDateTime(booking.endsAt)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -68,7 +62,7 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <p className="font-medium text-slate-700">Latest update</p>
           <p className="mt-1 leading-6">
-            Booking record updated {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(booking.updatedAt)}.
+            Booking record updated {formatAppDate(booking.updatedAt)}.
           </p>
         </InsetCard>
       </div>

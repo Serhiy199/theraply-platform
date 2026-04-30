@@ -1,4 +1,5 @@
 import type { getTherapistDashboardData } from "@/server/services/dashboard.service";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { GoogleCalendarConnectionStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
@@ -9,13 +10,6 @@ type TherapistOverviewProps = {
   email?: string | null;
   data: TherapistDashboardData;
 };
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function getStatValue(data: TherapistDashboardData, label: string) {
   return data.stats.find((item) => item.label === label)?.value ?? 0;
@@ -161,7 +155,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             {data.recentRequests.map((booking) => (
               <InsetCard key={booking.id} tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
                 <p className="text-sm font-semibold text-slate-900">{booking.clientName}</p>
-                <p className="mt-1 text-sm text-slate-600">{formatDateTime(booking.startsAt)}</p>
+                <p className="mt-1 text-sm text-slate-600">{formatAppDateTime(booking.startsAt)}</p>
                 <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
                   {booking.status.replaceAll("_", " ")}
                 </p>

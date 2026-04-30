@@ -13,6 +13,7 @@ import {
   getPaymentStatusBadgeClass,
   isLateCancellation,
 } from "@/lib/utils/format-booking";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
   cancelBookingAction,
   resolveCompensationAction,
@@ -24,15 +25,6 @@ import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/googl
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
-
-function formatDateTime(date: Date | null) {
-  if (!date) return "Not available";
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function formatAmount(amount: number | null, currency = "GBP") {
   if (typeof amount !== "number") return "Not available";
@@ -66,7 +58,7 @@ function getPaymentOutcomeMessage(booking: BookingDetailsItem) {
 
   if (booking.payment.paymentStatus === "PENDING") {
     return booking.payment.checkoutExpiresAt
-      ? `Checkout is still open and is expected to expire on ${formatDateTime(booking.payment.checkoutExpiresAt)}.`
+      ? `Checkout is still open and is expected to expire on ${formatAppDateTime(booking.payment.checkoutExpiresAt)}.`
       : "Checkout has been started but has not completed yet.";
   }
 
@@ -308,11 +300,11 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
             <dl className="mt-4 space-y-3 text-sm text-slate-600">
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Starts</dt>
-                <dd className="text-right">{formatDateTime(booking.startsAt)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.startsAt)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Ends</dt>
-                <dd className="text-right">{formatDateTime(booking.endsAt)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.endsAt)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Meeting link</dt>
@@ -385,22 +377,22 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Payment deadline</dt>
-                <dd className="text-right">{formatDateTime(paymentEligibility.paymentDueBy)}</dd>
+                <dd className="text-right">{formatAppDateTime(paymentEligibility.paymentDueBy)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Paid at</dt>
-                <dd className="text-right">{formatDateTime(booking.payment?.paidAt ?? null)}</dd>
+                <dd className="text-right">{formatAppDateTime(booking.payment?.paidAt ?? null)}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Checkout expires</dt>
                 <dd className="text-right">
-                  {formatDateTime(booking.payment?.checkoutExpiresAt ?? null)}
+                  {formatAppDateTime(booking.payment?.checkoutExpiresAt ?? null)}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Refunded at</dt>
                 <dd className="text-right">
-                  {formatDateTime(booking.payment?.refundedAt ?? null)}
+                  {formatAppDateTime(booking.payment?.refundedAt ?? null)}
                 </dd>
               </div>
             </dl>
@@ -454,7 +446,7 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
               {booking.compensationResolutionType ? (
                 <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
                   Compensation state: {booking.compensationResolutionType.toLowerCase()} resolved on{" "}
-                  {formatDateTime(booking.compensationResolvedAt ?? null)}.
+                  {formatAppDateTime(booking.compensationResolvedAt ?? null)}.
                 </div>
               ) : null}
               <PaymentCheckoutButton

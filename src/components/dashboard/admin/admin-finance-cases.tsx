@@ -1,5 +1,6 @@
 import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import type { getAdminDashboardData } from "@/server/services/dashboard.service";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import { Alert } from "@/components/ui/alert";
 import { InsetCard, SectionEyebrow, StatCard, SurfaceCard } from "@/components/ui/card";
 
@@ -35,10 +36,7 @@ function getCaseNote(payment: PaymentSummaryItem) {
 
   if (payment.paymentStatus === "PENDING") {
     return payment.checkoutExpiresAt
-      ? `Checkout open until ${new Intl.DateTimeFormat("en", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }).format(payment.checkoutExpiresAt)}.`
+      ? `Checkout open until ${formatAppDateTime(payment.checkoutExpiresAt)}.`
       : "Checkout has started but not finished yet.";
   }
 

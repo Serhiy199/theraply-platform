@@ -14,8 +14,8 @@ export const runtime = "nodejs";
 function buildSuccessUrl(request: NextRequest, bookingId: string) {
   const url = new URL("/client/payments/success", request.url);
   url.searchParams.set("bookingId", bookingId);
-  url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-  return url.toString();
+  const baseUrl = url.toString();
+  return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
 function buildCancelUrl(request: NextRequest, bookingId: string) {
