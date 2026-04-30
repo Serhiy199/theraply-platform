@@ -166,6 +166,22 @@ export type StripeCheckoutSessionResult = {
   completedFromCredit: boolean;
 };
 
+export type StripeCheckoutSuccessSyncResult =
+  | {
+      status: "paid";
+      paymentId: string;
+      bookingId: string;
+    }
+  | {
+      status: "pending";
+      bookingId: string;
+      reason:
+        | "SESSION_NOT_COMPLETE"
+        | "SESSION_NOT_PAID"
+        | "BOOKING_MISMATCH"
+        | "NOT_FOUND";
+    };
+
 function buildCreditSuccessUrl(successUrl: string) {
   const url = new URL(successUrl);
   url.searchParams.delete("session_id");
@@ -715,6 +731,109 @@ export async function createClientStripeCheckoutSession(
       "CHECKOUT_SESSION_CREATE_FAILED",
     );
   }
+}
+
+export async function syncClientStripeCheckoutSuccess(
+  clientUserId: string,
+  bookingId: string,
+  checkoutSessionId: string,
+): Promise<StripeCheckoutSuccessSyncResult> {
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      clientId: clientUserId,
+    },
+    select: {
+      id: true,
+      payment: {
+        select: {
+          id: true,
+          paymentStatus: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new PaymentFlowServiceError("Booking not found for payment flow.", "BOOKING_NOT_FOUND");
+  }
+
+  if (booking.payment?.paymentStatus === PaymentStatus.PAID) {
+    return {
+      status: "paid",
+      paymentId: booking.payment.id,
+      bookingId: booking.id,
+    };
+  }
+
+  if (!isStripeConfigured()) {
+    return {
+      status: "pending",
+      bookingId: booking.id,
+      reason: "NOT_FOUND",
+    };
+  }
+
+  const stripe = getStripeClient();
+  const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  const sessionBookingId =
+    session.metadata?.bookingId?.trim() ||
+    session.client_reference_id?.trim() ||
+    null;
+
+  if (sessionBookingId !== booking.id) {
+    return {
+      status: "pending",
+      bookingId: booking.id,
+      reason: "BOOKING_MISMATCH",
+    };
+  }
+
+  if (session.status !== "complete") {
+    return {
+      status: "pending",
+      bookingId: booking.id,
+      reason: "SESSION_NOT_COMPLETE",
+    };
+  }
+
+  if (session.payment_status !== "paid") {
+    return {
+      status: "pending",
+      bookingId: booking.id,
+      reason: "SESSION_NOT_PAID",
+    };
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+
+  const payment = await markStripeCheckoutSessionCompleted(booking.id, {
+    checkoutSessionId: session.id,
+    paymentIntentId,
+    amount: session.amount_total ?? 0,
+    currency: session.currency ?? PAYMENT_CURRENCY,
+  });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: clientUserId,
+    entityType: "Payment",
+    entityId: payment.paymentId,
+    action: "STRIPE_CHECKOUT_SESSION_RECONCILED_ON_SUCCESS_RETURN",
+    after: {
+      bookingId: booking.id,
+      sessionId: session.id,
+      paymentIntentId,
+    },
+  });
+
+  return {
+    status: "paid",
+    paymentId: payment.paymentId,
+    bookingId: payment.bookingId,
+  };
 }
 
 export async function markStripeCheckoutSessionCompleted(
