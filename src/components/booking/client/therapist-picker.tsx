@@ -5,6 +5,7 @@ import { TherapistCard } from "@/components/booking/client/therapist-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type TherapistPickerProps = {
   therapists: TherapistListItem[];
@@ -13,18 +14,18 @@ type TherapistPickerProps = {
 export function TherapistPicker({ therapists }: TherapistPickerProps) {
   return (
     <section className="grid gap-6">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+      <SurfaceCard>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Client booking flow</p>
+            <SectionEyebrow>Client booking flow</SectionEyebrow>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">Choose a therapist</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Start a new booking request by choosing the therapist you want to work with. The next step will show available slots in the current booking window.
             </p>
           </div>
-          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
+          <InsetCard as="div" tone="plain" className="rounded-[1.5rem] px-4 py-3 text-sm text-slate-600 shadow-none">
             <span className="font-semibold text-slate-900">{therapists.length}</span> bookable therapist{therapists.length === 1 ? "" : "s"}
-          </div>
+          </InsetCard>
         </div>
 
         {therapists.length ? (
@@ -52,7 +53,7 @@ export function TherapistPicker({ therapists }: TherapistPickerProps) {
             </div>
           )}
         </div>
-      </section>
+      </SurfaceCard>
     </section>
   );
 }

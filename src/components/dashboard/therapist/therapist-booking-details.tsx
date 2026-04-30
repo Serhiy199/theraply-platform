@@ -19,6 +19,7 @@ import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/googl
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -137,10 +138,10 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
 
   return (
     <div className="grid gap-6">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+      <SurfaceCard>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Request details</p>
+            <SectionEyebrow>Request details</SectionEyebrow>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">{clientName}</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Review the request, understand the booking context, then confirm or reject the session from one place.
@@ -159,7 +160,7 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <h3 className="text-lg font-semibold text-slate-900">Session context</h3>
             <dl className="mt-4 space-y-3 text-sm text-slate-600">
               <div className="flex items-start justify-between gap-4">
@@ -187,9 +188,9 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
                 </dd>
               </div>
             </dl>
-          </article>
+          </InsetCard>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <h3 className="text-lg font-semibold text-slate-900">Client and payment</h3>
             <dl className="mt-4 space-y-3 text-sm text-slate-600">
               <div className="flex items-start justify-between gap-4">
@@ -218,12 +219,12 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
             <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
               {paymentOutcomeMessage}
             </div>
-          </article>
+          </InsetCard>
         </div>
-      </section>
+      </SurfaceCard>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Booking notes</h3>
           <p className="mt-4 text-sm leading-7 text-slate-600">{booking.notes || "No extra booking notes were attached to this request."}</p>
           {booking.session?.meetingUrl || booking.bookingStatus === "CONFIRMED" ? (
@@ -238,9 +239,9 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
               Therapist actions taken on this page immediately update the request queue and future session schedule for this client.
             </div>
           )}
-        </article>
+        </SurfaceCard>
 
-        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Decision panel</h3>
           <p className="mt-4 text-sm leading-7 text-slate-600">
             {canDecide
@@ -273,7 +274,7 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
               Back to requests
             </ButtonLink>
           </div>
-        </article>
+        </SurfaceCard>
       </section>
     </div>
   );

@@ -2,6 +2,7 @@ import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import type { ClientCreditSummary } from "@/server/services/client-credit.service";
 import { ClientPaymentCard } from "@/components/dashboard/client/client-payment-card";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type ClientPaymentsOverviewProps = {
   payments: PaymentSummaryItem[];
@@ -27,26 +28,24 @@ export function ClientPaymentsOverview({
   creditSummary,
 }: ClientPaymentsOverviewProps) {
   return (
-    <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+    <SurfaceCard as="section">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Client billing
-          </p>
+          <SectionEyebrow>Client billing</SectionEyebrow>
           <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payments</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
             Track checkout outcomes, successful charges, refunds, and anything that still
             needs attention before future sessions go live.
           </p>
         </div>
-        <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
+        <InsetCard as="div" tone="plain" className="px-4 py-3 shadow-none">
           <span className="font-semibold text-slate-900">{payments.length}</span> payment
           record{payments.length === 1 ? "" : "s"}
-        </div>
+        </InsetCard>
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+        <InsetCard as="article" tone="soft">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
             Client credit
           </p>
@@ -57,18 +56,20 @@ export function ClientPaymentsOverview({
             Available credit is applied automatically to future confirmed sessions before
             Stripe Checkout charges the remaining balance.
           </p>
-        </article>
+        </InsetCard>
 
-        <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+        <InsetCard as="article" tone="soft">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
             Recent credit activity
           </p>
           <div className="mt-4 grid gap-3">
             {creditSummary.recentTransactions.length ? (
               creditSummary.recentTransactions.map((transaction) => (
-                <div
+                <InsetCard
                   key={transaction.id}
-                  className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3"
+                  as="div"
+                  tone="muted"
+                  className="rounded-[1.25rem] px-4 py-3 shadow-none"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -88,7 +89,7 @@ export function ClientPaymentsOverview({
                       </p>
                     </div>
                   </div>
-                </div>
+                </InsetCard>
               ))
             ) : (
               <DashboardEmptyState
@@ -98,7 +99,7 @@ export function ClientPaymentsOverview({
               />
             )}
           </div>
-        </article>
+        </InsetCard>
       </div>
 
       <div className="mt-6 grid gap-4">
@@ -112,6 +113,6 @@ export function ClientPaymentsOverview({
           />
         )}
       </div>
-    </section>
+    </SurfaceCard>
   );
 }

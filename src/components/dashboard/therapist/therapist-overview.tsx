@@ -1,6 +1,7 @@
 import type { getTherapistDashboardData } from "@/server/services/dashboard.service";
 import { GoogleCalendarConnectionStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type TherapistDashboardData = Awaited<ReturnType<typeof getTherapistDashboardData>>;
 
@@ -49,10 +50,8 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Dashboard overview
-        </p>
+      <SurfaceCard>
+        <SectionEyebrow>Dashboard overview</SectionEyebrow>
         <h2 className="mt-3 text-3xl font-semibold text-slate-900">Therapist Dashboard</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
           This workspace gives therapists a real operational starting point: pending requests,
@@ -60,7 +59,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Pending requests
             </p>
@@ -70,9 +69,9 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
                 ? "Clients are waiting for your review, so this queue becomes your top priority area."
                 : "No pending confirmations right now. New client booking requests will appear here first."}
             </p>
-          </article>
+          </InsetCard>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Upcoming sessions
             </p>
@@ -80,7 +79,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Confirmed sessions will stack here so you can quickly sense your upcoming workload.
             </p>
-          </article>
+          </InsetCard>
         </div>
 
         <div className="mt-6">
@@ -90,10 +89,10 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             calendarId={data.profileSummary.calendarId}
           />
         </div>
-      </section>
+      </SurfaceCard>
 
       <div className="grid gap-4">
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Client summary</h3>
           <dl className="mt-5 space-y-4 text-sm text-slate-600">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
@@ -113,9 +112,9 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
               <dd className="text-right">{data.profileSummary.approvalStatus ?? "Pending"}</dd>
             </div>
           </dl>
-        </section>
+        </SurfaceCard>
 
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-xl font-semibold text-slate-900">Payout / profile completion</h3>
@@ -152,24 +151,21 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
               Open payout and calendar settings
             </ButtonLink>
           </div>
-        </section>
+        </SurfaceCard>
       </div>
 
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 xl:col-span-2">
+      <SurfaceCard className="p-6 xl:col-span-2">
         <h3 className="text-xl font-semibold text-slate-900">Pending request queue</h3>
         {data.recentRequests.length ? (
           <div className="mt-5 grid gap-4 xl:grid-cols-3">
             {data.recentRequests.map((booking) => (
-              <article
-                key={booking.id}
-                className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4"
-              >
+              <InsetCard key={booking.id} tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
                 <p className="text-sm font-semibold text-slate-900">{booking.clientName}</p>
                 <p className="mt-1 text-sm text-slate-600">{formatDateTime(booking.startsAt)}</p>
                 <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
                   {booking.status.replaceAll("_", " ")}
                 </p>
-              </article>
+              </InsetCard>
             ))}
           </div>
         ) : (
@@ -178,7 +174,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
             urgent items first.
           </p>
         )}
-      </section>
+      </SurfaceCard>
     </div>
   );
 }

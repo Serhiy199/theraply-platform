@@ -1,7 +1,7 @@
-﻿import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard } from "@/components/ui/card";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
@@ -33,11 +33,15 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
   );
 
   return (
-    <article className="soft-card flex h-full flex-col rounded-[1.75rem] border border-slate-200/70 p-5 shadow-sm shadow-slate-950/5">
+    <InsetCard as="article" tone="soft" className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Approved therapist</p>
-          <h3 className="mt-2 text-2xl font-semibold text-slate-900">{getDisplayName(therapist)}</h3>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Approved therapist
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold text-slate-900">
+            {getDisplayName(therapist)}
+          </h3>
           <p className="mt-2 text-sm text-slate-600">{therapist.email}</p>
         </div>
         <Badge variant={hasCalendarConnection ? "success" : "warning"}>
@@ -48,15 +52,22 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
       <dl className="mt-5 grid gap-4 text-sm text-slate-600">
         <div>
           <dt className="font-medium text-slate-700">Specialization</dt>
-          <dd className="mt-1">{therapist.therapistProfile?.specialization ?? "To be defined"}</dd>
+          <dd className="mt-1">
+            {therapist.therapistProfile?.specialization ?? "To be defined"}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-slate-700">Session price</dt>
-          <dd className="mt-1">{formatCurrency(therapist.therapistProfile?.sessionPricePence)}</dd>
+          <dd className="mt-1">
+            {formatCurrency(therapist.therapistProfile?.sessionPricePence)}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-slate-700">Profile summary</dt>
-          <dd className="mt-1 leading-6">{therapist.therapistProfile?.bio ?? "Profile details will expand as therapist onboarding continues."}</dd>
+          <dd className="mt-1 leading-6">
+            {therapist.therapistProfile?.bio ??
+              "Profile details will expand as therapist onboarding continues."}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-slate-700">Calendar connection</dt>
@@ -68,10 +79,8 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
       </dl>
 
       <div className="mt-6 flex flex-1 items-end">
-        <ButtonLink href={`/client/book/${therapist.id}`}>
-          View available slots
-        </ButtonLink>
+        <ButtonLink href={`/client/book/${therapist.id}`}>View available slots</ButtonLink>
       </div>
-    </article>
+    </InsetCard>
   );
 }

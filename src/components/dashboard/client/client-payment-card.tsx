@@ -6,6 +6,7 @@ import {
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
 import { Badge } from "@/components/ui/badge";
+import { InsetCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -63,7 +64,7 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
   const paymentOutcomeNote = getPaymentOutcomeNote(payment);
 
   return (
-    <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+    <InsetCard as="article" tone="soft">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Payment record</p>
@@ -88,31 +89,31 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
       </div>
 
       <dl className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Client credit applied</dt>
           <dd className="mt-1">
             {formatAmount(payment.creditAppliedAmount ?? 0, payment.currency)}
           </dd>
-        </div>
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Paid at</dt>
           <dd className="mt-1">{formatDateTime(payment.paidAt)}</dd>
-        </div>
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Failed at</dt>
           <dd className="mt-1">{formatDateTime(payment.failedAt)}</dd>
-        </div>
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3 md:col-span-2">
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none md:col-span-2">
           <dt className="font-medium text-slate-700">Refunded at</dt>
           <dd className="mt-1">{formatDateTime(payment.refundedAt)}</dd>
-        </div>
+        </InsetCard>
       </dl>
 
       {paymentOutcomeNote ? (
-        <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
+        <InsetCard as="div" tone="muted" className="mt-4 rounded-[1.25rem] px-4 py-3 text-sm leading-6 text-slate-600 shadow-none">
           {paymentOutcomeNote}
-        </div>
+        </InsetCard>
       ) : null}
-    </article>
+    </InsetCard>
   );
 }

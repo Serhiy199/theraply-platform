@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/format-booking";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -30,7 +31,7 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
   const clientName = getClientName(booking);
 
   return (
-    <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+    <InsetCard as="article" tone="soft">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -54,16 +55,16 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
       </div>
 
       <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <p className="font-medium text-slate-700">Client email</p>
           <p className="mt-1 leading-6">{booking.client.email}</p>
-        </div>
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <p className="font-medium text-slate-700">Meeting access</p>
           <p className="mt-1 leading-6">
             {booking.session?.meetingUrl ? "Meeting link already prepared." : "Meeting link will appear after confirmation and scheduling."}
           </p>
-        </div>
+        </InsetCard>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
@@ -72,6 +73,6 @@ export function TherapistRequestCard({ booking, variant }: TherapistRequestCardP
           Review details
         </ButtonLink>
       </div>
-    </article>
+    </InsetCard>
   );
 }

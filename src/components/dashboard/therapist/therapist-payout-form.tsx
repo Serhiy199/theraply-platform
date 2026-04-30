@@ -11,6 +11,7 @@ import {
 import type { TherapistPayoutDetailsView } from "@/server/services/therapist-bookings.service";
 import type { TherapistGoogleCalendarOption } from "@/server/services/google-calendar.service";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type TherapistPayoutFormProps = {
   data: TherapistPayoutDetailsView;
@@ -80,8 +81,8 @@ export function TherapistPayoutForm({
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Therapist finance</p>
+      <SurfaceCard>
+        <SectionEyebrow>Therapist finance</SectionEyebrow>
         <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payout details</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
           Keep payout information current so the finance workflow stays clean when settlements and therapist payouts are turned on.
@@ -165,10 +166,10 @@ export function TherapistPayoutForm({
             Save payout details
           </Button>
         </form>
-      </section>
+      </SurfaceCard>
 
       <section className="grid gap-4">
-        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Profile context</h3>
           <dl className="mt-5 space-y-4 text-sm text-slate-600">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
@@ -215,9 +216,9 @@ export function TherapistPayoutForm({
               {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
             </ButtonLink>
           </div>
-        </article>
+        </SurfaceCard>
 
-        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Target calendar</h3>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Choose which Google Calendar should receive confirmed session events. The primary calendar is selected automatically after the first connection, but you can change it here.
@@ -267,9 +268,9 @@ export function TherapistPayoutForm({
               Save target calendar
             </Button>
           </form>
-        </article>
+        </SurfaceCard>
 
-        <article className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Verification state</h3>
           <div className="mt-5">
             <DashboardStatusAlert tone={data.payoutDetails?.isVerified ? "success" : "warning"} title={data.payoutDetails?.isVerified ? "Verified" : "Review pending"}>
@@ -279,7 +280,7 @@ export function TherapistPayoutForm({
           <p className="mt-4 text-sm leading-6 text-slate-600">
             Once this information is complete, the admin panel can review it and mark the payout profile as ready for operations.
           </p>
-        </article>
+        </SurfaceCard>
       </section>
     </div>
   );

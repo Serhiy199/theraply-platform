@@ -1,4 +1,4 @@
-﻿import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,
@@ -7,6 +7,7 @@ import {
   getPaymentStatusBadgeClass,
 } from "@/lib/utils/format-booking";
 import { Badge } from "@/components/ui/badge";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date | null) {
   if (!date) return "Not available";
@@ -66,18 +67,20 @@ type AdminPaymentsTableProps = {
 
 export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
   return (
-    <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+    <SurfaceCard as="section">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Admin oversight</p>
+          <SectionEyebrow>Admin oversight</SectionEyebrow>
           <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payments</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            This table centralizes payment visibility for the operations team, including booking references, therapist context, and settlement status.
+            This table centralizes payment visibility for the operations team, including
+            booking references, therapist context, and settlement status.
           </p>
         </div>
-        <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
-          <span className="font-semibold text-slate-900">{payments.length}</span> payment record{payments.length === 1 ? "" : "s"}
-        </div>
+        <InsetCard as="div" tone="plain" className="px-4 py-3 shadow-none">
+          <span className="font-semibold text-slate-900">{payments.length}</span> payment
+          record{payments.length === 1 ? "" : "s"}
+        </InsetCard>
       </div>
 
       {payments.length ? (
@@ -101,7 +104,9 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                   <td className="px-5 py-4">
                     <p className="font-semibold text-slate-900">{formatDateTime(payment.booking.startsAt)}</p>
                     <p className="mt-1 text-slate-600">to {formatDateTime(payment.booking.endsAt)}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">Booking {payment.booking.id}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
+                      Booking {payment.booking.id}
+                    </p>
                   </td>
                   <td className="px-5 py-4">
                     <p className="font-semibold text-slate-900">{getTherapistName(payment)}</p>
@@ -142,6 +147,6 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
           />
         </div>
       )}
-    </section>
+    </SurfaceCard>
   );
 }

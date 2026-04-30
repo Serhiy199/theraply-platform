@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { getClientDashboardData } from "@/server/services/dashboard.service";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type ClientDashboardData = Awaited<ReturnType<typeof getClientDashboardData>>;
 
@@ -27,10 +28,8 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Dashboard overview
-        </p>
+      <SurfaceCard>
+        <SectionEyebrow>Dashboard overview</SectionEyebrow>
         <h2 className="mt-3 text-3xl font-semibold text-slate-900">Client Dashboard</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
           This view now feels like a real product workspace: account summary, payment readiness,
@@ -47,7 +46,7 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Upcoming sessions
             </p>
@@ -57,9 +56,9 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
                 ? "Your latest booking activity is shown below so you can keep momentum."
                 : "No future sessions yet. As soon as booking flows go live, your next confirmed sessions will appear here."}
             </p>
-          </article>
+          </InsetCard>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Payment summary
             </p>
@@ -69,12 +68,12 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
                 ? "Billing is currently clear for this account."
                 : "Use the payments area to resolve outstanding items before sessions are confirmed."}
             </p>
-          </article>
+          </InsetCard>
         </div>
-      </section>
+      </SurfaceCard>
 
       <div className="grid gap-4">
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Quick actions</h3>
           <div className="mt-5 grid gap-3">
             {data.quickActions.map((action) => (
@@ -88,9 +87,9 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
               </Link>
             ))}
           </div>
-        </section>
+        </SurfaceCard>
 
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Account summary</h3>
           <dl className="mt-5 space-y-4 text-sm text-slate-600">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
@@ -106,24 +105,21 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
               <dd className="text-right">{formatDate(data.accountSummary.memberSince)}</dd>
             </div>
           </dl>
-        </section>
+        </SurfaceCard>
       </div>
 
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 xl:col-span-2">
+      <SurfaceCard className="p-6 xl:col-span-2">
         <h3 className="text-xl font-semibold text-slate-900">Recent booking activity</h3>
         {data.recentBookings.length ? (
           <div className="mt-5 grid gap-4 xl:grid-cols-3">
             {data.recentBookings.map((booking) => (
-              <article
-                key={booking.id}
-                className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4"
-              >
+              <InsetCard key={booking.id} tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
                 <p className="text-sm font-semibold text-slate-900">{booking.therapistName}</p>
                 <p className="mt-1 text-sm text-slate-600">{formatDateTime(booking.startsAt)}</p>
                 <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
                   {booking.status.replaceAll("_", " ")}
                 </p>
-              </article>
+              </InsetCard>
             ))}
           </div>
         ) : (
@@ -132,7 +128,7 @@ export function ClientOverview({ email, data }: ClientOverviewProps) {
             therapist sessions and the latest booking status changes.
           </p>
         )}
-      </section>
+      </SurfaceCard>
     </div>
   );
 }

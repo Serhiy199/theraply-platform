@@ -1,6 +1,7 @@
 import type { getAdminDashboardData } from "@/server/services/dashboard.service";
 import { AdminFinanceCases } from "@/components/dashboard/admin/admin-finance-cases";
 import { Badge } from "@/components/ui/badge";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type AdminDashboardData = Awaited<ReturnType<typeof getAdminDashboardData>>;
 
@@ -28,10 +29,8 @@ export function AdminOverview({ data }: AdminOverviewProps) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Dashboard overview
-        </p>
+      <SurfaceCard>
+        <SectionEyebrow>Dashboard overview</SectionEyebrow>
         <h2 className="mt-3 text-3xl font-semibold text-slate-900">Admin Dashboard</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
           The operations console now behaves like a real control panel: user growth, therapist
@@ -40,7 +39,7 @@ export function AdminOverview({ data }: AdminOverviewProps) {
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Total users
             </p>
@@ -48,9 +47,9 @@ export function AdminOverview({ data }: AdminOverviewProps) {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               This is the full account footprint across clients, therapists, and admins.
             </p>
-          </article>
+          </InsetCard>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/60 p-5">
+          <InsetCard tone="plain">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Therapists pending approval
             </p>
@@ -58,15 +57,15 @@ export function AdminOverview({ data }: AdminOverviewProps) {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Profiles waiting on approval should surface here before they can become active supply.
             </p>
-          </article>
+          </InsetCard>
         </div>
-      </section>
+      </SurfaceCard>
 
       <div className="grid gap-4">
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Bookings overview</h3>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <article className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4">
+            <InsetCard tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Booking records
               </p>
@@ -74,8 +73,8 @@ export function AdminOverview({ data }: AdminOverviewProps) {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 All booking rows currently stored in the system.
               </p>
-            </article>
-            <article className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4">
+            </InsetCard>
+            <InsetCard tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Upcoming bookings
               </p>
@@ -83,14 +82,14 @@ export function AdminOverview({ data }: AdminOverviewProps) {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Future bookings in pending or confirmed state.
               </p>
-            </article>
+            </InsetCard>
           </div>
-        </section>
+        </SurfaceCard>
 
-        <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6">
+        <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Payments overview</h3>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <article className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4">
+            <InsetCard tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Payments to review
               </p>
@@ -98,8 +97,8 @@ export function AdminOverview({ data }: AdminOverviewProps) {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Unpaid, pending, or failed payments needing operational visibility.
               </p>
-            </article>
-            <article className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4">
+            </InsetCard>
+            <InsetCard tone="plain" className="rounded-[1.5rem] p-4 shadow-none">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Verified payouts
               </p>
@@ -107,23 +106,24 @@ export function AdminOverview({ data }: AdminOverviewProps) {
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Therapist payout profiles already verified for operations.
               </p>
-            </article>
+            </InsetCard>
           </div>
-        </section>
+        </SurfaceCard>
       </div>
 
       <section className="xl:col-span-2">
         <AdminFinanceCases cases={data.financeCases} />
       </section>
 
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 xl:col-span-2">
+      <SurfaceCard className="p-6 xl:col-span-2">
         <h3 className="text-xl font-semibold text-slate-900">Recent activity</h3>
         {data.recentUsers.length ? (
           <div className="mt-5 space-y-4">
             {data.recentUsers.map((user) => (
-              <article
+              <InsetCard
                 key={user.id}
-                className="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4 md:flex-row md:items-center md:justify-between"
+                tone="plain"
+                className="flex flex-col gap-3 rounded-[1.5rem] p-4 shadow-none md:flex-row md:items-center md:justify-between"
               >
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
@@ -138,7 +138,7 @@ export function AdminOverview({ data }: AdminOverviewProps) {
                     {formatDate(user.createdAt)}
                   </Badge>
                 </div>
-              </article>
+              </InsetCard>
             ))}
           </div>
         ) : (
@@ -146,7 +146,7 @@ export function AdminOverview({ data }: AdminOverviewProps) {
             No recent platform activity yet. New accounts and operational changes will appear here.
           </p>
         )}
-      </section>
+      </SurfaceCard>
     </div>
   );
 }

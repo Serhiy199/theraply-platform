@@ -7,6 +7,7 @@ import { SlotCard } from "@/components/booking/client/slot-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
@@ -85,19 +86,19 @@ export function TherapistAvailability({
 
   return (
     <div className="grid gap-6">
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+      <SurfaceCard>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Client booking flow</p>
+            <SectionEyebrow>Client booking flow</SectionEyebrow>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">Available slots for {getDisplayName(therapist)}</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Pick a time that works for you. The booking request will be sent to the therapist and remain pending until they confirm it.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-600">
+            <InsetCard as="div" tone="plain" className="rounded-[1.5rem] px-4 py-3 text-sm text-slate-600 shadow-none">
               <span className="font-semibold text-slate-900">{availableCount}</span> available slot{availableCount === 1 ? "" : "s"}
-            </div>
+            </InsetCard>
             <ButtonLink href="/client/book/new" variant="secondary" size="sm">
               Change therapist
             </ButtonLink>
@@ -105,7 +106,7 @@ export function TherapistAvailability({
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+          <InsetCard tone="soft">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Therapist profile</p>
             <h3 className="mt-2 text-2xl font-semibold text-slate-900">{getDisplayName(therapist)}</h3>
             <dl className="mt-5 grid gap-4 text-sm text-slate-600">
@@ -122,9 +123,9 @@ export function TherapistAvailability({
                 <dd className="mt-1 leading-6">{therapist.therapistProfile?.bio ?? "Profile details will expand as therapist onboarding continues."}</dd>
               </div>
             </dl>
-          </article>
+          </InsetCard>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+          <InsetCard tone="soft">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Booking window</p>
             <h3 className="mt-2 text-2xl font-semibold text-slate-900">Next {BOOKING_FLOW_WINDOW_DAYS} days</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
@@ -153,14 +154,14 @@ export function TherapistAvailability({
                 </BookingStatusAlert>
               </div>
             ) : null}
-          </article>
+          </InsetCard>
         </div>
-      </section>
+      </SurfaceCard>
 
-      <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+      <SurfaceCard>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Therapist availability</p>
+            <SectionEyebrow>Therapist availability</SectionEyebrow>
             <h2 className="mt-3 text-3xl font-semibold text-slate-900">Choose a time</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Available slots are generated from the current booking window and existing booking conflicts. On the next step, one of these slots will become a real booking request.
@@ -184,7 +185,7 @@ export function TherapistAvailability({
 
             <div className="mt-6 grid gap-5">
               {slotGroups.map((group) => (
-                <section key={group.key} className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+                <InsetCard key={group.key} as="section" tone="soft">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Availability day</p>
@@ -200,7 +201,7 @@ export function TherapistAvailability({
                       <SlotCard key={`${slot.startsAt.toISOString()}-${slot.endsAt.toISOString()}`} slot={slot} />
                     ))}
                   </div>
-                </section>
+                </InsetCard>
               ))}
             </div>
 
@@ -244,7 +245,7 @@ export function TherapistAvailability({
             />
           </div>
         )}
-      </section>
+      </SurfaceCard>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type ClientPaymentResultProps = {
   tone: "success" | "warning";
@@ -37,14 +38,12 @@ export function ClientPaymentResult({
   const palette = toneClasses[tone];
 
   return (
-    <section
-      className={`soft-card rounded-[2rem] border p-6 md:p-8 ${palette.shell}`}
+    <SurfaceCard
+      className={palette.shell}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Client billing
-          </p>
+          <SectionEyebrow>Client billing</SectionEyebrow>
           <h2 className={`mt-3 text-3xl font-semibold ${palette.title}`}>{title}</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
             {description}
@@ -58,7 +57,7 @@ export function ClientPaymentResult({
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/80 p-5 shadow-sm shadow-slate-950/5">
+        <InsetCard tone="elevated">
           <h3 className="text-lg font-semibold text-slate-900">What happens next</h3>
           <p className="mt-3 text-sm leading-7 text-slate-600">{extraNote}</p>
           {sessionId ? (
@@ -66,9 +65,9 @@ export function ClientPaymentResult({
               Stripe session ID: <span className="font-medium text-slate-900">{sessionId}</span>
             </div>
           ) : null}
-        </article>
+        </InsetCard>
 
-        <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/80 p-5 shadow-sm shadow-slate-950/5">
+        <InsetCard tone="elevated">
           <h3 className="text-lg font-semibold text-slate-900">Quick links</h3>
           <div className="mt-4 grid gap-3">
             {bookingHref ? (
@@ -83,8 +82,8 @@ export function ClientPaymentResult({
               Back to bookings
             </ButtonLink>
           </div>
-        </article>
+        </InsetCard>
       </div>
-    </section>
+    </SurfaceCard>
   );
 }

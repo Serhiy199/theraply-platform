@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/format-booking";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { InsetCard } from "@/components/ui/card";
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en", {
@@ -34,7 +35,7 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
   const sessionLink = booking.session?.meetingUrl ?? null;
 
   return (
-    <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/70 p-5 shadow-sm shadow-slate-950/5">
+    <InsetCard as="article" tone="soft">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -58,18 +59,18 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
       </div>
 
       <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <p className="font-medium text-slate-700">Meeting access</p>
           <p className="mt-1 leading-6">
             {sessionLink ? "Meeting link is ready in the booking details page." : "Meeting link will appear here once the therapist confirms the session."}
           </p>
-        </div>
-        <div className="rounded-[1.25rem] border border-slate-200/70 bg-slate-50/70 px-4 py-3">
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <p className="font-medium text-slate-700">Latest update</p>
           <p className="mt-1 leading-6">
             Booking record updated {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(booking.updatedAt)}.
           </p>
-        </div>
+        </InsetCard>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
@@ -80,6 +81,6 @@ export function ClientBookingCard({ booking }: ClientBookingCardProps) {
           View details
         </ButtonLink>
       </div>
-    </article>
+    </InsetCard>
   );
 }

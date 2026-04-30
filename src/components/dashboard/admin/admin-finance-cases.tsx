@@ -1,5 +1,7 @@
-import type { getAdminDashboardData } from "@/server/services/dashboard.service";
 import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
+import type { getAdminDashboardData } from "@/server/services/dashboard.service";
+import { Alert } from "@/components/ui/alert";
+import { InsetCard, SectionEyebrow, StatCard, SurfaceCard } from "@/components/ui/card";
 
 type FinanceCases = Awaited<ReturnType<typeof getAdminDashboardData>>["financeCases"];
 
@@ -8,11 +10,11 @@ type AdminFinanceCasesProps = {
   payments?: PaymentSummaryItem[];
 };
 
-const toneClasses = {
-  warning: "border-amber-200 bg-amber-50/80 text-amber-950",
-  danger: "border-rose-200 bg-rose-50/80 text-rose-950",
-  neutral: "border-slate-200 bg-white/70 text-slate-950",
-  success: "border-emerald-200 bg-emerald-50/80 text-emerald-950",
+const toneMap = {
+  warning: "warning",
+  danger: "danger",
+  neutral: "neutral",
+  success: "success",
 } as const;
 
 function formatAmount(amount: number, currency: string) {
@@ -63,42 +65,34 @@ export function AdminFinanceCases({ cases, payments = [] }: AdminFinanceCasesPro
   const flaggedPayments = getFlaggedPayments(payments);
 
   return (
-    <section className="soft-card rounded-[2rem] border border-slate-200/70 p-6 md:p-8">
+    <SurfaceCard as="section">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Financial visibility
-          </p>
+          <SectionEyebrow>Financial visibility</SectionEyebrow>
           <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payment cases</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            This surface isolates the bookings that typically need finance or operations follow-up:
-            pending checkout, failures, refunds, and credit-backed settlements.
+            This surface isolates the bookings that typically need finance or operations
+            follow-up: pending checkout, failures, refunds, and credit-backed settlements.
           </p>
         </div>
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-4">
         {cases.map((item) => (
-          <article
+          <StatCard
             key={item.label}
-            className={`rounded-[1.5rem] border px-5 py-4 ${toneClasses[item.tone]}`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
-              {item.label}
-            </p>
-            <p className="mt-3 text-3xl font-semibold">{item.value}</p>
-            <p className="mt-2 text-sm leading-6 opacity-80">{item.hint}</p>
-          </article>
+            label={item.label}
+            value={item.value}
+            hint={item.hint}
+            className={`px-5 py-4 ${toneMap[item.tone] === "warning" ? "border-amber-200 bg-amber-50/80 text-amber-950" : ""} ${toneMap[item.tone] === "danger" ? "border-rose-200 bg-rose-50/80 text-rose-950" : ""} ${toneMap[item.tone] === "success" ? "border-emerald-200 bg-emerald-50/80 text-emerald-950" : ""} ${toneMap[item.tone] === "neutral" ? "border-slate-200 bg-white/70 text-slate-950" : ""}`}
+          />
         ))}
       </div>
 
       {flaggedPayments.length ? (
         <div className="mt-6 grid gap-3">
           {flaggedPayments.map((payment) => (
-            <article
-              key={payment.id}
-              className="rounded-[1.5rem] border border-slate-200/70 bg-white/70 px-4 py-4"
-            >
+            <InsetCard key={payment.id} as="article" tone="soft" className="px-4 py-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
@@ -113,13 +107,26 @@ export function AdminFinanceCases({ cases, payments = [] }: AdminFinanceCasesPro
                   <p className="text-sm font-semibold text-slate-900">
                     {formatAmount(payment.amount, payment.currency)}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">{getCaseNote(payment)}</p>
                 </div>
               </div>
-            </article>
+              <Alert
+                tone={
+                  payment.paymentStatus === "FAILED"
+                    ? "error"
+                    : payment.paymentStatus === "REFUNDED"
+                      ? "warning"
+                      : payment.paymentStatus === "PENDING"
+                        ? "info"
+                        : "success"
+                }
+                className="mt-3"
+              >
+                {getCaseNote(payment)}
+              </Alert>
+            </InsetCard>
           ))}
         </div>
       ) : null}
-    </section>
+    </SurfaceCard>
   );
 }
