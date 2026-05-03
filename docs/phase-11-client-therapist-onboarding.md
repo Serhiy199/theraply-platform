@@ -322,3 +322,27 @@ Updated areas:
 
 - `RegisterForm` helper text no longer describes registration as client-only.
 - `/register` page intro no longer points only to client booking flow.
+
+## Step 2.6: Registration Success Message Review
+
+Status: complete.
+
+No application code change was needed for this step.
+
+The existing success message is already role-neutral:
+
+- `Account created successfully. You can now sign in.`
+
+This message remains valid for both `CLIENT` and `THERAPIST` registration until
+the dedicated email verification flow is implemented in a later step.
+
+## Step 2.7: TypeScript Verification
+
+Status: complete.
+
+The registration role-select changes pass TypeScript verification.
+
+Verification commands:
+
+- `npx.cmd tsc --noEmit --incremental false`
+- `npx.cmd prisma validate`
