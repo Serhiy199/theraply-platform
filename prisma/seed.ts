@@ -1,7 +1,13 @@
-import { PrismaClient, TherapistApprovalStatus, UserRole } from "@prisma/client";
+import { Prisma, PrismaClient, TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { hashPassword } from "@/lib/auth/password";
 
 const prisma = new PrismaClient();
+
+const seededEmailVerifiedAt = new Date("2026-04-08T12:00:00.000Z");
+const annaSubmittedForReviewAt = new Date("2026-04-08T14:00:00.000Z");
+const annaApprovedAt = new Date("2026-04-08T16:00:00.000Z");
+const davidSubmittedForReviewAt = new Date("2026-04-08T14:30:00.000Z");
+const davidApprovedAt = new Date("2026-04-08T16:30:00.000Z");
 
 async function upsertUser(params: {
   email: string;
@@ -19,6 +25,8 @@ async function upsertUser(params: {
       lastName: params.lastName,
       role: params.role,
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: seededEmailVerifiedAt,
       passwordHash,
     },
     create: {
@@ -27,6 +35,8 @@ async function upsertUser(params: {
       lastName: params.lastName,
       role: params.role,
       isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: seededEmailVerifiedAt,
       passwordHash,
     },
   });
@@ -94,6 +104,12 @@ async function main() {
       sessionPricePence: 8500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
+      onboardingCompleted: true,
+      submittedForReviewAt: annaSubmittedForReviewAt,
+      approvedAt: annaApprovedAt,
+      rejectedAt: null,
+      rejectionReason: null,
+      profileDraft: Prisma.DbNull,
       googleCalendarId: "anna-miller-theraply",
       googleCalendarEmail: "anna.calendar@theraply.local",
       isGoogleCalendarConnected: true,
@@ -107,6 +123,12 @@ async function main() {
       sessionPricePence: 8500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
+      onboardingCompleted: true,
+      submittedForReviewAt: annaSubmittedForReviewAt,
+      approvedAt: annaApprovedAt,
+      rejectedAt: null,
+      rejectionReason: null,
+      profileDraft: Prisma.DbNull,
       googleCalendarId: "anna-miller-theraply",
       googleCalendarEmail: "anna.calendar@theraply.local",
       isGoogleCalendarConnected: true,
@@ -123,6 +145,12 @@ async function main() {
       sessionPricePence: 9500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
+      onboardingCompleted: true,
+      submittedForReviewAt: davidSubmittedForReviewAt,
+      approvedAt: davidApprovedAt,
+      rejectedAt: null,
+      rejectionReason: null,
+      profileDraft: Prisma.DbNull,
       googleCalendarId: "david-brown-theraply",
       googleCalendarEmail: "david.calendar@theraply.local",
       isGoogleCalendarConnected: true,
@@ -136,6 +164,12 @@ async function main() {
       sessionPricePence: 9500,
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
+      onboardingCompleted: true,
+      submittedForReviewAt: davidSubmittedForReviewAt,
+      approvedAt: davidApprovedAt,
+      rejectedAt: null,
+      rejectionReason: null,
+      profileDraft: Prisma.DbNull,
       googleCalendarId: "david-brown-theraply",
       googleCalendarEmail: "david.calendar@theraply.local",
       isGoogleCalendarConnected: true,

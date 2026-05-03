@@ -177,3 +177,27 @@ These indexes support:
 - sorting/reviewing submitted therapist profiles
 - querying `PENDING_REVIEW` profiles for admin review
 - querying `APPROVED` and completed profiles for public/client-facing flows
+
+## Step 1.7: Seed Data Alignment
+
+Status: complete.
+
+Seeded users now represent already verified development accounts:
+
+- `emailVerified = true`
+- `emailVerifiedAt` is set to a deterministic seed timestamp
+
+Seeded approved therapist profiles now include completed onboarding and review
+metadata:
+
+- `approvalStatus = APPROVED`
+- `isApproved = true`
+- `onboardingCompleted = true`
+- `submittedForReviewAt` is populated
+- `approvedAt` is populated
+- `rejectedAt = null`
+- `rejectionReason = null`
+- `profileDraft = null`
+
+This keeps seeded client/admin accounts usable immediately and keeps seeded
+therapists visible in client-facing booking flows under the new approval model.
