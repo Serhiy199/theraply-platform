@@ -201,3 +201,46 @@ metadata:
 
 This keeps seeded client/admin accounts usable immediately and keeps seeded
 therapists visible in client-facing booking flows under the new approval model.
+
+## Step 1.8: Prisma Migration Creation and Application
+
+Status: complete.
+
+The Prisma migration set for Step 1 has been created and applied to the
+development database.
+
+Applied migrations:
+
+- `20260503120000_add_user_email_verification_fields`
+- `20260503121000_add_email_verification_tokens`
+- `20260503122000_update_therapist_approval_statuses`
+- `20260503123000_add_therapist_onboarding_fields`
+- `20260503124000_add_therapist_onboarding_indexes`
+
+`prisma migrate dev` completed successfully and regenerated Prisma Client.
+
+## Step 1.9: Prisma Client Generation
+
+Status: complete.
+
+Prisma Client was generated successfully after the Step 1 schema and migration
+changes.
+
+Verification commands:
+
+- `npm.cmd run prisma:generate`
+- `npx.cmd prisma validate`
+
+## Step 1.10: Minimal TypeScript Verification
+
+Status: complete.
+
+The Step 1 data-model changes pass the minimal TypeScript verification.
+
+Verification commands:
+
+- `npx.cmd tsc --noEmit --incremental false`
+- `npx.cmd prisma validate`
+
+Step 1 is now complete at the schema, migration, Prisma Client, and seed-code
+level.
