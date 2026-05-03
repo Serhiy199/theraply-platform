@@ -126,3 +126,31 @@ Migration behavior:
 
 The admin dashboard pending-approval count now targets `PENDING_REVIEW`, because
 that is the state for profiles explicitly submitted to admin review.
+
+## Step 1.5: Therapist Onboarding Fields
+
+Status: complete.
+
+`TherapistProfile` now includes onboarding and admin-review fields:
+
+- `onboardingCompleted Boolean @default(false)`
+- `submittedForReviewAt DateTime?`
+- `approvedAt DateTime?`
+- `rejectedAt DateTime?`
+- `rejectionReason String?`
+- `profileDraft Json?`
+
+Expected lifecycle:
+
+1. Newly created therapist profiles start with `onboardingCompleted = false`.
+2. Draft saves can store incomplete profile data in `profileDraft`.
+3. Submit for review will later set `onboardingCompleted = true`,
+   `submittedForReviewAt = now()`, and `approvalStatus = PENDING_REVIEW`.
+4. Admin approval will later set `approvedAt = now()`,
+   `approvalStatus = APPROVED`, and `isApproved = true`.
+5. Admin rejection will later set `rejectedAt = now()`,
+   `approvalStatus = REJECTED`, `isApproved = false`, and optionally
+   `rejectionReason`.
+
+This step only adds storage fields. Indexes for onboarding/admin review queries
+are handled separately in Step 1.6.

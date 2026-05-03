@@ -112,6 +112,12 @@ model TherapistProfile {
   sessionPricePence         Int?
   approvalStatus            TherapistApprovalStatus @default(EMAIL_NOT_VERIFIED)
   isApproved                Boolean                 @default(false)
+  onboardingCompleted       Boolean                 @default(false)
+  submittedForReviewAt      DateTime?
+  approvedAt                DateTime?
+  rejectedAt                DateTime?
+  rejectionReason           String?
+  profileDraft              Json?
   googleCalendarId          String?                 @unique
   googleCalendarEmail       String?                 @unique
   googleAccessToken         String?
