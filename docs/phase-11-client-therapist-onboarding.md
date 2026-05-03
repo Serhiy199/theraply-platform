@@ -257,3 +257,16 @@ Allowed values:
 - `THERAPIST`
 
 `ADMIN` is intentionally excluded from public registration validation.
+
+## Step 2.2: Register Action Role Parsing
+
+Status: complete.
+
+`registerAction` now reads the public self-signup role from submitted form data
+and passes it through `registerSchema`.
+
+The action temporarily falls back to `CLIENT` when no role is present so the
+existing registration form remains usable until the UI role selector is added.
+
+The action still calls the existing `registerClientAccount` service in this
+step. That service is replaced by role-aware `registerAccount` in Step 2.3.
