@@ -244,3 +244,16 @@ Verification commands:
 
 Step 1 is now complete at the schema, migration, Prisma Client, and seed-code
 level.
+
+## Step 2.1: Registration Role Validation
+
+Status: complete.
+
+`registerSchema` now accepts a public self-signup role.
+
+Allowed values:
+
+- `CLIENT`
+- `THERAPIST`
+
+`ADMIN` is intentionally excluded from public registration validation.

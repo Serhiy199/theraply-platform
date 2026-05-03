@@ -17,6 +17,8 @@ const passwordSchema = z
   .regex(/[0-9]/, PASSWORD_MESSAGES.number)
   .regex(/[^A-Za-z0-9]/, PASSWORD_MESSAGES.special);
 
+const selfSignupRoleSchema = z.enum(["CLIENT", "THERAPIST"]);
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, PASSWORD_MESSAGES.required),
@@ -26,6 +28,7 @@ export const registerSchema = z
   .object({
     firstName: z.string().trim().min(1, AUTH_MESSAGES.firstNameRequired),
     lastName: z.string().trim().min(1, AUTH_MESSAGES.lastNameRequired),
+    role: selfSignupRoleSchema,
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1, PASSWORD_MESSAGES.required),
