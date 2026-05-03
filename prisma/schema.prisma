@@ -69,6 +69,8 @@ model User {
   lastName              String?
   role                  UserRole
   isActive              Boolean              @default(true)
+  emailVerified         Boolean              @default(false)
+  emailVerifiedAt       DateTime?
   clientProfile         ClientProfile?
   therapistProfile      TherapistProfile?
   clientBookings        Booking[]            @relation("ClientBookings")
