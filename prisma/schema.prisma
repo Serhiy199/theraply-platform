@@ -14,7 +14,9 @@ enum UserRole {
 }
 
 enum TherapistApprovalStatus {
-  PENDING
+  EMAIL_NOT_VERIFIED
+  PROFILE_INCOMPLETE
+  PENDING_REVIEW
   APPROVED
   REJECTED
   SUSPENDED
@@ -81,6 +83,7 @@ model User {
   emailLogs             EmailLog[]
   auditLogs             AuditLog[]           @relation("ActorAuditLogs")
   passwordResetTokens   PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -107,7 +110,7 @@ model TherapistProfile {
   bio                       String?
   specialization            String?
   sessionPricePence         Int?
-  approvalStatus            TherapistApprovalStatus @default(PENDING)
+  approvalStatus            TherapistApprovalStatus @default(EMAIL_NOT_VERIFIED)
   isApproved                Boolean                 @default(false)
   googleCalendarId          String?                 @unique
   googleCalendarEmail       String?                 @unique
@@ -323,6 +326,22 @@ model PasswordResetToken {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@index([userId, expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
   @@index([expiresAt])
   @@index([usedAt])
   @@index([userId, expiresAt])

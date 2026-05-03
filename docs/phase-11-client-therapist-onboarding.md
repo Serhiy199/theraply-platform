@@ -72,3 +72,57 @@ Expected lifecycle:
 This step only adds the storage fields. The token model, verification link
 generation, email sending integration, and redirect behavior are handled by
 later steps.
+
+## Step 1.3: Email Verification Token Model
+
+Status: complete.
+
+`EmailVerificationToken` now stores one-time verification tokens for account
+email confirmation.
+
+Fields:
+
+- `id`
+- `userId`
+- `token`
+- `expiresAt`
+- `usedAt`
+- `createdAt`
+
+The model belongs to `User` with `onDelete: Cascade`, and `User` now exposes
+the `emailVerificationTokens` relation.
+
+Indexes cover:
+
+- lookup by `userId`
+- lookup by unique `token`
+- expiry cleanup via `expiresAt`
+- used-token filtering via `usedAt`
+- active-token queries by `[userId, expiresAt]`
+
+This step only adds storage for verification tokens. Token generation, email
+delivery, token validation, account activation, and role-based redirect behavior
+are implemented in later steps.
+
+## Step 1.4: Therapist Approval Status Model
+
+Status: complete.
+
+`TherapistApprovalStatus` now uses explicit onboarding and review states:
+
+- `EMAIL_NOT_VERIFIED`
+- `PROFILE_INCOMPLETE`
+- `PENDING_REVIEW`
+- `APPROVED`
+- `REJECTED`
+- `SUSPENDED`
+
+`TherapistProfile.approvalStatus` now defaults to `EMAIL_NOT_VERIFIED`.
+
+Migration behavior:
+
+- existing `PENDING` values are converted to `PROFILE_INCOMPLETE`
+- existing `APPROVED`, `REJECTED`, and `SUSPENDED` values are preserved
+
+The admin dashboard pending-approval count now targets `PENDING_REVIEW`, because
+that is the state for profiles explicitly submitted to admin review.

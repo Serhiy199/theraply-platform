@@ -308,7 +308,7 @@ export async function getAdminDashboardData() {
     prisma.user.count({ where: { role: UserRole.CLIENT } }),
     prisma.user.count({ where: { role: UserRole.THERAPIST } }),
     prisma.therapistProfile.count({
-      where: { approvalStatus: TherapistApprovalStatus.PENDING },
+      where: { approvalStatus: TherapistApprovalStatus.PENDING_REVIEW },
     }),
     prisma.booking.count(),
     prisma.booking.count({
