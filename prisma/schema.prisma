@@ -131,11 +131,15 @@ model TherapistProfile {
 
   @@index([approvalStatus])
   @@index([isApproved])
+  @@index([onboardingCompleted])
+  @@index([submittedForReviewAt])
   @@index([isGoogleCalendarConnected])
   @@index([googleTokenExpiresAt])
   @@index([sessionPricePence])
   @@index([createdAt])
   @@index([approvalStatus, isApproved])
+  @@index([approvalStatus, onboardingCompleted])
+  @@index([approvalStatus, submittedForReviewAt])
   @@index([isApproved, isGoogleCalendarConnected])
 }
 

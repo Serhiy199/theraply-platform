@@ -154,3 +154,26 @@ Expected lifecycle:
 
 This step only adds storage fields. Indexes for onboarding/admin review queries
 are handled separately in Step 1.6.
+
+## Step 1.6: Therapist Onboarding Query Indexes
+
+Status: complete.
+
+`TherapistProfile` now has additional indexes for upcoming onboarding and admin
+review queries:
+
+- `[onboardingCompleted]`
+- `[submittedForReviewAt]`
+- `[approvalStatus, onboardingCompleted]`
+- `[approvalStatus, submittedForReviewAt]`
+
+Existing indexes on `[approvalStatus]`, `[isApproved]`, and
+`[approvalStatus, isApproved]` remain in place for public listing and approval
+filters.
+
+These indexes support:
+
+- finding therapists who have not completed onboarding
+- sorting/reviewing submitted therapist profiles
+- querying `PENDING_REVIEW` profiles for admin review
+- querying `APPROVED` and completed profiles for public/client-facing flows
