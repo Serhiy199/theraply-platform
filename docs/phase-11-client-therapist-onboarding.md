@@ -311,3 +311,14 @@ The selector submits the `role` form field with one of these values:
 `CLIENT` remains the default selection so the previous client registration
 behavior stays intact until the rest of the role-specific onboarding flow is
 implemented.
+
+## Step 2.5: Registration Copy Update
+
+Status: complete.
+
+Registration copy is now role-neutral across the registration screen.
+
+Updated areas:
+
+- `RegisterForm` helper text no longer describes registration as client-only.
+- `/register` page intro no longer points only to client booking flow.

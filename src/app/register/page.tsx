@@ -13,7 +13,7 @@ export default function RegisterPage() {
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">Registration</h1>
             <p className="mt-3 text-base text-slate-600">
-              Create your Theraply client account and continue to the booking flow.
+              Create your Theraply account and choose the role that fits your journey.
             </p>
           </div>
           <RegisterForm />
