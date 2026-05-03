@@ -63,7 +63,7 @@ function isResetTokenUsable(tokenRecord: PasswordResetTokenRecord | null) {
   );
 }
 
-export async function registerClientAccount(input: RegisterInput) {
+export async function registerAccount(input: RegisterInput) {
   const passwordHash = await hashPassword(input.password);
 
   try {
@@ -73,17 +73,27 @@ export async function registerClientAccount(input: RegisterInput) {
           email: input.email,
           firstName: input.firstName,
           lastName: input.lastName,
-          role: UserRole.CLIENT,
+          role: input.role,
           isActive: true,
           passwordHash,
         },
       });
 
-      await tx.clientProfile.create({
-        data: {
-          userId: createdUser.id,
-        },
-      });
+      if (input.role === UserRole.CLIENT) {
+        await tx.clientProfile.create({
+          data: {
+            userId: createdUser.id,
+          },
+        });
+      }
+
+      if (input.role === UserRole.THERAPIST) {
+        await tx.therapistProfile.create({
+          data: {
+            userId: createdUser.id,
+          },
+        });
+      }
 
       return createdUser;
     });

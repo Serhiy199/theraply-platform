@@ -270,3 +270,24 @@ existing registration form remains usable until the UI role selector is added.
 
 The action still calls the existing `registerClientAccount` service in this
 step. That service is replaced by role-aware `registerAccount` in Step 2.3.
+
+## Step 2.3: Role-Aware Registration Service
+
+Status: complete.
+
+`registerClientAccount` has been replaced with `registerAccount`.
+
+Registration behavior:
+
+- `CLIENT` creates a `User` plus `ClientProfile`
+- `THERAPIST` creates a `User` plus `TherapistProfile`
+- `ADMIN` remains unavailable through public registration because validation
+  only allows `CLIENT` and `THERAPIST`
+
+New therapist profiles rely on the Prisma defaults from Step 1:
+
+- `approvalStatus = EMAIL_NOT_VERIFIED`
+- `isApproved = false`
+- `onboardingCompleted = false`
+
+`registerAction` now calls `registerAccount`.

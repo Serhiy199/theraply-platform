@@ -2,7 +2,7 @@
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { registerSchema } from "@/lib/validations/auth";
-import { AuthServiceError, registerClientAccount } from "@/server/services/auth.service";
+import { AuthServiceError, registerAccount } from "@/server/services/auth.service";
 
 export type RegisterActionState = {
   status: "idle" | "success" | "error";
@@ -36,7 +36,7 @@ export async function registerAction(
   }
 
   try {
-    await registerClientAccount(parsed.data);
+    await registerAccount(parsed.data);
 
     return {
       status: "success",
