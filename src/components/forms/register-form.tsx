@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { Alert, Button, Form, Input, Space, Typography } from "antd";
+import { Alert, Button, Form, Input, Radio, Space, Typography } from "antd";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 import {
   initialRegisterActionState,
@@ -36,7 +36,7 @@ export function RegisterForm() {
         />
       ) : null}
       <Paragraph type="secondary" className="!mb-0">
-        Create a client account to start booking sessions on Theraply.
+        Create an account as a client or therapist to continue with Theraply.
         {state.status === "success" ? (
           <>
             {" "}
@@ -46,6 +46,24 @@ export function RegisterForm() {
       </Paragraph>
       <form action={formAction} className="w-full">
         <Form component={false} layout="vertical" requiredMark={false}>
+          <Form.Item
+            label="Account type"
+            validateStatus={state.fieldErrors?.role ? "error" : undefined}
+            help={state.fieldErrors?.role?.[0]}
+          >
+            <Radio.Group
+              name="role"
+              defaultValue="CLIENT"
+              optionType="button"
+              buttonStyle="solid"
+              size="large"
+              className="w-full"
+              options={[
+                { label: "Client", value: "CLIENT" },
+                { label: "Therapist", value: "THERAPIST" },
+              ]}
+            />
+          </Form.Item>
           <Form.Item
             label="First name"
             validateStatus={state.fieldErrors?.firstName ? "error" : undefined}

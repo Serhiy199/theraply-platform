@@ -291,3 +291,23 @@ New therapist profiles rely on the Prisma defaults from Step 1:
 - `onboardingCompleted = false`
 
 `registerAction` now calls `registerAccount`.
+
+## Step 2.4: Registration Role Selector UI
+
+Status: complete.
+
+`RegisterForm` now includes an account type selector.
+
+Options:
+
+- `Client`
+- `Therapist`
+
+The selector submits the `role` form field with one of these values:
+
+- `CLIENT`
+- `THERAPIST`
+
+`CLIENT` remains the default selection so the previous client registration
+behavior stays intact until the rest of the role-specific onboarding flow is
+implemented.
