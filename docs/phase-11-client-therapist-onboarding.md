@@ -405,3 +405,24 @@ Implemented behavior:
 - verifies valid tokens by setting `User.emailVerified = true`
 - sets `User.emailVerifiedAt`
 - moves therapist profiles from `EMAIL_NOT_VERIFIED` to `PROFILE_INCOMPLETE`
+
+## Step 3.4: Registration Email Verification Hook
+
+Status: complete.
+
+`registerAccount(...)` now sends email verification after successfully creating
+the account and role-specific profile.
+
+Registration now creates:
+
+- `User` with Prisma default `emailVerified = false`
+- `ClientProfile` immediately for `CLIENT`
+- `TherapistProfile` immediately for `THERAPIST`
+- `EmailVerificationToken` via `sendEmailVerification(user.id)`
+- `EmailLog` via the provider-agnostic delivery abstraction
+
+Therapist profiles still start from Prisma defaults:
+
+- `approvalStatus = EMAIL_NOT_VERIFIED`
+- `isApproved = false`
+- `onboardingCompleted = false`

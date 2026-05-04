@@ -3,6 +3,7 @@ import { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AUTH_MESSAGES, AUTH_ROUTES, PASSWORD_RESET_RULES } from "@/lib/constants/auth";
+import { sendEmailVerification } from "@/server/services/email-verification.service";
 import type {
   ForgotPasswordInput,
   LoginInput,
@@ -97,6 +98,8 @@ export async function registerAccount(input: RegisterInput) {
 
       return createdUser;
     });
+
+    await sendEmailVerification(user.id);
 
     return user;
   } catch (error) {

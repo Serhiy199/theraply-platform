@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Alert, Button, Form, Input, Radio, Space, Typography } from "antd";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
@@ -12,6 +12,8 @@ import {
 
 const { Paragraph } = Typography;
 
+type SignupRole = "CLIENT" | "THERAPIST";
+
 function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <Button type="primary" htmlType="submit" block size="large" loading={pending}>
@@ -21,6 +23,7 @@ function SubmitButton({ pending }: { pending: boolean }) {
 }
 
 export function RegisterForm() {
+  const [role, setRole] = useState<SignupRole>("CLIENT");
   const [state, formAction, pending] = useActionState<RegisterActionState, FormData>(
     registerAction,
     initialRegisterActionState,
@@ -45,6 +48,7 @@ export function RegisterForm() {
         ) : null}
       </Paragraph>
       <form action={formAction} className="w-full">
+        <input type="hidden" name="role" value={role} />
         <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="Account type"
@@ -52,8 +56,8 @@ export function RegisterForm() {
             help={state.fieldErrors?.role?.[0]}
           >
             <Radio.Group
-              name="role"
-              defaultValue="CLIENT"
+              value={role}
+              onChange={(event) => setRole(event.target.value as SignupRole)}
               optionType="button"
               buttonStyle="solid"
               size="large"

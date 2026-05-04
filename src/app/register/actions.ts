@@ -12,7 +12,7 @@ export async function registerAction(
   const parsed = registerSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
-    role: formData.get("role") ?? "CLIENT",
+    role: formData.get("role"),
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
