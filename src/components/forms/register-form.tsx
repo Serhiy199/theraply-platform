@@ -4,11 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Alert, Button, Form, Input, Radio, Space, Typography } from "antd";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
+import { registerAction } from "@/app/register/actions";
 import {
   initialRegisterActionState,
-  registerAction,
   type RegisterActionState,
-} from "@/app/register/actions";
+} from "@/app/register/state";
 
 const { Paragraph } = Typography;
 

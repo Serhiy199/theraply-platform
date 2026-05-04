@@ -3,11 +3,11 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { Alert, Button, Card, Form, Input, Layout, Space, Typography } from "antd";
+import { forgotPasswordAction } from "@/app/forgot-password/actions";
 import {
-  forgotPasswordAction,
   initialForgotPasswordActionState,
   type ForgotPasswordActionState,
-} from "@/app/forgot-password/actions";
+} from "@/app/forgot-password/state";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 
 const { Content } = Layout;

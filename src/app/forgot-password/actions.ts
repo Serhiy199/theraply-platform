@@ -6,16 +6,7 @@ import {
   AuthServiceError,
   requestPasswordReset,
 } from "@/server/services/auth.service";
-
-export type ForgotPasswordActionState = {
-  status: "idle" | "success" | "error";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-export const initialForgotPasswordActionState: ForgotPasswordActionState = {
-  status: "idle",
-};
+import type { ForgotPasswordActionState } from "@/app/forgot-password/state";
 
 export async function forgotPasswordAction(
   _prevState: ForgotPasswordActionState,

@@ -3,16 +3,7 @@
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { registerSchema } from "@/lib/validations/auth";
 import { AuthServiceError, registerAccount } from "@/server/services/auth.service";
-
-export type RegisterActionState = {
-  status: "idle" | "success" | "error";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-export const initialRegisterActionState: RegisterActionState = {
-  status: "idle",
-};
+import type { RegisterActionState } from "@/app/register/state";
 
 export async function registerAction(
   _prevState: RegisterActionState,

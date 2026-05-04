@@ -4,11 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Alert, Button, Form, Input, Space, Typography } from "antd";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
+import { resetPasswordAction } from "@/app/reset-password/[token]/actions";
 import {
   initialResetPasswordActionState,
-  resetPasswordAction,
   type ResetPasswordActionState,
-} from "@/app/reset-password/[token]/actions";
+} from "@/app/reset-password/[token]/state";
 
 const { Paragraph } = Typography;
 

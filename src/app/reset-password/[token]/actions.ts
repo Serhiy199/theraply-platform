@@ -6,16 +6,7 @@ import {
   AuthServiceError,
   resetPasswordWithToken,
 } from "@/server/services/auth.service";
-
-export type ResetPasswordActionState = {
-  status: "idle" | "success" | "error";
-  message?: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-export const initialResetPasswordActionState: ResetPasswordActionState = {
-  status: "idle",
-};
+import type { ResetPasswordActionState } from "@/app/reset-password/[token]/state";
 
 export async function resetPasswordAction(
   _prevState: ResetPasswordActionState,
