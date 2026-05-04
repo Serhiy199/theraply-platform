@@ -1,9 +1,8 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
-import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   GoogleCalendarServiceError,
   updateTherapistSelectedGoogleCalendar,
@@ -31,9 +30,8 @@ export async function payoutDetailsAction(
   const user = await getCurrentUser();
 
   try {
-    assertActionRole(
+    const activeTherapist = await requireActionActiveTherapistFeatures(
       user,
-      [UserRole.THERAPIST],
       "Only therapist accounts can update payout details.",
     );
 
@@ -73,7 +71,7 @@ export async function payoutDetailsAction(
       sessionPricePence = Math.round(parsedSessionPrice * 100);
     }
 
-    await updateTherapistPayoutDetails(user.id, {
+    await updateTherapistPayoutDetails(activeTherapist.id, {
       accountHolderName,
       bankName,
       iban,
@@ -118,15 +116,14 @@ export async function googleCalendarSelectionAction(
   const user = await getCurrentUser();
 
   try {
-    assertActionRole(
+    const activeTherapist = await requireActionActiveTherapistFeatures(
       user,
-      [UserRole.THERAPIST],
       "Only therapist accounts can choose the target Google Calendar.",
     );
 
     const googleCalendarId = String(formData.get("googleCalendarId") ?? "").trim();
 
-    await updateTherapistSelectedGoogleCalendar(user.id, googleCalendarId);
+    await updateTherapistSelectedGoogleCalendar(activeTherapist.id, googleCalendarId);
 
     revalidatePath("/therapist/payout-details");
     revalidatePath("/therapist/dashboard");

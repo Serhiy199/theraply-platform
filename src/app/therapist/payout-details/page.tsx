@@ -1,6 +1,5 @@
-import { UserRole } from "@prisma/client";
 import { TherapistPayoutForm } from "@/components/dashboard/therapist/therapist-payout-form";
-import { requireRole } from "@/lib/permissions";
+import { requireActiveTherapistFeatures } from "@/lib/permissions";
 import { getTherapistPayoutDetails } from "@/server/services/therapist-bookings.service";
 import { getTherapistSelectableGoogleCalendars } from "@/server/services/google-calendar.service";
 
@@ -14,7 +13,7 @@ type TherapistPayoutDetailsPageProps = {
 export default async function TherapistPayoutDetailsPage({
   searchParams,
 }: TherapistPayoutDetailsPageProps) {
-  const user = await requireRole([UserRole.THERAPIST]);
+  const user = await requireActiveTherapistFeatures();
   const [data, googleCalendars] = await Promise.all([
     getTherapistPayoutDetails(user.id),
     getTherapistSelectableGoogleCalendars(user.id).catch(() => []),

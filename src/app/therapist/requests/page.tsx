@@ -1,6 +1,5 @@
-﻿import { UserRole } from "@prisma/client";
 import { TherapistRequestsOverview } from "@/components/dashboard/therapist/therapist-requests-overview";
-import { requireRole } from "@/lib/permissions";
+import { requireActiveTherapistFeatures } from "@/lib/permissions";
 import {
   getTherapistPastSessions,
   getTherapistPendingRequests,
@@ -8,7 +7,7 @@ import {
 } from "@/server/services/therapist-bookings.service";
 
 export default async function TherapistRequestsPage() {
-  const user = await requireRole([UserRole.THERAPIST]);
+  const user = await requireActiveTherapistFeatures();
   const [pendingRequests, upcomingSessions, pastSessions] = await Promise.all([
     getTherapistPendingRequests(user.id),
     getTherapistUpcomingSessions(user.id),

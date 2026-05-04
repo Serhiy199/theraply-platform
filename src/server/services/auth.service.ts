@@ -117,6 +117,14 @@ export async function registerAccount(input: RegisterInput) {
 export async function authenticateWithCredentials(input: LoginInput) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
+    include: {
+      therapistProfile: {
+        select: {
+          approvalStatus: true,
+          onboardingCompleted: true,
+        },
+      },
+    },
   });
 
   if (!user || !user.isActive) {
@@ -133,6 +141,10 @@ export async function authenticateWithCredentials(input: LoginInput) {
     id: user.id,
     email: user.email,
     role: user.role,
+    emailVerified: user.emailVerified,
+    emailVerifiedAt: user.emailVerifiedAt,
+    therapistApprovalStatus: user.therapistProfile?.approvalStatus ?? null,
+    therapistOnboardingCompleted: user.therapistProfile?.onboardingCompleted ?? null,
     firstName: user.firstName ?? undefined,
     lastName: user.lastName ?? undefined,
   };

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Alert, Card, Layout, Space, Typography } from "antd";
-import { AUTH_MESSAGES, AUTH_ROUTES, DASHBOARD_ROUTES } from "@/lib/constants/auth";
+import { getEmailVerificationRedirectForRole } from "@/lib/auth/redirects";
+import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import {
   EmailVerificationServiceError,
   verifyEmailToken,
@@ -11,26 +11,11 @@ import {
 const { Content } = Layout;
 const { Paragraph, Title } = Typography;
 
-const THERAPIST_ONBOARDING_ROUTE = "/therapist/onboarding";
-
 type VerifyEmailPageProps = {
   params: Promise<{
     token: string;
   }>;
 };
-
-function getVerificationRedirectForRole(role: UserRole) {
-  switch (role) {
-    case UserRole.CLIENT:
-      return DASHBOARD_ROUTES.client;
-    case UserRole.THERAPIST:
-      return THERAPIST_ONBOARDING_ROUTE;
-    case UserRole.ADMIN:
-      return DASHBOARD_ROUTES.admin;
-    default:
-      return AUTH_ROUTES.login;
-  }
-}
 
 function VerifyEmailErrorState({ message }: { message: string }) {
   return (
@@ -66,7 +51,7 @@ export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) 
 
   try {
     const result = await verifyEmailToken(token);
-    redirectTo = getVerificationRedirectForRole(result.role);
+    redirectTo = getEmailVerificationRedirectForRole(result.role);
   } catch (error) {
     if (error instanceof EmailVerificationServiceError) {
       return <VerifyEmailErrorState message={error.message} />;

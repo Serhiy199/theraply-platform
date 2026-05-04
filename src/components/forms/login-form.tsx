@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 import { Alert, Button, Form, Input, Space, Typography } from "antd";
-import { getDashboardRouteForRole } from "@/lib/auth/redirects";
+import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { loginSchema } from "@/lib/validations/auth";
 
@@ -50,12 +50,10 @@ export function LoginForm({ callbackUrl = "/" }: LoginFormProps) {
         return;
       }
 
-      let nextRoute = result.url ? normalizeRedirectTarget(result.url) : null;
+      const requestedRoute = result.url ? normalizeRedirectTarget(result.url) : null;
+      const session = await getSession();
 
-      if (!nextRoute || nextRoute === "/") {
-        const session = await getSession();
-        nextRoute = getDashboardRouteForRole(session?.user?.role);
-      }
+      const nextRoute = getPostLoginRedirectForUser(session?.user, requestedRoute);
 
       router.push(nextRoute);
       router.refresh();

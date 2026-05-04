@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   BookingFlowServiceError,
   cancelConfirmedBookingByTherapist,
@@ -45,9 +44,8 @@ export async function requestDecisionAction(
   const user = await getCurrentUser();
 
   try {
-    assertActionRole(
+    const activeTherapist = await requireActionActiveTherapistFeatures(
       user,
-      [UserRole.THERAPIST],
       "Only therapist accounts can confirm or reject therapist booking requests.",
     );
 
@@ -59,9 +57,9 @@ export async function requestDecisionAction(
     }
 
     if (intent === "confirm") {
-      await confirmBookingRequest(user.id, bookingId);
+      await confirmBookingRequest(activeTherapist.id, bookingId);
     } else {
-      await rejectBookingRequest(user.id, bookingId);
+      await rejectBookingRequest(activeTherapist.id, bookingId);
     }
 
     revalidateTherapistBookingPaths(bookingId);
@@ -103,9 +101,8 @@ export async function therapistCancelSessionAction(
   const user = await getCurrentUser();
 
   try {
-    assertActionRole(
+    const activeTherapist = await requireActionActiveTherapistFeatures(
       user,
-      [UserRole.THERAPIST],
       "Only therapist accounts can cancel confirmed sessions from the therapist area.",
     );
 
@@ -116,7 +113,7 @@ export async function therapistCancelSessionAction(
       };
     }
 
-    const booking = await cancelConfirmedBookingByTherapist(user.id, bookingId);
+    const booking = await cancelConfirmedBookingByTherapist(activeTherapist.id, bookingId);
 
     revalidateTherapistBookingPaths(bookingId);
 

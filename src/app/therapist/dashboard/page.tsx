@@ -1,11 +1,10 @@
 import { TherapistOverview } from "@/components/dashboard/therapist/therapist-overview";
 import { TherapistStats } from "@/components/dashboard/therapist/therapist-stats";
-import { requireRole } from "@/lib/permissions";
+import { requireActiveTherapistFeatures } from "@/lib/permissions";
 import { getTherapistDashboardData } from "@/server/services/dashboard.service";
-import { UserRole } from "@prisma/client";
 
 export default async function TherapistDashboardPage() {
-  const user = await requireRole([UserRole.THERAPIST]);
+  const user = await requireActiveTherapistFeatures();
   const data = await getTherapistDashboardData(user.id);
 
   return (

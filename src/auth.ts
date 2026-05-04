@@ -58,6 +58,15 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id;
         token.email = user.email ?? undefined;
         token.role = (user as { role?: string }).role;
+        token.emailVerified = (user as { emailVerified?: boolean }).emailVerified;
+        const emailVerifiedAt = (user as { emailVerifiedAt?: Date | string | null }).emailVerifiedAt;
+        token.emailVerifiedAt =
+          emailVerifiedAt instanceof Date ? emailVerifiedAt.toISOString() : emailVerifiedAt ?? null;
+        token.therapistApprovalStatus =
+          (user as { therapistApprovalStatus?: string | null }).therapistApprovalStatus ?? null;
+        token.therapistOnboardingCompleted =
+          (user as { therapistOnboardingCompleted?: boolean | null }).therapistOnboardingCompleted ??
+          null;
         token.firstName = (user as { firstName?: string }).firstName;
         token.lastName = (user as { lastName?: string }).lastName;
       }
@@ -69,6 +78,18 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub ?? "";
         session.user.email = token.email ?? session.user.email ?? null;
         session.user.role = typeof token.role === "string" ? token.role : undefined;
+        session.user.emailVerified =
+          typeof token.emailVerified === "boolean" ? token.emailVerified : undefined;
+        session.user.emailVerifiedAt =
+          typeof token.emailVerifiedAt === "string" ? token.emailVerifiedAt : null;
+        session.user.therapistApprovalStatus =
+          typeof token.therapistApprovalStatus === "string"
+            ? token.therapistApprovalStatus
+            : null;
+        session.user.therapistOnboardingCompleted =
+          typeof token.therapistOnboardingCompleted === "boolean"
+            ? token.therapistOnboardingCompleted
+            : null;
         session.user.firstName =
           typeof token.firstName === "string" ? token.firstName : undefined;
         session.user.lastName =

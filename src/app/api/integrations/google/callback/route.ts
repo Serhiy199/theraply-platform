@@ -1,8 +1,9 @@
 import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
-import { hasRole } from "@/lib/permissions";
+import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import { parseGoogleOAuthState } from "@/lib/google/google-oauth";
 import {
   GoogleCalendarServiceError,
@@ -46,6 +47,16 @@ export async function GET(request: NextRequest) {
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
     return NextResponse.redirect(buildAppUrl(request, "/403"));
+  }
+
+  try {
+    await requireActionActiveTherapistFeatures(user);
+  } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
+    }
+
+    throw error;
   }
 
   const code = request.nextUrl.searchParams.get("code");

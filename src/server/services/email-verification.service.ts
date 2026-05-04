@@ -32,6 +32,22 @@ export type EmailVerificationResult = {
   verifiedAt: Date;
 };
 
+export type ResendEmailVerificationInput =
+  | {
+      userId: string;
+      email?: never;
+    }
+  | {
+      email: string;
+      userId?: never;
+    };
+
+export type ResendEmailVerificationResult = {
+  delivery?: EmailVerificationDeliveryResult;
+  emailSent: boolean;
+  alreadyVerified: boolean;
+};
+
 export class EmailVerificationServiceError extends Error {
   constructor(
     message: string,
@@ -168,6 +184,47 @@ export async function sendEmailVerification(
   return {
     ...verification,
     emailLogId: delivery.emailLogId,
+  };
+}
+
+export async function resendEmailVerification(
+  input: ResendEmailVerificationInput,
+): Promise<ResendEmailVerificationResult> {
+  const user = await prisma.user.findFirst({
+    where: input.userId
+      ? {
+          id: input.userId,
+        }
+      : {
+          email: input.email,
+        },
+    select: {
+      id: true,
+      isActive: true,
+      emailVerified: true,
+    },
+  });
+
+  if (!user || !user.isActive) {
+    return {
+      emailSent: false,
+      alreadyVerified: false,
+    };
+  }
+
+  if (user.emailVerified) {
+    return {
+      emailSent: false,
+      alreadyVerified: true,
+    };
+  }
+
+  const delivery = await sendEmailVerification(user.id);
+
+  return {
+    delivery,
+    emailSent: true,
+    alreadyVerified: false,
   };
 }
 

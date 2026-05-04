@@ -60,6 +60,9 @@ export const AUTH_MESSAGES = {
   emailVerificationExpiredToken: "This email verification link has expired.",
   emailVerificationUsedToken: "This email verification link has already been used.",
   emailVerificationSuccess: "Email verified successfully.",
+  emailVerificationResendSuccess:
+    "If your account still needs verification, we sent a new verification email.",
+  emailVerificationResendGenericError: "Unable to resend verification email right now.",
   emailVerificationGenericError: "Unable to verify your email right now.",
   forgotPasswordSuccess:
     "If an account with that email exists, we have generated a password reset link.",

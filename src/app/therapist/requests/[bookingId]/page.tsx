@@ -1,7 +1,6 @@
-﻿import { notFound } from "next/navigation";
-import { UserRole } from "@prisma/client";
+import { notFound } from "next/navigation";
 import { TherapistBookingDetails } from "@/components/dashboard/therapist/therapist-booking-details";
-import { requireRole } from "@/lib/permissions";
+import { requireActiveTherapistFeatures } from "@/lib/permissions";
 import { getTherapistBookingById } from "@/server/services/therapist-bookings.service";
 
 type TherapistBookingDetailsPageProps = {
@@ -11,7 +10,7 @@ type TherapistBookingDetailsPageProps = {
 };
 
 export default async function TherapistBookingDetailsPage({ params }: TherapistBookingDetailsPageProps) {
-  const user = await requireRole([UserRole.THERAPIST]);
+  const user = await requireActiveTherapistFeatures();
   const { bookingId } = await params;
   const booking = await getTherapistBookingById(user.id, bookingId);
 

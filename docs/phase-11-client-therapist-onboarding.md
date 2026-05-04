@@ -445,3 +445,104 @@ Implemented behavior:
 Because protected role routes require an active session, unauthenticated users
 may still be sent through login by the existing proxy with the intended
 role-specific destination preserved as the callback URL.
+
+## Step 3.6: Email Verification State Transitions
+
+Status: complete.
+
+`verifyEmailToken(token)` now owns the email verification state transition.
+
+Validation rules:
+
+- token must exist
+- token must not have `usedAt`
+- token must not be expired
+- linked user must be active
+
+Transaction updates for all roles:
+
+- `EmailVerificationToken.usedAt = now`
+- `User.emailVerified = true`
+- `User.emailVerifiedAt = now`
+
+Therapist-specific update:
+
+- if `TherapistProfile.approvalStatus = EMAIL_NOT_VERIFIED`, set it to
+  `PROFILE_INCOMPLETE`
+
+Existing therapist statuses such as `APPROVED`, `REJECTED`, `SUSPENDED`, and
+`PENDING_REVIEW` are left unchanged.
+
+## Step 3.7: Email Verification Redirect Helper
+
+Status: complete.
+
+`getEmailVerificationRedirectForRole(role)` now lives in
+`src/lib/auth/redirects.ts`.
+
+Redirect rules:
+
+- `CLIENT` -> `/client/dashboard`
+- `THERAPIST` -> `/therapist/onboarding`
+- `ADMIN` -> `/admin/dashboard`
+
+The `/verify-email/[token]` route now uses this shared helper instead of owning
+local redirect logic.
+
+## Step 3.8: Soft Login Policy For Email Verification
+
+Status: complete.
+
+Policy decision:
+
+- login is allowed before `emailVerified = true`
+- clients keep landing in the client dashboard, where a verification notice can
+  be added later
+- therapists who are not email verified or not approved are sent to
+  `/therapist/onboarding`
+- active therapist features stay locked until the therapist has
+  `emailVerified = true` and `approvalStatus = APPROVED`
+
+Implementation:
+
+- credentials login still accepts active users with a valid password regardless
+  of `emailVerified`
+- NextAuth JWT/session now carries:
+  - `emailVerified`
+  - `emailVerifiedAt`
+  - `therapistApprovalStatus`
+  - `therapistOnboardingCompleted`
+- `getPostLoginRedirectForUser(...)` centralizes post-login routing:
+  - unapproved therapists -> `/therapist/onboarding`
+  - approved therapists -> requested callback or `/therapist/dashboard`
+  - clients/admins -> requested callback or their dashboard
+- `/therapist/onboarding` now exists as a minimal status/locked state page
+- active therapist pages and therapist Server Actions now use explicit approved
+  therapist access checks
+
+## Step 3.9: Resend Email Verification Action
+
+Status: complete.
+
+Added a provider-agnostic resend flow on top of the existing verification token
+service.
+
+Service behavior:
+
+- `resendEmailVerification({ userId })` supports logged-in users
+- `resendEmailVerification({ email })` supports email-based flows
+- unknown, inactive, or already verified accounts do not leak account existence
+- unverified active accounts get a new verification token
+- old active tokens are invalidated by the existing
+  `createEmailVerificationForUser(...)` transaction
+- delivery still goes through `sendTransactionalEmail(...)`, so local/dev logs
+  the verification link and production can later plug in a real provider
+
+Action/UI behavior:
+
+- `resendEmailVerificationAction(...)` lives in `src/app/verify-email/actions.ts`
+- action state lives outside the `"use server"` file in `src/app/verify-email/state.ts`
+- logged-in therapist onboarding now has a resend button when status is
+  `EMAIL_NOT_VERIFIED`
+- the reusable form can also render an email field for future public
+  email-based resend screens
