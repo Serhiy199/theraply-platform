@@ -53,7 +53,15 @@ export const AUTH_MESSAGES = {
   lastNameRequired: "Last name is required.",
   resetTokenRequired: "Reset token is required.",
   loginInvalid: "Invalid email or password.",
-  registerSuccess: "Account created successfully. Check your email to verify your account.",
+  registerSuccess:
+    "Verification email sent. Please confirm your email address to activate your account.",
+  registerSuccessModalTitle: "Check your email",
+  registerSuccessModalBody:
+    "We sent a verification link to your email address. Open that email and confirm your address to verify your account.",
+  registerSuccessClientNext:
+    "After verification, client accounts can continue to the client dashboard.",
+  registerSuccessTherapistNext:
+    "After verification, therapist accounts continue to onboarding before admin review.",
   registerEmailTaken: "An account with this email already exists.",
   registerGenericError: "Unable to create your account right now.",
   emailVerificationInvalidToken: "This email verification link is invalid.",

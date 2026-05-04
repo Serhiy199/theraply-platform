@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Alert, Button, Form, Input, Modal, Radio, Space, Typography } from "antd";
-import { AUTH_ROUTES } from "@/lib/constants/auth";
+import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { registerAction } from "@/app/register/actions";
 import {
   initialRegisterActionState,
@@ -28,11 +28,15 @@ export function RegisterForm() {
     registerAction,
     initialRegisterActionState,
   );
+  const successNextStep =
+    role === "THERAPIST"
+      ? AUTH_MESSAGES.registerSuccessTherapistNext
+      : AUTH_MESSAGES.registerSuccessClientNext;
 
   return (
     <Space direction="vertical" size="large" className="w-full">
       <Modal
-        title="Check your email"
+        title={AUTH_MESSAGES.registerSuccessModalTitle}
         open={state.status === "success"}
         footer={[
           <Button key="login" type="primary" href={AUTH_ROUTES.login}>
@@ -42,9 +46,9 @@ export function RegisterForm() {
         closable={false}
         maskClosable={false}
       >
-        <Paragraph className="!mb-0">
-          We sent a verification link to your email address. Please open that email and
-          confirm your address to verify your account.
+        <Paragraph>{state.message ?? AUTH_MESSAGES.registerSuccess}</Paragraph>
+        <Paragraph type="secondary" className="!mb-0">
+          {AUTH_MESSAGES.registerSuccessModalBody} {successNextStep}
         </Paragraph>
       </Modal>
       {state.status === "error" && state.message ? (

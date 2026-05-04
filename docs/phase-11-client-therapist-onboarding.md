@@ -546,3 +546,19 @@ Action/UI behavior:
   `EMAIL_NOT_VERIFIED`
 - the reusable form can also render an email field for future public
   email-based resend screens
+
+## Step 3.10: Registration Success Message
+
+Status: complete.
+
+Registration success copy now matches the email verification flow.
+
+Implemented behavior:
+
+- server action returns a verification-focused success message
+- register modal title/body use shared auth constants
+- client signup success explains that verification leads to the client dashboard
+- therapist signup success explains that verification leads to therapist
+  onboarding before admin review
+- no automatic login or dashboard redirect happens immediately after
+  registration, because email verification is required first
