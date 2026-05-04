@@ -92,6 +92,21 @@ function buildVerificationEmailText(user: EmailVerificationUser, verificationUrl
   ].join("\n");
 }
 
+function canUseEmailVerificationDevLogging() {
+  return process.env.NODE_ENV !== "production";
+}
+
+function logEmailVerificationDevEvent(
+  event: string,
+  metadata: Record<string, string | number | boolean | null | undefined>,
+) {
+  if (!canUseEmailVerificationDevLogging()) {
+    return;
+  }
+
+  console.info(`[email-verification] ${event}`, metadata);
+}
+
 async function findEmailVerificationToken(token: string) {
   return prisma.emailVerificationToken.findUnique({
     where: { token },
@@ -120,9 +135,11 @@ export async function createEmailVerificationForUser(
   const token = randomBytes(32).toString("hex");
   const expiresAt = getEmailVerificationExpiryDate();
   const now = new Date();
+  let invalidatedTokenCount = 0;
+  let createdTokenId = "";
 
   await prisma.$transaction(async (tx) => {
-    await tx.emailVerificationToken.updateMany({
+    const invalidatedTokens = await tx.emailVerificationToken.updateMany({
       where: {
         userId: user.id,
         usedAt: null,
@@ -134,20 +151,36 @@ export async function createEmailVerificationForUser(
         usedAt: now,
       },
     });
+    invalidatedTokenCount = invalidatedTokens.count;
 
-    await tx.emailVerificationToken.create({
+    const createdToken = await tx.emailVerificationToken.create({
       data: {
         userId: user.id,
         token,
         expiresAt,
       },
+      select: {
+        id: true,
+      },
     });
+    createdTokenId = createdToken.id;
+  });
+
+  const verificationUrl = buildEmailVerificationUrl(token);
+
+  logEmailVerificationDevEvent("token-created", {
+    userId: user.id,
+    email: user.email,
+    tokenId: createdTokenId,
+    expiresAt: expiresAt.toISOString(),
+    invalidatedTokenCount,
+    verificationUrl,
   });
 
   return {
     token,
     expiresAt,
-    verificationUrl: buildEmailVerificationUrl(token),
+    verificationUrl,
   };
 }
 
@@ -181,6 +214,14 @@ export async function sendEmailVerification(
     actionUrl: verification.verificationUrl,
   });
 
+  logEmailVerificationDevEvent("email-sent", {
+    userId: user.id,
+    email: user.email,
+    emailLogId: delivery.emailLogId,
+    status: delivery.status,
+    verificationUrl: verification.verificationUrl,
+  });
+
   return {
     ...verification,
     emailLogId: delivery.emailLogId,
@@ -206,6 +247,12 @@ export async function resendEmailVerification(
   });
 
   if (!user || !user.isActive) {
+    logEmailVerificationDevEvent("resend-skipped", {
+      reason: !user ? "user_not_found" : "user_inactive",
+      userId: input.userId ?? null,
+      email: input.email ?? null,
+    });
+
     return {
       emailSent: false,
       alreadyVerified: false,
@@ -213,6 +260,12 @@ export async function resendEmailVerification(
   }
 
   if (user.emailVerified) {
+    logEmailVerificationDevEvent("resend-skipped", {
+      reason: "already_verified",
+      userId: user.id,
+      email: input.email ?? null,
+    });
+
     return {
       emailSent: false,
       alreadyVerified: true,
@@ -220,6 +273,12 @@ export async function resendEmailVerification(
   }
 
   const delivery = await sendEmailVerification(user.id);
+
+  logEmailVerificationDevEvent("resend-sent", {
+    userId: user.id,
+    emailLogId: delivery.emailLogId,
+    verificationUrl: delivery.verificationUrl,
+  });
 
   return {
     delivery,
@@ -232,6 +291,10 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   const tokenRecord = await findEmailVerificationToken(token);
 
   if (!tokenRecord) {
+    logEmailVerificationDevEvent("verify-failed", {
+      reason: "token_not_found",
+    });
+
     throw new EmailVerificationServiceError(
       AUTH_MESSAGES.emailVerificationInvalidToken,
       "TOKEN_NOT_FOUND",
@@ -239,6 +302,12 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   if (tokenRecord.usedAt) {
+    logEmailVerificationDevEvent("verify-failed", {
+      reason: "token_used",
+      tokenId: tokenRecord.id,
+      userId: tokenRecord.user.id,
+    });
+
     throw new EmailVerificationServiceError(
       AUTH_MESSAGES.emailVerificationUsedToken,
       "TOKEN_USED",
@@ -246,6 +315,13 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   if (tokenRecord.expiresAt <= new Date()) {
+    logEmailVerificationDevEvent("verify-failed", {
+      reason: "token_expired",
+      tokenId: tokenRecord.id,
+      userId: tokenRecord.user.id,
+      expiresAt: tokenRecord.expiresAt.toISOString(),
+    });
+
     throw new EmailVerificationServiceError(
       AUTH_MESSAGES.emailVerificationExpiredToken,
       "TOKEN_EXPIRED",
@@ -253,6 +329,12 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   if (!tokenRecord.user.isActive) {
+    logEmailVerificationDevEvent("verify-failed", {
+      reason: "user_inactive",
+      tokenId: tokenRecord.id,
+      userId: tokenRecord.user.id,
+    });
+
     throw new EmailVerificationServiceError(
       AUTH_MESSAGES.emailVerificationInvalidToken,
       "USER_INACTIVE",
@@ -260,6 +342,10 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   const now = new Date();
+  const therapistStatusBefore = tokenRecord.user.therapistProfile?.approvalStatus ?? null;
+  const willMoveTherapistToProfileIncomplete =
+    tokenRecord.user.role === UserRole.THERAPIST &&
+    therapistStatusBefore === TherapistApprovalStatus.EMAIL_NOT_VERIFIED;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -298,11 +384,29 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
       }
     });
   } catch {
+    logEmailVerificationDevEvent("verify-failed", {
+      reason: "transaction_failed",
+      tokenId: tokenRecord.id,
+      userId: tokenRecord.user.id,
+    });
+
     throw new EmailVerificationServiceError(
       AUTH_MESSAGES.emailVerificationGenericError,
       "VERIFY_FAILED",
     );
   }
+
+  logEmailVerificationDevEvent("verify-succeeded", {
+    tokenId: tokenRecord.id,
+    userId: tokenRecord.user.id,
+    email: tokenRecord.user.email,
+    role: tokenRecord.user.role,
+    verifiedAt: now.toISOString(),
+    therapistStatusBefore,
+    therapistStatusAfter: willMoveTherapistToProfileIncomplete
+      ? TherapistApprovalStatus.PROFILE_INCOMPLETE
+      : therapistStatusBefore,
+  });
 
   return {
     userId: tokenRecord.user.id,

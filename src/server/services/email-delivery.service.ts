@@ -50,6 +50,12 @@ export async function sendTransactionalEmail(
   });
 
   if (canUseConsoleDelivery()) {
+    console.info("[email] console-delivery-enabled", {
+      template: input.template,
+      email: input.email,
+      userId: input.userId ?? null,
+      emailLogId: pendingLog.id,
+    });
     console.info(formatConsoleEmail(input));
 
     const sentLog = await prisma.emailLog.update({

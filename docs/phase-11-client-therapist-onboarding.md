@@ -562,3 +562,189 @@ Implemented behavior:
   onboarding before admin review
 - no automatic login or dashboard redirect happens immediately after
   registration, because email verification is required first
+
+## Step 3.11: Email Verification Dev Logging
+
+Status: complete.
+
+Added local/dev logging for email verification debugging while keeping
+production quiet.
+
+Logged in non-production only:
+
+- token creation with user id, email, token id, expiry, invalidated token count,
+  and verification URL
+- email delivery handoff with email log id and delivery status
+- resend skipped reasons such as `user_not_found`, `user_inactive`, and
+  `already_verified`
+- resend success with email log id and verification URL
+- verification failures for missing, used, expired, inactive-user, and
+  transaction-failed tokens
+- verification success with role and therapist status transition details
+
+The delivery abstraction also logs when console delivery is active, including
+the `EmailLog` id, so local testing can connect the terminal verification link
+to database records.
+
+## Step 3.12: Verify DB Records
+
+Status: complete.
+
+Added a read-only DB verification script:
+
+- `npm run verify:email-records`
+- implementation: `scripts/verify-email-verification-records.ts`
+
+The script reads:
+
+- total `User` count
+- total `EmailVerificationToken` count
+- total `EmailLog` count
+- active, unexpired email verification token count
+- therapist profile counts grouped by `approvalStatus`
+- 10 most recent users with role/profile/email verification state
+- 10 most recent verification tokens with redacted token values
+- 10 most recent email logs
+
+Current DB check result on 2026-05-04:
+
+- Prisma migrations: up to date
+- `User` records: 8
+- `EmailVerificationToken` records: 0
+- `EmailLog` records: 0
+- active email verification tokens: 0
+- therapist statuses:
+  - `EMAIL_NOT_VERIFIED`: 1
+  - `APPROVED`: 2
+
+Important observation:
+
+- the schema and relations are present
+- the current database does not yet contain email verification token/log records
+- to fully prove the runtime registration path, create a new client or therapist
+  account after Step 3.4 in the same environment, then rerun
+  `npm run verify:email-records`
+
+## Step 3.13: Verification Commands
+
+Status: complete.
+
+Added a consolidated verification command for the email verification stage:
+
+```bash
+npm run verify:phase11-email
+```
+
+This command runs:
+
+- `npx prisma validate`
+- `npx prisma migrate status`
+- `npx tsx scripts/verify-email-verification-records.ts`
+- `npx tsc --noEmit --incremental false`
+
+Standalone commands remain available:
+
+```bash
+npm run verify:email-records
+npm run build
+```
+
+Manual runtime verification flow:
+
+1. Start the app with `npm run dev`.
+2. Register a new client or therapist account.
+3. Read the terminal output for `[email-verification] token-created` and the
+   console delivery `Action URL`.
+4. Open the `/verify-email/[token]` URL from the log.
+5. Rerun `npm run verify:email-records`.
+6. Confirm:
+   - a new `EmailVerificationToken` record exists
+   - the used token has `usedAt`
+   - a matching `EmailLog` exists
+   - the user has `emailVerified = true`
+   - therapist users move from `EMAIL_NOT_VERIFIED` to `PROFILE_INCOMPLETE`
+
+Operational note:
+
+- `npm run build` is intentionally kept outside the consolidated command because
+  it is slower and, in this Windows workspace, may need to be rerun outside the
+  sandbox if Next.js hits `spawn EPERM`.
+
+## Step 4.1: Therapist Onboarding Baseline
+
+Status: complete.
+
+Current route state:
+
+- `/therapist/onboarding` exists at `src/app/therapist/onboarding/page.tsx`
+- the page is currently a status/locked surface, not an editable onboarding form
+- it requires a signed-in `THERAPIST` account through `requireRole([UserRole.THERAPIST])`
+- it reads `User.emailVerified` and selected `TherapistProfile` status fields
+- it displays state copy for:
+  - `EMAIL_NOT_VERIFIED`
+  - `PROFILE_INCOMPLETE`
+  - `PENDING_REVIEW`
+  - `APPROVED`
+  - `REJECTED`
+  - `SUSPENDED`
+- it shows `ResendEmailVerificationForm` only for `EMAIL_NOT_VERIFIED`
+- it shows `rejectionReason` when status is `REJECTED`
+- it currently has no save draft or submit for review behavior
+
+Current data model state:
+
+- `User` acts as the current account entity and already has:
+  - `role`
+  - `emailVerified`
+  - `emailVerifiedAt`
+- `TherapistProfile` already has the onboarding storage needed for the next steps:
+  - `approvalStatus`
+  - `onboardingCompleted`
+  - `submittedForReviewAt`
+  - `approvedAt`
+  - `rejectedAt`
+  - `rejectionReason`
+  - `profileDraft`
+- `TherapistApprovalStatus` already contains:
+  - `EMAIL_NOT_VERIFIED`
+  - `PROFILE_INCOMPLETE`
+  - `PENDING_REVIEW`
+  - `APPROVED`
+  - `REJECTED`
+  - `SUSPENDED`
+
+Current access-control state:
+
+- active therapist routes are protected by `requireActiveTherapistFeatures()`
+- active therapist Server Actions use `requireActionActiveTherapistFeatures(...)`
+- active therapist access currently requires:
+  - `emailVerified = true`
+  - `TherapistProfile.approvalStatus = APPROVED`
+- protected active therapist surfaces include:
+  - `/therapist/dashboard`
+  - `/therapist/requests`
+  - `/therapist/requests/[bookingId]`
+  - `/therapist/clients`
+  - `/therapist/payout-details`
+  - Google Calendar therapist connect/callback routes
+
+What is not implemented yet:
+
+- therapist onboarding validation schema
+- therapist onboarding service
+- save draft Server Action
+- submit for review Server Action
+- editable onboarding form component
+- transition from `PROFILE_INCOMPLETE` to `PENDING_REVIEW`
+- draft persistence into `TherapistProfile.profileDraft`
+- submit timestamp updates:
+  - `onboardingCompleted = true`
+  - `submittedForReviewAt = now`
+
+Implementation guardrail for the next steps:
+
+- keep `/therapist/onboarding` accessible to all signed-in therapist accounts
+- keep active therapist features locked until `APPROVED`
+- keep draft saves in `PROFILE_INCOMPLETE`
+- on submit for review, set `PENDING_REVIEW`, `onboardingCompleted = true`, and
+  `submittedForReviewAt = now`

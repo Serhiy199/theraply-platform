@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "verify:phase10": "tsx scripts/verify-phase-10.ts",
+    "verify:phase11-email": "tsx scripts/verify-phase-11-email.ts",
+    "verify:email-records": "tsx scripts/verify-email-verification-records.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",
