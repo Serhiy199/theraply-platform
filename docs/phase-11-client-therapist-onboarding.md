@@ -380,3 +380,28 @@ Current behavior:
 The service is intentionally provider-agnostic. A future Resend/SMTP/SendGrid
 adapter can be added inside this service without changing auth or verification
 flow code.
+
+## Step 3.3: Email Verification Service
+
+Status: complete.
+
+`email-verification.service.ts` now owns verification token lifecycle logic.
+
+Functions:
+
+- `createEmailVerificationForUser(user)`
+- `sendEmailVerification(userId)`
+- `verifyEmailToken(token)`
+
+Implemented behavior:
+
+- generates secure random verification tokens
+- sets token expiry using `EMAIL_VERIFICATION_RULES`
+- invalidates older active verification tokens for the same user
+- creates `EmailVerificationToken` records
+- builds `/verify-email/[token]` links from auth constants
+- sends provider-agnostic transactional email through `sendTransactionalEmail`
+- creates/updates `EmailLog` through the delivery abstraction
+- verifies valid tokens by setting `User.emailVerified = true`
+- sets `User.emailVerifiedAt`
+- moves therapist profiles from `EMAIL_NOT_VERIFIED` to `PROFILE_INCOMPLETE`
