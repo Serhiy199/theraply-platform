@@ -748,3 +748,96 @@ Implementation guardrail for the next steps:
 - keep draft saves in `PROFILE_INCOMPLETE`
 - on submit for review, set `PENDING_REVIEW`, `onboardingCompleted = true`, and
   `submittedForReviewAt = now`
+
+## Step 4.2: Therapist Onboarding Draft Structure
+
+Status: complete.
+
+The initial draft structure is defined in code at
+`src/lib/contracts/therapist-onboarding.ts`.
+
+Current draft version:
+
+- `THERAPIST_ONBOARDING_DRAFT_VERSION = 1`
+
+Current draft fields:
+
+- `displayName`
+- `bio`
+- `specialization`
+
+Draft type:
+
+```ts
+type TherapistOnboardingDraft = {
+  version: 1;
+  displayName?: string | null;
+  bio?: string | null;
+  specialization?: string | null;
+};
+```
+
+Support helpers:
+
+- `therapistOnboardingDraftFields`
+- `emptyTherapistOnboardingDraft`
+- `createTherapistOnboardingDraft(input)`
+
+Reasoning:
+
+- these fields already exist as first-class `TherapistProfile` columns
+- draft storage still goes through `TherapistProfile.profileDraft`
+- the `version` field gives us room for future draft migrations when business
+  fields expand
+- this step does not yet add validation, service methods, actions, or UI
+
+Future fields can be added without changing the account model:
+
+- license or credential number
+- education
+- years of experience
+- languages
+- therapy methods
+- documents
+- profile photo
+- session preferences
+
+## Step 4.3: Therapist Onboarding Validation Schema
+
+Status: complete.
+
+Added validation files:
+
+- `src/lib/constants/therapist-onboarding.ts`
+- `src/lib/validations/therapist-onboarding.ts`
+
+Schemas:
+
+- `therapistOnboardingDraftSchema`
+- `therapistOnboardingSubmitSchema`
+
+Draft validation behavior:
+
+- accepts partial fields
+- trims text values
+- converts empty strings to `null`
+- applies max lengths
+- returns a versioned `TherapistOnboardingDraft`
+
+Submit validation behavior:
+
+- requires `displayName`
+- requires `bio`
+- requires `specialization`
+- trims values
+- applies max lengths
+- returns a versioned `TherapistOnboardingDraft`
+
+Current limits:
+
+- `displayName`: 120 characters
+- `bio`: 2000 characters
+- `specialization`: 240 characters
+
+This step only defines validation. Service methods, Server Actions, and UI form
+wiring come in the next onboarding steps.
