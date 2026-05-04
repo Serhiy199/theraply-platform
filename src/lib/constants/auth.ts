@@ -3,6 +3,7 @@ export const AUTH_ROUTES = {
   register: "/register",
   forgotPassword: "/forgot-password",
   resetPasswordBase: "/reset-password",
+  verifyEmailBase: "/verify-email",
 } as const;
 
 export const DASHBOARD_ROUTES = {
@@ -26,6 +27,14 @@ export const PASSWORD_RESET_RULES = {
   tokenTtlHours: 2,
 } as const;
 
+export const EMAIL_VERIFICATION_RULES = {
+  tokenTtlHours: 24,
+} as const;
+
+export const EMAIL_TEMPLATES = {
+  verification: "EMAIL_VERIFICATION",
+} as const;
+
 export const PASSWORD_MESSAGES = {
   required: "Password is required.",
   minLength: `Password must be at least ${PASSWORD_RULES.minLength} characters long.`,
@@ -47,6 +56,11 @@ export const AUTH_MESSAGES = {
   registerSuccess: "Account created successfully. You can now sign in.",
   registerEmailTaken: "An account with this email already exists.",
   registerGenericError: "Unable to create your account right now.",
+  emailVerificationInvalidToken: "This email verification link is invalid.",
+  emailVerificationExpiredToken: "This email verification link has expired.",
+  emailVerificationUsedToken: "This email verification link has already been used.",
+  emailVerificationSuccess: "Email verified successfully.",
+  emailVerificationGenericError: "Unable to verify your email right now.",
   forgotPasswordSuccess:
     "If an account with that email exists, we have generated a password reset link.",
   forgotPasswordGenericError: "Unable to start password recovery right now.",

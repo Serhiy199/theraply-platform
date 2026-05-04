@@ -242,6 +242,21 @@ Verification commands:
 - `npx.cmd tsc --noEmit --incremental false`
 - `npx.cmd prisma validate`
 
+## Step 3.1: Email Verification Auth Constants
+
+Status: complete.
+
+Auth constants now include the foundation for email verification:
+
+- `AUTH_ROUTES.verifyEmailBase = "/verify-email"`
+- `EMAIL_VERIFICATION_RULES.tokenTtlHours = 24`
+- `EMAIL_TEMPLATES.verification = "EMAIL_VERIFICATION"`
+- email verification success/error messages for invalid, expired, used, and
+  generic failure states
+
+These constants are storage/provider agnostic and will be used by the email
+verification service and route in the next steps.
+
 Step 1 is now complete at the schema, migration, Prisma Client, and seed-code
 level.
 
