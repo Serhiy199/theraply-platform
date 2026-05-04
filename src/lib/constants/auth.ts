@@ -53,7 +53,7 @@ export const AUTH_MESSAGES = {
   lastNameRequired: "Last name is required.",
   resetTokenRequired: "Reset token is required.",
   loginInvalid: "Invalid email or password.",
-  registerSuccess: "Account created successfully. You can now sign in.",
+  registerSuccess: "Account created successfully. Check your email to verify your account.",
   registerEmailTaken: "An account with this email already exists.",
   registerGenericError: "Unable to create your account right now.",
   emailVerificationInvalidToken: "This email verification link is invalid.",

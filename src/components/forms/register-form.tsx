@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { Alert, Button, Form, Input, Radio, Space, Typography } from "antd";
+import { Alert, Button, Form, Input, Modal, Radio, Space, Typography } from "antd";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 import { registerAction } from "@/app/register/actions";
 import {
@@ -31,21 +31,31 @@ export function RegisterForm() {
 
   return (
     <Space direction="vertical" size="large" className="w-full">
-      {state.message ? (
+      <Modal
+        title="Check your email"
+        open={state.status === "success"}
+        footer={[
+          <Button key="login" type="primary" href={AUTH_ROUTES.login}>
+            Go to login
+          </Button>,
+        ]}
+        closable={false}
+        maskClosable={false}
+      >
+        <Paragraph className="!mb-0">
+          We sent a verification link to your email address. Please open that email and
+          confirm your address to verify your account.
+        </Paragraph>
+      </Modal>
+      {state.status === "error" && state.message ? (
         <Alert
-          type={state.status === "success" ? "success" : "error"}
+          type="error"
           message={state.message}
           showIcon
         />
       ) : null}
       <Paragraph type="secondary" className="!mb-0">
         Create an account as a client or therapist to continue with Theraply.
-        {state.status === "success" ? (
-          <>
-            {" "}
-            <Link href={AUTH_ROUTES.login}>Go to login.</Link>
-          </>
-        ) : null}
       </Paragraph>
       <form action={formAction} className="w-full">
         <input type="hidden" name="role" value={role} />

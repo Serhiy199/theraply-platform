@@ -329,12 +329,12 @@ Status: complete.
 
 No application code change was needed for this step.
 
-The existing success message is already role-neutral:
+The registration success message is role-neutral and points users to email
+verification:
 
-- `Account created successfully. You can now sign in.`
+- `Account created successfully. Check your email to verify your account.`
 
-This message remains valid for both `CLIENT` and `THERAPIST` registration until
-the dedicated email verification flow is implemented in a later step.
+This message remains valid for both `CLIENT` and `THERAPIST` registration.
 
 ## Step 2.7: TypeScript Verification
 
@@ -426,3 +426,22 @@ Therapist profiles still start from Prisma defaults:
 - `approvalStatus = EMAIL_NOT_VERIFIED`
 - `isApproved = false`
 - `onboardingCompleted = false`
+
+## Step 3.5: Email Verification Route
+
+Status: complete.
+
+`/verify-email/[token]` now verifies email confirmation tokens.
+
+Implemented behavior:
+
+- reads `token` from route params
+- calls `verifyEmailToken(token)`
+- shows a clear error page for invalid, expired, used, or inactive-user tokens
+- redirects verified clients to `/client/dashboard`
+- redirects verified therapists to `/therapist/onboarding`
+- redirects verified admins to `/admin/dashboard`
+
+Because protected role routes require an active session, unauthenticated users
+may still be sent through login by the existing proxy with the intended
+role-specific destination preserved as the callback URL.
