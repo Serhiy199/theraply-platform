@@ -3,6 +3,7 @@
 export const bookableTherapistContractSelect = {
   id: true,
   email: true,
+  emailVerified: true,
   firstName: true,
   lastName: true,
   therapistProfile: {
@@ -17,6 +18,7 @@ export const bookableTherapistContractSelect = {
       isGoogleCalendarConnected: true,
       approvalStatus: true,
       isApproved: true,
+      onboardingCompleted: true,
     },
   },
 } satisfies Prisma.UserSelect;

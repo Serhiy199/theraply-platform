@@ -1,7 +1,9 @@
 ﻿import {
   AuditLog,
   BookingStatus,
+  Prisma,
   SessionStatus,
+  TherapistApprovalStatus,
   UserRole,
 } from "@prisma/client";
 import {
@@ -51,6 +53,43 @@ export type AdminTherapistListItem = {
   updatedAt: Date;
 };
 
+const adminTherapistReviewSelect = {
+  id: true,
+  userId: true,
+  displayName: true,
+  bio: true,
+  specialization: true,
+  sessionPricePence: true,
+  approvalStatus: true,
+  isApproved: true,
+  onboardingCompleted: true,
+  submittedForReviewAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+  rejectionReason: true,
+  profileDraft: true,
+  createdAt: true,
+  updatedAt: true,
+  user: {
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+} satisfies Prisma.TherapistProfileSelect;
+
+export type AdminTherapistReviewItem = Prisma.TherapistProfileGetPayload<{
+  select: typeof adminTherapistReviewSelect;
+}>;
+
 export type AdminAuditLogItem = Pick<AuditLog, "id" | "entityType" | "entityId" | "action" | "before" | "after" | "createdAt"> & {
   actorUser: {
     id: string;
@@ -68,6 +107,9 @@ export class AdminOperationsServiceError extends Error {
       | "BOOKING_NOT_FOUND"
       | "BOOKING_NOT_CANCELLABLE"
       | "ADMIN_NOT_FOUND"
+      | "THERAPIST_PROFILE_NOT_FOUND"
+      | "THERAPIST_PROFILE_NOT_PENDING_REVIEW"
+      | "THERAPIST_REJECTION_REASON_REQUIRED"
       | "GOOGLE_CALENDAR_SYNC_FAILED"
       | "REFUND_FAILED",
   ) {
@@ -172,6 +214,170 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     createdAt: therapist.createdAt,
     updatedAt: therapist.updatedAt,
   }));
+}
+
+export async function getAdminPendingTherapistReviews(): Promise<AdminTherapistReviewItem[]> {
+  return prisma.therapistProfile.findMany({
+    where: {
+      approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
+    },
+    orderBy: [
+      {
+        submittedForReviewAt: "asc",
+      },
+      {
+        updatedAt: "asc",
+      },
+    ],
+    select: adminTherapistReviewSelect,
+  });
+}
+
+export async function getAdminTherapistReviewById(
+  therapistProfileId: string,
+): Promise<AdminTherapistReviewItem | null> {
+  return prisma.therapistProfile.findUnique({
+    where: {
+      id: therapistProfileId,
+    },
+    select: adminTherapistReviewSelect,
+  });
+}
+
+async function getPendingTherapistReviewOrThrow(therapistProfileId: string) {
+  const therapistProfile = await prisma.therapistProfile.findUnique({
+    where: {
+      id: therapistProfileId,
+    },
+    select: adminTherapistReviewSelect,
+  });
+
+  if (!therapistProfile) {
+    throw new AdminOperationsServiceError(
+      "Therapist profile not found.",
+      "THERAPIST_PROFILE_NOT_FOUND",
+    );
+  }
+
+  if (therapistProfile.approvalStatus !== TherapistApprovalStatus.PENDING_REVIEW) {
+    throw new AdminOperationsServiceError(
+      "Only therapist profiles pending review can be reviewed.",
+      "THERAPIST_PROFILE_NOT_PENDING_REVIEW",
+    );
+  }
+
+  return therapistProfile;
+}
+
+export async function approveTherapistReview(
+  adminUserId: string,
+  therapistProfileId: string,
+): Promise<AdminTherapistReviewItem> {
+  await assertAdminExists(adminUserId);
+  const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
+  const now = getNow();
+
+  return prisma.$transaction(async (tx) => {
+    const updatedProfile = await tx.therapistProfile.update({
+      where: {
+        id: therapistProfile.id,
+      },
+      data: {
+        approvalStatus: TherapistApprovalStatus.APPROVED,
+        isApproved: true,
+        approvedAt: now,
+        rejectedAt: null,
+        rejectionReason: null,
+        profileDraft: Prisma.DbNull,
+      },
+      select: adminTherapistReviewSelect,
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: adminUserId,
+        entityType: "TherapistProfile",
+        entityId: therapistProfile.id,
+        action: "ADMIN_APPROVE_THERAPIST",
+        before: {
+          approvalStatus: therapistProfile.approvalStatus,
+          isApproved: therapistProfile.isApproved,
+          approvedAt: therapistProfile.approvedAt,
+          rejectedAt: therapistProfile.rejectedAt,
+          rejectionReason: therapistProfile.rejectionReason,
+        },
+        after: {
+          approvalStatus: updatedProfile.approvalStatus,
+          isApproved: updatedProfile.isApproved,
+          approvedAt: updatedProfile.approvedAt,
+          rejectedAt: updatedProfile.rejectedAt,
+          rejectionReason: updatedProfile.rejectionReason,
+        },
+      },
+    });
+
+    return updatedProfile;
+  });
+}
+
+export async function rejectTherapistReview(
+  adminUserId: string,
+  therapistProfileId: string,
+  rejectionReason: string,
+): Promise<AdminTherapistReviewItem> {
+  await assertAdminExists(adminUserId);
+  const normalizedReason = rejectionReason.trim();
+
+  if (!normalizedReason) {
+    throw new AdminOperationsServiceError(
+      "Rejection reason is required.",
+      "THERAPIST_REJECTION_REASON_REQUIRED",
+    );
+  }
+
+  const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
+  const now = getNow();
+
+  return prisma.$transaction(async (tx) => {
+    const updatedProfile = await tx.therapistProfile.update({
+      where: {
+        id: therapistProfile.id,
+      },
+      data: {
+        approvalStatus: TherapistApprovalStatus.REJECTED,
+        isApproved: false,
+        approvedAt: null,
+        rejectedAt: now,
+        rejectionReason: normalizedReason,
+      },
+      select: adminTherapistReviewSelect,
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: adminUserId,
+        entityType: "TherapistProfile",
+        entityId: therapistProfile.id,
+        action: "ADMIN_REJECT_THERAPIST",
+        before: {
+          approvalStatus: therapistProfile.approvalStatus,
+          isApproved: therapistProfile.isApproved,
+          approvedAt: therapistProfile.approvedAt,
+          rejectedAt: therapistProfile.rejectedAt,
+          rejectionReason: therapistProfile.rejectionReason,
+        },
+        after: {
+          approvalStatus: updatedProfile.approvalStatus,
+          isApproved: updatedProfile.isApproved,
+          approvedAt: updatedProfile.approvedAt,
+          rejectedAt: updatedProfile.rejectedAt,
+          rejectionReason: updatedProfile.rejectionReason,
+        },
+      },
+    });
+
+    return updatedProfile;
+  });
 }
 
 export async function getAdminBookings(): Promise<AdminBookingRow[]> {

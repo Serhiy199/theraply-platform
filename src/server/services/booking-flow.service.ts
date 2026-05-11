@@ -1,4 +1,11 @@
-import { BookingStatus, PaymentStatus, Prisma, SessionStatus, UserRole } from "@prisma/client";
+import {
+  BookingStatus,
+  PaymentStatus,
+  Prisma,
+  SessionStatus,
+  TherapistApprovalStatus,
+  UserRole,
+} from "@prisma/client";
 import {
   bookingDetailsSelect,
   type BookingDetailsItem,
@@ -29,6 +36,7 @@ const ACTIVE_BOOKING_STATUSES = [
 const bookableTherapistSelect = {
   id: true,
   email: true,
+  emailVerified: true,
   firstName: true,
   lastName: true,
   therapistProfile: {
@@ -43,6 +51,7 @@ const bookableTherapistSelect = {
       isGoogleCalendarConnected: true,
       approvalStatus: true,
       isApproved: true,
+      onboardingCompleted: true,
     },
   },
 } satisfies Prisma.UserSelect;
@@ -196,8 +205,11 @@ async function getBookableTherapistOrThrow(therapistId: string) {
       id: therapistId,
       role: UserRole.THERAPIST,
       isActive: true,
+      emailVerified: true,
       therapistProfile: {
+        approvalStatus: TherapistApprovalStatus.APPROVED,
         isApproved: true,
+        onboardingCompleted: true,
       },
     },
     select: bookableTherapistSelect,
@@ -306,8 +318,11 @@ export async function getBookableTherapists(): Promise<BookableTherapist[]> {
     where: {
       role: UserRole.THERAPIST,
       isActive: true,
+      emailVerified: true,
       therapistProfile: {
+        approvalStatus: TherapistApprovalStatus.APPROVED,
         isApproved: true,
+        onboardingCompleted: true,
       },
     },
     orderBy: [
