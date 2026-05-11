@@ -56,6 +56,19 @@ const bookableTherapistSelect = {
   },
 } satisfies Prisma.UserSelect;
 
+const bookableTherapistWhere = {
+  role: UserRole.THERAPIST,
+  isActive: true,
+  emailVerified: true,
+  therapistProfile: {
+    is: {
+      approvalStatus: TherapistApprovalStatus.APPROVED,
+      isApproved: true,
+      onboardingCompleted: true,
+    },
+  },
+} satisfies Prisma.UserWhereInput;
+
 export type BookableTherapist = Prisma.UserGetPayload<{
   select: typeof bookableTherapistSelect;
 }>;
@@ -202,15 +215,8 @@ async function acquireBookingSlotCreationLock(
 async function getBookableTherapistOrThrow(therapistId: string) {
   const therapist = await prisma.user.findFirst({
     where: {
+      ...bookableTherapistWhere,
       id: therapistId,
-      role: UserRole.THERAPIST,
-      isActive: true,
-      emailVerified: true,
-      therapistProfile: {
-        approvalStatus: TherapistApprovalStatus.APPROVED,
-        isApproved: true,
-        onboardingCompleted: true,
-      },
     },
     select: bookableTherapistSelect,
   });
@@ -315,16 +321,7 @@ async function assertTherapistGoogleSlotIsAvailable(
 
 export async function getBookableTherapists(): Promise<BookableTherapist[]> {
   return prisma.user.findMany({
-    where: {
-      role: UserRole.THERAPIST,
-      isActive: true,
-      emailVerified: true,
-      therapistProfile: {
-        approvalStatus: TherapistApprovalStatus.APPROVED,
-        isApproved: true,
-        onboardingCompleted: true,
-      },
-    },
+    where: bookableTherapistWhere,
     orderBy: [
       {
         therapistProfile: {
