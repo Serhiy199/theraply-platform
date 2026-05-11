@@ -24,6 +24,10 @@ import {
   RefundServiceError,
   type RefundExecutionResult,
 } from "@/server/services/refund.service";
+import {
+  sendTherapistOnboardingApprovedEmail,
+  sendTherapistOnboardingRejectedEmail,
+} from "@/server/services/therapist-onboarding-email.service";
 
 export type AdminUserListItem = {
   id: string;
@@ -277,7 +281,7 @@ export async function approveTherapistReview(
   const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
   const now = getNow();
 
-  return prisma.$transaction(async (tx) => {
+  const updatedProfile = await prisma.$transaction(async (tx) => {
     const updatedProfile = await tx.therapistProfile.update({
       where: {
         id: therapistProfile.id,
@@ -318,6 +322,15 @@ export async function approveTherapistReview(
 
     return updatedProfile;
   });
+
+  await sendTherapistOnboardingApprovedEmail({
+    userId: updatedProfile.userId,
+    email: updatedProfile.user.email,
+    firstName: updatedProfile.user.firstName,
+    displayName: updatedProfile.displayName,
+  });
+
+  return updatedProfile;
 }
 
 export async function rejectTherapistReview(
@@ -338,7 +351,7 @@ export async function rejectTherapistReview(
   const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
   const now = getNow();
 
-  return prisma.$transaction(async (tx) => {
+  const updatedProfile = await prisma.$transaction(async (tx) => {
     const updatedProfile = await tx.therapistProfile.update({
       where: {
         id: therapistProfile.id,
@@ -378,6 +391,16 @@ export async function rejectTherapistReview(
 
     return updatedProfile;
   });
+
+  await sendTherapistOnboardingRejectedEmail({
+    userId: updatedProfile.userId,
+    email: updatedProfile.user.email,
+    firstName: updatedProfile.user.firstName,
+    displayName: updatedProfile.displayName,
+    rejectionReason: normalizedReason,
+  });
+
+  return updatedProfile;
 }
 
 export async function getAdminBookings(): Promise<AdminBookingRow[]> {

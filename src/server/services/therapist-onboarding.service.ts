@@ -6,6 +6,7 @@ import {
   therapistOnboardingSubmitSchema,
 } from "@/lib/validations/therapist-onboarding";
 import { prisma } from "@/lib/prisma";
+import { sendTherapistOnboardingPendingReviewEmail } from "@/server/services/therapist-onboarding-email.service";
 
 export type TherapistOnboardingDraftResult = {
   profileId: string;
@@ -156,7 +157,21 @@ export async function submitTherapistOnboardingForReview(
       userId: true,
       approvalStatus: true,
       profileDraft: true,
+      displayName: true,
+      user: {
+        select: {
+          email: true,
+          firstName: true,
+        },
+      },
     },
+  });
+
+  await sendTherapistOnboardingPendingReviewEmail({
+    userId: updatedProfile.userId,
+    email: updatedProfile.user.email,
+    firstName: updatedProfile.user.firstName,
+    displayName: updatedProfile.displayName,
   });
 
   return {

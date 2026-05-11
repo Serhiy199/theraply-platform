@@ -33,6 +33,9 @@ export const EMAIL_VERIFICATION_RULES = {
 
 export const EMAIL_TEMPLATES = {
   verification: "EMAIL_VERIFICATION",
+  therapistOnboardingPendingReview: "THERAPIST_ONBOARDING_PENDING_REVIEW",
+  therapistOnboardingApproved: "THERAPIST_ONBOARDING_APPROVED",
+  therapistOnboardingRejected: "THERAPIST_ONBOARDING_REJECTED",
 } as const;
 
 export const PASSWORD_MESSAGES = {
