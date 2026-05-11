@@ -1,7 +1,10 @@
 import { Prisma, TherapistApprovalStatus } from "@prisma/client";
 import type { TherapistOnboardingDraft } from "@/lib/contracts/therapist-onboarding";
 import { canEditTherapistOnboardingDraft } from "@/lib/therapist-lifecycle";
-import { therapistOnboardingDraftSchema } from "@/lib/validations/therapist-onboarding";
+import {
+  therapistOnboardingDraftSchema,
+  therapistOnboardingSubmitSchema,
+} from "@/lib/validations/therapist-onboarding";
 import { prisma } from "@/lib/prisma";
 
 export type TherapistOnboardingDraftResult = {
@@ -34,6 +37,19 @@ function parseTherapistOnboardingDraft(input: unknown) {
   if (!parsed.success) {
     throw new TherapistOnboardingServiceError(
       "Therapist onboarding draft is invalid.",
+      "THERAPIST_ONBOARDING_INVALID_DRAFT",
+    );
+  }
+
+  return parsed.data;
+}
+
+function parseTherapistOnboardingSubmit(input: unknown) {
+  const parsed = therapistOnboardingSubmitSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new TherapistOnboardingServiceError(
+      "Therapist onboarding submission is invalid.",
       "THERAPIST_ONBOARDING_INVALID_DRAFT",
     );
   }
@@ -84,6 +100,55 @@ export async function saveTherapistOnboardingDraft(
     },
     data: {
       approvalStatus: TherapistApprovalStatus.PROFILE_INCOMPLETE,
+      profileDraft: toPrismaJson(draft),
+    },
+    select: {
+      id: true,
+      userId: true,
+      approvalStatus: true,
+      profileDraft: true,
+    },
+  });
+
+  return {
+    profileId: updatedProfile.id,
+    userId: updatedProfile.userId,
+    approvalStatus: updatedProfile.approvalStatus,
+    profileDraft: draft,
+  };
+}
+
+export async function submitTherapistOnboardingForReview(
+  userId: string,
+  input: unknown,
+): Promise<TherapistOnboardingDraftResult> {
+  const profile = await getTherapistOnboardingProfileOrThrow(userId);
+
+  if (!canEditTherapistOnboardingDraft(profile.approvalStatus)) {
+    throw new TherapistOnboardingServiceError(
+      "Therapist onboarding cannot be submitted in the current status.",
+      "THERAPIST_ONBOARDING_LOCKED",
+    );
+  }
+
+  const draft = parseTherapistOnboardingSubmit(input);
+  const now = new Date();
+
+  const updatedProfile = await prisma.therapistProfile.update({
+    where: {
+      id: profile.id,
+    },
+    data: {
+      displayName: draft.displayName,
+      bio: draft.bio,
+      specialization: draft.specialization,
+      approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
+      isApproved: false,
+      onboardingCompleted: true,
+      submittedForReviewAt: now,
+      approvedAt: null,
+      rejectedAt: null,
+      rejectionReason: null,
       profileDraft: toPrismaJson(draft),
     },
     select: {
