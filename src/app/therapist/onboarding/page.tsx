@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { ResendEmailVerificationForm } from "@/components/forms/resend-email-verification-form";
+import {
+  TherapistOnboardingForm,
+  type TherapistOnboardingFormValues,
+} from "@/components/forms/therapist-onboarding-form";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import {
+  createTherapistOnboardingDraft,
+  type TherapistOnboardingDraft,
+} from "@/lib/contracts/therapist-onboarding";
 
 const statusMeta: Record<
   TherapistApprovalStatus,
@@ -60,6 +68,43 @@ const statusMeta: Record<
   },
 };
 
+function getStringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function getDraftFromProfileDraft(value: unknown): TherapistOnboardingDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const draft = value as Partial<TherapistOnboardingDraft>;
+  const hasDraftValue = [draft.displayName, draft.bio, draft.specialization].some(
+    (fieldValue) => typeof fieldValue === "string" && fieldValue.trim().length > 0,
+  );
+
+  return hasDraftValue ? createTherapistOnboardingDraft(draft) : null;
+}
+
+function getOnboardingInitialValues(
+  profile:
+    | {
+        displayName: string | null;
+        bio: string | null;
+        specialization: string | null;
+        profileDraft: unknown;
+      }
+    | null
+    | undefined,
+): TherapistOnboardingFormValues {
+  const draft = getDraftFromProfileDraft(profile?.profileDraft);
+
+  return {
+    displayName: getStringValue(draft?.displayName ?? profile?.displayName),
+    bio: getStringValue(draft?.bio ?? profile?.bio),
+    specialization: getStringValue(draft?.specialization ?? profile?.specialization),
+  };
+}
+
 export default async function TherapistOnboardingPage() {
   const user = await requireRole([UserRole.THERAPIST]);
   const account = await prisma.user.findUnique({
@@ -75,6 +120,10 @@ export default async function TherapistOnboardingPage() {
           submittedForReviewAt: true,
           rejectedAt: true,
           rejectionReason: true,
+          displayName: true,
+          bio: true,
+          specialization: true,
+          profileDraft: true,
         },
       },
     },
@@ -120,6 +169,16 @@ export default async function TherapistOnboardingPage() {
         </Alert>
       ) : null}
 
+      {approvalStatus === TherapistApprovalStatus.PROFILE_INCOMPLETE ||
+      approvalStatus === TherapistApprovalStatus.REJECTED ? (
+        <InsetCard tone="plain" className="mt-6">
+          <SectionEyebrow>Profile form</SectionEyebrow>
+          <TherapistOnboardingForm
+            initialValues={getOnboardingInitialValues(account?.therapistProfile)}
+          />
+        </InsetCard>
+      ) : null}
+
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <InsetCard tone="plain">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -149,12 +208,19 @@ export default async function TherapistOnboardingPage() {
 
         <InsetCard tone="muted">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Next implementation
+            Next step
           </p>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            This page is the locked status surface for Step 3.8. The editable therapist profile
-            draft form, save draft action, and submit for review action will plug into this route in
-            the onboarding stage.
+            {approvalStatus === TherapistApprovalStatus.PROFILE_INCOMPLETE ||
+            approvalStatus === TherapistApprovalStatus.REJECTED
+              ? "Complete the profile fields, save your draft when needed, and submit the profile for admin review when it is ready."
+              : approvalStatus === TherapistApprovalStatus.PENDING_REVIEW
+                ? "Your profile is read-only while it waits for admin review."
+                : approvalStatus === TherapistApprovalStatus.APPROVED
+                  ? "Your profile is approved and your therapist workspace is available."
+                  : approvalStatus === TherapistApprovalStatus.SUSPENDED
+                    ? "Your profile is locked while this account is suspended."
+                    : "Verify your email before continuing with therapist onboarding."}
           </p>
           {isApproved ? (
             <Link
