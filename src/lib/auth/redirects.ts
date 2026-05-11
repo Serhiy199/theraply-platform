@@ -1,5 +1,6 @@
 import type { UserRole } from "@prisma/client";
 import { AUTH_ROUTES, DASHBOARD_ROUTES } from "@/lib/constants/auth";
+import { canUseActiveTherapistFeatures as canUseTherapistFeatures } from "@/lib/therapist-lifecycle";
 
 export const THERAPIST_ONBOARDING_ROUTE = "/therapist/onboarding";
 
@@ -18,7 +19,12 @@ export function canUseActiveTherapistFeatures(user: AuthRedirectUser | null | un
     return false;
   }
 
-  return user.emailVerified === true && user.therapistApprovalStatus === "APPROVED";
+  return canUseTherapistFeatures({
+    emailVerified: user.emailVerified,
+    therapistProfile: {
+      approvalStatus: user.therapistApprovalStatus,
+    },
+  });
 }
 
 export function getDashboardRouteForRole(role?: string) {

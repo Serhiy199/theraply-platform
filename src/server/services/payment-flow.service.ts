@@ -182,6 +182,20 @@ export type StripeCheckoutSuccessSyncResult =
         | "NOT_FOUND";
     };
 
+function normalizeCheckoutSessionId(checkoutSessionId: string) {
+  const trimmed = checkoutSessionId.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
 function buildCreditSuccessUrl(successUrl: string) {
   const url = new URL(successUrl);
   url.searchParams.delete("session_id");
@@ -774,10 +788,12 @@ export async function syncClientStripeCheckoutSuccess(
     };
   }
 
+  const normalizedCheckoutSessionId = normalizeCheckoutSessionId(checkoutSessionId);
+
   if (
-    !checkoutSessionId.trim() ||
-    checkoutSessionId.includes("{CHECKOUT_SESSION_ID}") ||
-    checkoutSessionId.includes("%7BCHECKOUT_SESSION_ID%7D")
+    !normalizedCheckoutSessionId ||
+    normalizedCheckoutSessionId.includes("{CHECKOUT_SESSION_ID}") ||
+    normalizedCheckoutSessionId.includes("%7BCHECKOUT_SESSION_ID%7D")
   ) {
     return {
       status: "pending",
@@ -790,7 +806,7 @@ export async function syncClientStripeCheckoutSuccess(
   let session: Stripe.Checkout.Session;
 
   try {
-    session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+    session = await stripe.checkout.sessions.retrieve(normalizedCheckoutSessionId);
   } catch (error) {
     const stripeLikeError =
       typeof error === "object" && error !== null

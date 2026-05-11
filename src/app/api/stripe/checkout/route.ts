@@ -12,10 +12,12 @@ import {
 export const runtime = "nodejs";
 
 function buildSuccessUrl(request: NextRequest, bookingId: string) {
-  const url = new URL("/client/payments/success", request.url);
-  url.searchParams.set("bookingId", bookingId);
-  const baseUrl = url.toString();
-  return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
+  const requestUrl = new URL(request.url);
+  const origin = requestUrl.origin;
+  const encodedBookingId = encodeURIComponent(bookingId);
+
+  // Keep Stripe's template token raw so Checkout can replace it with a real session id.
+  return `${origin}/client/payments/success?bookingId=${encodedBookingId}&session_id={CHECKOUT_SESSION_ID}`;
 }
 
 function buildCancelUrl(request: NextRequest, bookingId: string) {

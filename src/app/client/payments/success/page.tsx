@@ -2,7 +2,10 @@ import { UserRole } from "@prisma/client";
 import { ClientPaymentResult } from "@/components/dashboard/client/client-payment-result";
 import { requireRole } from "@/lib/permissions";
 import { getClientBookingById } from "@/server/services/client-bookings.service";
-import { syncClientStripeCheckoutSuccess } from "@/server/services/payment-flow.service";
+import {
+  PaymentFlowServiceError,
+  syncClientStripeCheckoutSuccess,
+} from "@/server/services/payment-flow.service";
 
 type ClientPaymentSuccessPageProps = {
   searchParams: Promise<{
@@ -21,7 +24,18 @@ export default async function ClientPaymentSuccessPage({
   const settledFromCredit = params.source === "credit";
 
   if (params.bookingId && params.session_id && !settledFromCredit) {
-    await syncClientStripeCheckoutSuccess(user.id, params.bookingId, params.session_id);
+    try {
+      await syncClientStripeCheckoutSuccess(user.id, params.bookingId, params.session_id);
+    } catch (error) {
+      // Keep the success page usable even if Stripe redirect data is malformed.
+      if (!(error instanceof PaymentFlowServiceError)) {
+        console.error("[client-payment-success-page] Unable to reconcile checkout session.", {
+          bookingId: params.bookingId,
+          sessionId: params.session_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   const booking =

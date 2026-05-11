@@ -1,9 +1,10 @@
-import { TherapistApprovalStatus, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth/session";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 import { prisma } from "@/lib/prisma";
+import { canUseActiveTherapistFeatures } from "@/lib/therapist-lifecycle";
 
 export class ActionPermissionError extends Error {
   constructor(message = "You do not have permission to perform this action.") {
@@ -50,8 +51,7 @@ async function hasActiveTherapistAccess(userId: string) {
   });
 
   return (
-    user?.emailVerified === true &&
-    user.therapistProfile?.approvalStatus === TherapistApprovalStatus.APPROVED
+    canUseActiveTherapistFeatures(user)
   );
 }
 
