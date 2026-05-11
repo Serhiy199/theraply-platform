@@ -54,6 +54,7 @@ export function AdminTherapistReviewActions({
           variant="success"
           size="sm"
           loading={approvePending}
+          loadingText="Approving..."
           disabled={pending}
         >
           Approve
@@ -69,10 +70,17 @@ export function AdminTherapistReviewActions({
           >
             Rejection reason
           </label>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Required before rejecting. This reason is shown to the therapist so they can update and
+            resubmit their onboarding form.
+          </p>
           <textarea
             id={`rejectionReason-${therapistProfileId}`}
             name="rejectionReason"
             rows={3}
+            required
+            minLength={3}
+            disabled={pending}
             className="mt-2 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-900"
           />
         </div>
@@ -81,6 +89,7 @@ export function AdminTherapistReviewActions({
           variant="danger"
           size="sm"
           loading={rejectPending}
+          loadingText="Rejecting..."
           disabled={pending}
         >
           Reject
