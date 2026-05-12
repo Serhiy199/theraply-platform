@@ -64,28 +64,28 @@ enum EmailStatus {
 }
 
 model User {
-  id                    String               @id @default(cuid())
-  email                 String               @unique
-  passwordHash          String
-  firstName             String?
-  lastName              String?
-  role                  UserRole
-  isActive              Boolean              @default(true)
-  emailVerified         Boolean              @default(false)
-  emailVerifiedAt       DateTime?
-  clientProfile         ClientProfile?
-  therapistProfile      TherapistProfile?
-  clientBookings        Booking[]            @relation("ClientBookings")
-  clientCreditBalance   ClientCreditBalance?
+  id                       String                    @id @default(cuid())
+  email                    String                    @unique
+  passwordHash             String
+  firstName                String?
+  lastName                 String?
+  role                     UserRole
+  isActive                 Boolean                   @default(true)
+  emailVerified            Boolean                   @default(false)
+  emailVerifiedAt          DateTime?
+  clientProfile            ClientProfile?
+  therapistProfile         TherapistProfile?
+  clientBookings           Booking[]                 @relation("ClientBookings")
+  clientCreditBalance      ClientCreditBalance?
   clientCreditTransactions ClientCreditTransaction[] @relation("ClientCreditTransactions")
-  therapistBookings     Booking[]            @relation("TherapistBookings")
-  cancelledBookings     Booking[]            @relation("CancelledBookings")
-  emailLogs             EmailLog[]
-  auditLogs             AuditLog[]           @relation("ActorAuditLogs")
-  passwordResetTokens   PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  therapistBookings        Booking[]                 @relation("TherapistBookings")
+  cancelledBookings        Booking[]                 @relation("CancelledBookings")
+  emailLogs                EmailLog[]
+  auditLogs                AuditLog[]                @relation("ActorAuditLogs")
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
 
   @@index([role])
   @@index([isActive])
@@ -93,41 +93,49 @@ model User {
 }
 
 model ClientProfile {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([createdAt])
 }
 
 model TherapistProfile {
-  id                        String                  @id @default(cuid())
-  userId                    String                  @unique
-  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName               String?
-  bio                       String?
-  specialization            String?
-  sessionPricePence         Int?
-  approvalStatus            TherapistApprovalStatus @default(EMAIL_NOT_VERIFIED)
-  isApproved                Boolean                 @default(false)
-  onboardingCompleted       Boolean                 @default(false)
-  submittedForReviewAt      DateTime?
-  approvedAt                DateTime?
-  rejectedAt                DateTime?
-  rejectionReason           String?
-  profileDraft              Json?
-  googleCalendarId          String?                 @unique
-  googleCalendarEmail       String?                 @unique
-  googleAccessToken         String?
-  googleRefreshToken        String?
-  googleTokenExpiresAt      DateTime?
-  googleCalendarConnectedAt DateTime?
-  isGoogleCalendarConnected Boolean                 @default(false)
-  payoutDetails             TherapistPayoutDetails?
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
+  id                         String                  @id @default(cuid())
+  userId                     String                  @unique
+  user                       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName                String?
+  bio                        String?
+  specialization             String?
+  sessionPricePence          Int?
+  gender                     String?
+  contactNumber              String?
+  therapyServicesProvided    String?
+  yearsOfExperience          String?
+  educationAndCertifications String?
+  specialisation             String?
+  pricePerHour               String?
+  approvalStatus             TherapistApprovalStatus @default(EMAIL_NOT_VERIFIED)
+  isApproved                 Boolean                 @default(false)
+  onboardingCompleted        Boolean                 @default(false)
+  submittedForReviewAt       DateTime?
+  approvedAt                 DateTime?
+  rejectedAt                 DateTime?
+  rejectionReason            String?
+  profileDraft               Json?
+  googleCalendarId           String?                 @unique
+  googleCalendarEmail        String?                 @unique
+  googleAccessToken          String?
+  googleRefreshToken         String?
+  googleTokenExpiresAt       DateTime?
+  googleCalendarConnectedAt  DateTime?
+  isGoogleCalendarConnected  Boolean                 @default(false)
+  payoutDetails              TherapistPayoutDetails?
+  certificates               TherapistCertificate[]
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 
   @@index([approvalStatus])
   @@index([isApproved])
@@ -136,6 +144,7 @@ model TherapistProfile {
   @@index([isGoogleCalendarConnected])
   @@index([googleTokenExpiresAt])
   @@index([sessionPricePence])
+  @@index([gender])
   @@index([createdAt])
   @@index([approvalStatus, isApproved])
   @@index([approvalStatus, onboardingCompleted])
@@ -143,27 +152,46 @@ model TherapistProfile {
   @@index([isApproved, isGoogleCalendarConnected])
 }
 
+model TherapistCertificate {
+  id                 String           @id @default(cuid())
+  therapistProfileId String
+  therapistProfile   TherapistProfile @relation(fields: [therapistProfileId], references: [id], onDelete: Cascade)
+  fileName           String
+  fileUrl            String
+  publicId           String
+  storageProvider    String
+  mimeType           String
+  size               Int
+  uploadedAt         DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+
+  @@index([therapistProfileId])
+  @@index([storageProvider])
+  @@index([uploadedAt])
+  @@index([therapistProfileId, uploadedAt])
+}
+
 model Booking {
-  id                 String        @id @default(cuid())
-  clientId           String
-  therapistId        String
-  startsAt           DateTime
-  endsAt             DateTime
-  bookingStatus      BookingStatus @default(PENDING_THERAPIST)
-  paymentDueBy       DateTime?
-  notes              String?
-  cancelledAt        DateTime?
-  cancelledByUserId  String?
+  id                         String                      @id @default(cuid())
+  clientId                   String
+  therapistId                String
+  startsAt                   DateTime
+  endsAt                     DateTime
+  bookingStatus              BookingStatus               @default(PENDING_THERAPIST)
+  paymentDueBy               DateTime?
+  notes                      String?
+  cancelledAt                DateTime?
+  cancelledByUserId          String?
   compensationResolutionType CompensationResolutionType?
-  compensationResolvedAt DateTime?
-  session            Session?
-  payment            Payment?
-  creditTransactions ClientCreditTransaction[]
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  client             User          @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
-  therapist          User          @relation("TherapistBookings", fields: [therapistId], references: [id], onDelete: Restrict)
-  cancelledBy        User?         @relation("CancelledBookings", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  compensationResolvedAt     DateTime?
+  session                    Session?
+  payment                    Payment?
+  creditTransactions         ClientCreditTransaction[]
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  client                     User                        @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
+  therapist                  User                        @relation("TherapistBookings", fields: [therapistId], references: [id], onDelete: Restrict)
+  cancelledBy                User?                       @relation("CancelledBookings", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([therapistId])
@@ -199,26 +227,26 @@ model Session {
 }
 
 model Payment {
-  id                      String        @id @default(cuid())
-  bookingId               String        @unique
-  stripeCheckoutSessionId String?       @unique
-  stripePaymentIntentId   String?       @unique
-  stripeRefundId          String?       @unique
+  id                      String                    @id @default(cuid())
+  bookingId               String                    @unique
+  stripeCheckoutSessionId String?                   @unique
+  stripePaymentIntentId   String?                   @unique
+  stripeRefundId          String?                   @unique
   amount                  Int
   refundedAmount          Int?
   creditAppliedAmount     Int?
   checkoutExpiresAt       DateTime?
   failedReason            String?
   refundReason            String?
-  currency                String        @default("gbp")
-  paymentStatus           PaymentStatus @default(UNPAID)
+  currency                String                    @default("gbp")
+  paymentStatus           PaymentStatus             @default(UNPAID)
   paidAt                  DateTime?
   failedAt                DateTime?
   refundedAt              DateTime?
   creditTransactions      ClientCreditTransaction[]
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  booking                 Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  booking                 Booking                   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([paymentStatus])
   @@index([createdAt])
@@ -231,31 +259,31 @@ model Payment {
 }
 
 model ClientCreditBalance {
-  id         String   @id @default(cuid())
-  clientId   String   @unique
-  balance    Int      @default(0)
-  currency   String   @default("gbp")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  client     User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  balance   Int      @default(0)
+  currency  String   @default("gbp")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([currency])
   @@index([updatedAt])
 }
 
 model ClientCreditTransaction {
-  id         String                      @id @default(cuid())
-  clientId   String
-  bookingId  String?
-  paymentId  String?
-  type       ClientCreditTransactionType
-  amount     Int
-  currency   String                      @default("gbp")
-  notes      String?
-  createdAt  DateTime                    @default(now())
-  client     User                        @relation("ClientCreditTransactions", fields: [clientId], references: [id], onDelete: Cascade)
-  booking    Booking?                    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  payment    Payment?                    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  id        String                      @id @default(cuid())
+  clientId  String
+  bookingId String?
+  paymentId String?
+  type      ClientCreditTransactionType
+  amount    Int
+  currency  String                      @default("gbp")
+  notes     String?
+  createdAt DateTime                    @default(now())
+  client    User                        @relation("ClientCreditTransactions", fields: [clientId], references: [id], onDelete: Cascade)
+  booking   Booking?                    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payment   Payment?                    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([bookingId])
@@ -266,17 +294,17 @@ model ClientCreditTransaction {
 }
 
 model TherapistPayoutDetails {
-  id                   String            @id @default(cuid())
-  therapistProfileId   String            @unique
-  accountHolderName    String
-  bankName             String?
-  iban                 String?
-  swift                String?
-  country              String?
-  isVerified           Boolean           @default(false)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-  therapistProfile     TherapistProfile  @relation(fields: [therapistProfileId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  therapistProfileId String           @unique
+  accountHolderName  String
+  bankName           String?
+  iban               String?
+  swift              String?
+  country            String?
+  isVerified         Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  therapistProfile   TherapistProfile @relation(fields: [therapistProfileId], references: [id], onDelete: Cascade)
 
   @@index([isVerified])
   @@index([country])
@@ -285,17 +313,17 @@ model TherapistPayoutDetails {
 }
 
 model EmailLog {
-  id            String      @id @default(cuid())
-  userId        String?
-  email         String
-  template      String
-  subject       String
-  status        EmailStatus @default(PENDING)
-  sentAt        DateTime?
-  failedAt      DateTime?
-  errorMessage  String?
-  createdAt     DateTime    @default(now())
-  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id           String      @id @default(cuid())
+  userId       String?
+  email        String
+  template     String
+  subject      String
+  status       EmailStatus @default(PENDING)
+  sentAt       DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+  createdAt    DateTime    @default(now())
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([email])
@@ -307,15 +335,15 @@ model EmailLog {
 }
 
 model AuditLog {
-  id           String   @id @default(cuid())
-  actorUserId  String?
-  entityType   String
-  entityId     String
-  action       String
-  before       Json?
-  after        Json?
-  createdAt    DateTime @default(now())
-  actorUser    User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+  id          String   @id @default(cuid())
+  actorUserId String?
+  entityType  String
+  entityId    String
+  action      String
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+  actorUser   User?    @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([actorUserId])
   @@index([entityType])
@@ -327,13 +355,13 @@ model AuditLog {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(cuid())
-  userId     String
-  token      String   @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
