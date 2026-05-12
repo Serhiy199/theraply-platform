@@ -17,6 +17,22 @@ function getDisplayName(therapist: TherapistListItem) {
   );
 }
 
+function getSpecialisation(therapist: TherapistListItem) {
+  return (
+    therapist.therapistProfile?.specialisation ||
+    therapist.therapistProfile?.specialization ||
+    "To be defined"
+  );
+}
+
+function getProfileSummary(therapist: TherapistListItem) {
+  return (
+    therapist.therapistProfile?.bio ||
+    therapist.therapistProfile?.therapyServicesProvided ||
+    "Profile details will expand as therapist onboarding continues."
+  );
+}
+
 function formatCurrency(value: number | null | undefined) {
   if (typeof value !== "number") {
     return "Price not set yet";
@@ -111,16 +127,21 @@ export function TherapistAvailability({
             <h3 className="mt-2 text-2xl font-semibold text-slate-900">{getDisplayName(therapist)}</h3>
             <dl className="mt-5 grid gap-4 text-sm text-slate-600">
               <div>
-                <dt className="font-medium text-slate-700">Specialization</dt>
-                <dd className="mt-1">{therapist.therapistProfile?.specialization ?? "To be defined"}</dd>
+                <dt className="font-medium text-slate-700">Specialisation</dt>
+                <dd className="mt-1">{getSpecialisation(therapist)}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-700">Session price</dt>
                 <dd className="mt-1">{formatCurrency(therapist.therapistProfile?.sessionPricePence)}</dd>
+                {therapist.therapistProfile?.pricePerHour ? (
+                  <dd className="mt-1 text-xs text-slate-500">
+                    Profile rate: {therapist.therapistProfile.pricePerHour}
+                  </dd>
+                ) : null}
               </div>
               <div>
                 <dt className="font-medium text-slate-700">Profile summary</dt>
-                <dd className="mt-1 leading-6">{therapist.therapistProfile?.bio ?? "Profile details will expand as therapist onboarding continues."}</dd>
+                <dd className="mt-1 leading-6">{getProfileSummary(therapist)}</dd>
               </div>
             </dl>
           </InsetCard>
