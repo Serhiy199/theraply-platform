@@ -11,7 +11,7 @@ import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
-  createTherapistOnboardingDraft,
+  normalizeTherapistOnboardingDraft,
   type TherapistOnboardingDraft,
 } from "@/lib/contracts/therapist-onboarding";
 
@@ -74,36 +74,96 @@ function getStringValue(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function getFullName(user: {
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+function hasDraftTextValue(draft: TherapistOnboardingDraft) {
+  return [
+    draft.nameAndSurname,
+    draft.gender,
+    draft.email,
+    draft.contactNumber,
+    draft.therapyServicesProvided,
+    draft.yearsOfExperience,
+    draft.educationAndCertifications,
+    draft.specialisation,
+    draft.pricePerHour,
+    draft.displayName,
+    draft.bio,
+    draft.specialization,
+  ].some((fieldValue) => typeof fieldValue === "string" && fieldValue.trim().length > 0);
+}
+
 function getDraftFromProfileDraft(value: unknown): TherapistOnboardingDraft | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
+  const draft = normalizeTherapistOnboardingDraft(value);
 
-  const draft = value as Partial<TherapistOnboardingDraft>;
-  const hasDraftValue = [draft.displayName, draft.bio, draft.specialization].some(
-    (fieldValue) => typeof fieldValue === "string" && fieldValue.trim().length > 0,
-  );
-
-  return hasDraftValue ? createTherapistOnboardingDraft(draft) : null;
+  return hasDraftTextValue(draft) ? draft : null;
 }
 
 function getOnboardingInitialValues(
-  profile:
+  account:
     | {
-        displayName: string | null;
-        bio: string | null;
-        specialization: string | null;
-        profileDraft: unknown;
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+        therapistProfile: {
+          displayName: string | null;
+          bio: string | null;
+          specialization: string | null;
+          gender: string | null;
+          contactNumber: string | null;
+          therapyServicesProvided: string | null;
+          yearsOfExperience: string | null;
+          educationAndCertifications: string | null;
+          specialisation: string | null;
+          pricePerHour: string | null;
+          profileDraft: unknown;
+          certificates: {
+            id: string;
+            fileName: string;
+            fileUrl: string;
+            publicId: string;
+            storageProvider: string;
+            mimeType: string;
+            size: number;
+            uploadedAt: Date;
+          }[];
+        } | null;
       }
     | null
     | undefined,
 ): TherapistOnboardingFormValues {
+  const profile = account?.therapistProfile;
   const draft = getDraftFromProfileDraft(profile?.profileDraft);
+  const userName = account ? getFullName(account) : "";
+  const specialisation = getStringValue(
+    draft?.specialisation ?? profile?.specialisation ?? draft?.specialization ?? profile?.specialization,
+  );
+  const therapyServicesProvided = getStringValue(
+    draft?.therapyServicesProvided ?? profile?.therapyServicesProvided ?? draft?.bio ?? profile?.bio,
+  );
 
   return {
-    displayName: getStringValue(draft?.displayName ?? profile?.displayName),
-    bio: getStringValue(draft?.bio ?? profile?.bio),
-    specialization: getStringValue(draft?.specialization ?? profile?.specialization),
+    nameAndSurname: userName,
+    gender: getStringValue(draft?.gender ?? profile?.gender),
+    email: account?.email ?? "",
+    contactNumber: getStringValue(draft?.contactNumber ?? profile?.contactNumber),
+    therapyServicesProvided,
+    yearsOfExperience: getStringValue(draft?.yearsOfExperience ?? profile?.yearsOfExperience),
+    educationAndCertifications: getStringValue(
+      draft?.educationAndCertifications ?? profile?.educationAndCertifications,
+    ),
+    specialisation,
+    pricePerHour: getStringValue(draft?.pricePerHour ?? profile?.pricePerHour),
+    certificates: profile?.certificates ?? [],
+    displayName: getStringValue(draft?.displayName ?? profile?.displayName ?? userName),
+    bio: therapyServicesProvided,
+    specialization: specialisation,
   };
 }
 
@@ -114,6 +174,9 @@ export default async function TherapistOnboardingPage() {
       id: user.id,
     },
     select: {
+      email: true,
+      firstName: true,
+      lastName: true,
       emailVerified: true,
       therapistProfile: {
         select: {
@@ -125,7 +188,29 @@ export default async function TherapistOnboardingPage() {
           displayName: true,
           bio: true,
           specialization: true,
+          gender: true,
+          contactNumber: true,
+          therapyServicesProvided: true,
+          yearsOfExperience: true,
+          educationAndCertifications: true,
+          specialisation: true,
+          pricePerHour: true,
           profileDraft: true,
+          certificates: {
+            orderBy: {
+              uploadedAt: "desc",
+            },
+            select: {
+              id: true,
+              fileName: true,
+              fileUrl: true,
+              publicId: true,
+              storageProvider: true,
+              mimeType: true,
+              size: true,
+              uploadedAt: true,
+            },
+          },
         },
       },
     },
@@ -176,7 +261,7 @@ export default async function TherapistOnboardingPage() {
         <InsetCard tone="plain" className="mt-6">
           <SectionEyebrow>Profile form</SectionEyebrow>
           <TherapistOnboardingForm
-            initialValues={getOnboardingInitialValues(account?.therapistProfile)}
+            initialValues={getOnboardingInitialValues(account)}
           />
         </InsetCard>
       ) : null}

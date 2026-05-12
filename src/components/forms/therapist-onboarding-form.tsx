@@ -10,6 +10,25 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 
 type TherapistOnboardingFormValues = {
+  nameAndSurname: string;
+  gender: string;
+  email: string;
+  contactNumber: string;
+  therapyServicesProvided: string;
+  yearsOfExperience: string;
+  educationAndCertifications: string;
+  specialisation: string;
+  pricePerHour: string;
+  certificates: {
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    publicId: string;
+    storageProvider: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: Date;
+  }[];
   displayName: string;
   bio: string;
   specialization: string;
