@@ -18,6 +18,13 @@ export type TherapistOnboardingActionState = {
   status: "idle" | "success" | "error";
   message?: string;
   fieldErrors?: {
+    gender?: string[];
+    contactNumber?: string[];
+    therapyServicesProvided?: string[];
+    yearsOfExperience?: string[];
+    educationAndCertifications?: string[];
+    specialisation?: string[];
+    pricePerHour?: string[];
     displayName?: string[];
     bio?: string[];
     specialization?: string[];
@@ -26,9 +33,13 @@ export type TherapistOnboardingActionState = {
 
 function getOnboardingInput(formData: FormData) {
   return {
-    displayName: formData.get("displayName") ?? "",
-    bio: formData.get("bio") ?? "",
-    specialization: formData.get("specialization") ?? "",
+    gender: formData.get("gender") ?? "",
+    contactNumber: formData.get("contactNumber") ?? "",
+    therapyServicesProvided: formData.get("therapyServicesProvided") ?? "",
+    yearsOfExperience: formData.get("yearsOfExperience") ?? "",
+    educationAndCertifications: formData.get("educationAndCertifications") ?? "",
+    specialisation: formData.get("specialisation") ?? "",
+    pricePerHour: formData.get("pricePerHour") ?? "",
   };
 }
 
