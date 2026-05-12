@@ -53,6 +53,40 @@ Confirmed in `prisma/schema.prisma`:
 
 No schema rename is required for this step.
 
+## Email Verification Link QA Notes
+
+Status: complete.
+
+The `/verify-email/[token]` route handles these production states:
+
+- `success`: first valid click marks `User.emailVerified = true`, sets
+  `emailVerifiedAt`, marks the token `usedAt`, and redirects to the role-specific
+  flow.
+- `already_verified`: repeated clicks for a token whose user is already verified
+  render a friendly "Your email is already verified" state with a continue
+  action instead of crashing.
+- `invalid_token`: missing or unknown tokens render a friendly invalid/expired
+  state and show the resend verification form.
+- `expired_token`: expired tokens render the same friendly invalid/expired state
+  and show the resend verification form.
+- `used_token`: used tokens for users who are not verified render the friendly
+  invalid/expired state and show the resend verification form.
+
+Manual QA checklist:
+
+1. Register a new client or therapist and click the verification link once.
+   Expected: account verifies and redirects to the correct client dashboard or
+   therapist onboarding flow.
+2. Click the same verification link again.
+   Expected: no crash; the page shows "Your email is already verified" and a
+   continue action.
+3. Open `/verify-email/not-a-real-token`.
+   Expected: no crash; the page shows an invalid/expired message and the resend
+   verification form.
+4. Use an expired token.
+   Expected: no crash; the page shows an invalid/expired message and the resend
+   verification form.
+
 ## Step 1.2: User Email Verification Fields
 
 Status: complete.

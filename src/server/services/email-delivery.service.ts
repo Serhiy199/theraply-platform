@@ -17,6 +17,8 @@ export type TransactionalEmailResult = {
   status: EmailStatus;
 };
 
+const EMAIL_FROM_NAME = "Theraply";
+
 function canUseConsoleDelivery() {
   return process.env.NODE_ENV !== "production";
 }
@@ -54,6 +56,10 @@ function getSmtpConfig() {
     return null;
   }
 
+  if (from.toLowerCase() !== user.toLowerCase()) {
+    return null;
+  }
+
   const port = getSmtpPort();
 
   return {
@@ -64,7 +70,10 @@ function getSmtpConfig() {
       user,
       pass,
     },
-    from,
+    from: {
+      name: EMAIL_FROM_NAME,
+      address: user,
+    },
     replyTo,
   };
 }

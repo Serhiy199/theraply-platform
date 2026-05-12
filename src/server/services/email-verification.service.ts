@@ -26,10 +26,12 @@ export type EmailVerificationDeliveryResult = EmailVerificationCreationResult & 
 };
 
 export type EmailVerificationResult = {
+  status: "success" | "already_verified";
   userId: string;
   email: string;
   role: UserRole;
-  verifiedAt: Date;
+  verifiedAt: Date | null;
+  therapistApprovalStatus?: TherapistApprovalStatus | null;
 };
 
 export type ResendEmailVerificationInput =
@@ -116,6 +118,8 @@ async function findEmailVerificationToken(token: string) {
           id: true,
           email: true,
           role: true,
+          emailVerified: true,
+          emailVerifiedAt: true,
           isActive: true,
           therapistProfile: {
             select: {
@@ -302,6 +306,23 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   if (tokenRecord.usedAt) {
+    if (tokenRecord.user.emailVerified) {
+      logEmailVerificationDevEvent("verify-already-succeeded", {
+        tokenId: tokenRecord.id,
+        userId: tokenRecord.user.id,
+        usedAt: tokenRecord.usedAt.toISOString(),
+      });
+
+      return {
+        status: "already_verified",
+        userId: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        role: tokenRecord.user.role,
+        verifiedAt: tokenRecord.user.emailVerifiedAt,
+        therapistApprovalStatus: tokenRecord.user.therapistProfile?.approvalStatus ?? null,
+      };
+    }
+
     logEmailVerificationDevEvent("verify-failed", {
       reason: "token_used",
       tokenId: tokenRecord.id,
@@ -315,6 +336,23 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   }
 
   if (tokenRecord.expiresAt <= new Date()) {
+    if (tokenRecord.user.emailVerified) {
+      logEmailVerificationDevEvent("verify-already-succeeded", {
+        tokenId: tokenRecord.id,
+        userId: tokenRecord.user.id,
+        expiresAt: tokenRecord.expiresAt.toISOString(),
+      });
+
+      return {
+        status: "already_verified",
+        userId: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        role: tokenRecord.user.role,
+        verifiedAt: tokenRecord.user.emailVerifiedAt,
+        therapistApprovalStatus: tokenRecord.user.therapistProfile?.approvalStatus ?? null,
+      };
+    }
+
     logEmailVerificationDevEvent("verify-failed", {
       reason: "token_expired",
       tokenId: tokenRecord.id,
@@ -339,6 +377,32 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
       AUTH_MESSAGES.emailVerificationInvalidToken,
       "USER_INACTIVE",
     );
+  }
+
+  if (tokenRecord.user.emailVerified) {
+    await prisma.emailVerificationToken.update({
+      where: {
+        id: tokenRecord.id,
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
+
+    logEmailVerificationDevEvent("verify-already-succeeded", {
+      tokenId: tokenRecord.id,
+      userId: tokenRecord.user.id,
+      email: tokenRecord.user.email,
+    });
+
+    return {
+      status: "already_verified",
+      userId: tokenRecord.user.id,
+      email: tokenRecord.user.email,
+      role: tokenRecord.user.role,
+      verifiedAt: tokenRecord.user.emailVerifiedAt,
+      therapistApprovalStatus: tokenRecord.user.therapistProfile?.approvalStatus ?? null,
+    };
   }
 
   const now = new Date();
@@ -409,9 +473,13 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
   });
 
   return {
+    status: "success",
     userId: tokenRecord.user.id,
     email: tokenRecord.user.email,
     role: tokenRecord.user.role,
     verifiedAt: now,
+    therapistApprovalStatus: willMoveTherapistToProfileIncomplete
+      ? TherapistApprovalStatus.PROFILE_INCOMPLETE
+      : therapistStatusBefore,
   };
 }
