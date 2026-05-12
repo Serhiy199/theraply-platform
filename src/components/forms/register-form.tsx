@@ -62,10 +62,7 @@ export function RegisterForm() {
         open={state.status === "success"}
         footer={[
           <Button key="inbox" type="primary" href={getInboxUrl(state.email)} target="_blank">
-            Open email inbox
-          </Button>,
-          <Button key="login" href={AUTH_ROUTES.login}>
-            Back to login
+            Open Email
           </Button>,
         ]}
         closable={false}

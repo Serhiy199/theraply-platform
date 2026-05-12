@@ -1,8 +1,5 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Alert, Button, Card, Layout, Space, Typography } from "antd";
-import { ResendEmailVerificationForm } from "@/components/forms/resend-email-verification-form";
 import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import {
@@ -10,9 +7,6 @@ import {
   verifyEmailToken,
   type EmailVerificationResult,
 } from "@/server/services/email-verification.service";
-
-const { Content } = Layout;
-const { Paragraph, Title } = Typography;
 
 export const dynamic = "force-dynamic";
 
@@ -63,29 +57,43 @@ function getErrorState(error: EmailVerificationServiceError): VerifyEmailState {
 }
 
 function VerifyEmailStateCard({ state }: { state: VerifyEmailState }) {
+  const alertToneClass =
+    state.tone === "error"
+      ? "border-red-200 bg-red-50 text-red-900"
+      : state.tone === "success"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+        : "border-blue-200 bg-blue-50 text-blue-900";
+
   return (
-    <Layout className="site-shell">
-      <Content className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-6 py-16 md:px-10">
-        <Card className="soft-card w-full max-w-md" bordered={false}>
-          <Space direction="vertical" size="large" className="w-full">
-            <div>
-              <Title level={2}>{state.title}</Title>
-              <Paragraph type="secondary">{state.description}</Paragraph>
-            </div>
-            <Alert type={state.tone} message={state.message} showIcon />
-            {state.actionHref && state.actionLabel ? (
-              <Button type="primary" href={state.actionHref}>
-                {state.actionLabel}
-              </Button>
-            ) : null}
-            {state.showResend ? <ResendEmailVerificationForm showEmailField /> : null}
-            <Paragraph type="secondary" className="!mb-0">
-              <Link href={AUTH_ROUTES.login}>Back to login</Link>
-            </Paragraph>
-          </Space>
-        </Card>
-      </Content>
-    </Layout>
+    <main className="site-shell flex min-h-screen w-full items-center justify-center px-6 py-16 md:px-10">
+      <section className="soft-card w-full max-w-md rounded-[24px] p-8">
+        <div>
+          <h1 className="text-3xl font-semibold text-slate-900">{state.title}</h1>
+          <p className="mt-3 text-base leading-7 text-slate-600">{state.description}</p>
+        </div>
+        <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${alertToneClass}`}>
+          {state.message}
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {state.actionHref && state.actionLabel ? (
+            <Link
+              href={state.actionHref}
+              className="inline-flex rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white"
+            >
+              {state.actionLabel}
+            </Link>
+          ) : null}
+          {state.showResend ? (
+            <Link
+              href={AUTH_ROUTES.login}
+              className="inline-flex rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white"
+            >
+              Sign in to request a new email
+            </Link>
+          ) : null}
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -96,9 +104,6 @@ export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) 
   try {
     const result = await verifyEmailToken(token);
     redirectTo = getRedirectForVerificationResult(result);
-    revalidatePath("/client/dashboard");
-    revalidatePath("/therapist/onboarding");
-    revalidatePath("/therapist/dashboard");
 
     if (result.status === "already_verified") {
       return (
