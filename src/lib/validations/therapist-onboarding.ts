@@ -5,6 +5,13 @@ import {
   THERAPIST_ONBOARDING_MESSAGES,
 } from "@/lib/constants/therapist-onboarding";
 
+export const therapistGenderOptions = [
+  "Female",
+  "Male",
+  "Other",
+  "Prefer not to say",
+] as const;
+
 const optionalDraftTextField = (maxLength: number, maxLengthMessage: string) =>
   z
     .string()
@@ -20,42 +27,104 @@ const requiredSubmitTextField = (
   maxLengthMessage: string,
 ) => z.string().trim().min(1, requiredMessage).max(maxLength, maxLengthMessage);
 
+const optionalGenderField = optionalDraftTextField(
+  THERAPIST_ONBOARDING_LIMITS.genderMaxLength,
+  THERAPIST_ONBOARDING_MESSAGES.genderMaxLength,
+).refine(
+  (value) => value === null || therapistGenderOptions.some((option) => option === value),
+  THERAPIST_ONBOARDING_MESSAGES.genderInvalid,
+);
+
+const requiredGenderField = z
+  .string()
+  .trim()
+  .min(1, THERAPIST_ONBOARDING_MESSAGES.genderRequired)
+  .max(
+    THERAPIST_ONBOARDING_LIMITS.genderMaxLength,
+    THERAPIST_ONBOARDING_MESSAGES.genderMaxLength,
+  )
+  .refine(
+    (value) => therapistGenderOptions.some((option) => option === value),
+    THERAPIST_ONBOARDING_MESSAGES.genderInvalid,
+  );
+
 export const therapistOnboardingDraftSchema = z
   .object({
-    displayName: optionalDraftTextField(
-      THERAPIST_ONBOARDING_LIMITS.displayNameMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.displayNameMaxLength,
+    gender: optionalGenderField,
+    contactNumber: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.contactNumberMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.contactNumberMaxLength,
     ),
-    bio: optionalDraftTextField(
-      THERAPIST_ONBOARDING_LIMITS.bioMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.bioMaxLength,
+    therapyServicesProvided: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.therapyServicesProvidedMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.therapyServicesProvidedMaxLength,
     ),
-    specialization: optionalDraftTextField(
-      THERAPIST_ONBOARDING_LIMITS.specializationMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.specializationMaxLength,
+    yearsOfExperience: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.yearsOfExperienceMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.yearsOfExperienceMaxLength,
+    ),
+    educationAndCertifications: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.educationAndCertificationsMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.educationAndCertificationsMaxLength,
+    ),
+    specialisation: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.specialisationMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.specialisationMaxLength,
+    ),
+    pricePerHour: optionalDraftTextField(
+      THERAPIST_ONBOARDING_LIMITS.pricePerHourMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.pricePerHourMaxLength,
     ),
   })
-  .transform((data) => createTherapistOnboardingDraft(data));
+  .transform((data) =>
+    createTherapistOnboardingDraft({
+      ...data,
+      bio: data.therapyServicesProvided,
+      specialization: data.specialisation,
+    }),
+  );
 
 export const therapistOnboardingSubmitSchema = z
   .object({
-    displayName: requiredSubmitTextField(
-      THERAPIST_ONBOARDING_MESSAGES.displayNameRequired,
-      THERAPIST_ONBOARDING_LIMITS.displayNameMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.displayNameMaxLength,
+    gender: requiredGenderField,
+    contactNumber: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.contactNumberRequired,
+      THERAPIST_ONBOARDING_LIMITS.contactNumberMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.contactNumberMaxLength,
     ),
-    bio: requiredSubmitTextField(
-      THERAPIST_ONBOARDING_MESSAGES.bioRequired,
-      THERAPIST_ONBOARDING_LIMITS.bioMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.bioMaxLength,
+    therapyServicesProvided: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.therapyServicesProvidedRequired,
+      THERAPIST_ONBOARDING_LIMITS.therapyServicesProvidedMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.therapyServicesProvidedMaxLength,
     ),
-    specialization: requiredSubmitTextField(
-      THERAPIST_ONBOARDING_MESSAGES.specializationRequired,
-      THERAPIST_ONBOARDING_LIMITS.specializationMaxLength,
-      THERAPIST_ONBOARDING_MESSAGES.specializationMaxLength,
+    yearsOfExperience: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.yearsOfExperienceRequired,
+      THERAPIST_ONBOARDING_LIMITS.yearsOfExperienceMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.yearsOfExperienceMaxLength,
+    ),
+    educationAndCertifications: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.educationAndCertificationsRequired,
+      THERAPIST_ONBOARDING_LIMITS.educationAndCertificationsMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.educationAndCertificationsMaxLength,
+    ),
+    specialisation: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.specialisationRequired,
+      THERAPIST_ONBOARDING_LIMITS.specialisationMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.specialisationMaxLength,
+    ),
+    pricePerHour: requiredSubmitTextField(
+      THERAPIST_ONBOARDING_MESSAGES.pricePerHourRequired,
+      THERAPIST_ONBOARDING_LIMITS.pricePerHourMaxLength,
+      THERAPIST_ONBOARDING_MESSAGES.pricePerHourMaxLength,
     ),
   })
-  .transform((data) => createTherapistOnboardingDraft(data));
+  .transform((data) =>
+    createTherapistOnboardingDraft({
+      ...data,
+      bio: data.therapyServicesProvided,
+      specialization: data.specialisation,
+    }),
+  );
 
 export type TherapistOnboardingDraftInput = z.infer<
   typeof therapistOnboardingDraftSchema
