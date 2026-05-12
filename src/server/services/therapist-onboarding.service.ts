@@ -32,6 +32,24 @@ function toPrismaJson(value: TherapistOnboardingDraft): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 
+function getUserDisplayName(user: { firstName: string | null; lastName: string | null; email: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+function withTrustedUserSnapshot(
+  draft: TherapistOnboardingDraft,
+  user: { firstName: string | null; lastName: string | null; email: string },
+): TherapistOnboardingDraft {
+  const displayName = getUserDisplayName(user);
+
+  return {
+    ...draft,
+    nameAndSurname: displayName,
+    email: user.email,
+    displayName,
+  };
+}
+
 function parseTherapistOnboardingDraft(input: unknown) {
   const parsed = therapistOnboardingDraftSchema.safeParse(input);
 
@@ -67,6 +85,13 @@ async function getTherapistOnboardingProfileOrThrow(userId: string) {
       id: true,
       userId: true,
       approvalStatus: true,
+      user: {
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
     },
   });
 
@@ -93,7 +118,7 @@ export async function saveTherapistOnboardingDraft(
     );
   }
 
-  const draft = parseTherapistOnboardingDraft(input);
+  const draft = withTrustedUserSnapshot(parseTherapistOnboardingDraft(input), profile.user);
 
   const updatedProfile = await prisma.therapistProfile.update({
     where: {
@@ -132,7 +157,7 @@ export async function submitTherapistOnboardingForReview(
     );
   }
 
-  const draft = parseTherapistOnboardingSubmit(input);
+  const draft = withTrustedUserSnapshot(parseTherapistOnboardingSubmit(input), profile.user);
   const now = new Date();
 
   const updatedProfile = await prisma.therapistProfile.update({
@@ -142,7 +167,14 @@ export async function submitTherapistOnboardingForReview(
     data: {
       displayName: draft.displayName,
       bio: draft.bio,
+      gender: draft.gender,
+      contactNumber: draft.contactNumber,
+      therapyServicesProvided: draft.therapyServicesProvided,
+      yearsOfExperience: draft.yearsOfExperience,
+      educationAndCertifications: draft.educationAndCertifications,
+      specialisation: draft.specialisation,
       specialization: draft.specialization,
+      pricePerHour: draft.pricePerHour,
       approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
       isApproved: false,
       onboardingCompleted: true,
