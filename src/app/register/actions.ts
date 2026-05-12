@@ -32,6 +32,7 @@ export async function registerAction(
     return {
       status: "success",
       message: AUTH_MESSAGES.registerSuccess,
+      email: parsed.data.email,
     };
   } catch (error) {
     if (error instanceof AuthServiceError) {

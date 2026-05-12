@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Alert, Button, Card, Layout, Space, Typography } from "antd";
 import { ResendEmailVerificationForm } from "@/components/forms/resend-email-verification-form";
@@ -12,6 +13,8 @@ import {
 
 const { Content } = Layout;
 const { Paragraph, Title } = Typography;
+
+export const dynamic = "force-dynamic";
 
 type VerifyEmailPageProps = {
   params: Promise<{
@@ -93,6 +96,9 @@ export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) 
   try {
     const result = await verifyEmailToken(token);
     redirectTo = getRedirectForVerificationResult(result);
+    revalidatePath("/client/dashboard");
+    revalidatePath("/therapist/onboarding");
+    revalidatePath("/therapist/dashboard");
 
     if (result.status === "already_verified") {
       return (

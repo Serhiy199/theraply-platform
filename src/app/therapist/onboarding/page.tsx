@@ -15,6 +15,8 @@ import {
   type TherapistOnboardingDraft,
 } from "@/lib/contracts/therapist-onboarding";
 
+export const dynamic = "force-dynamic";
+
 const statusMeta: Record<
   TherapistApprovalStatus,
   {

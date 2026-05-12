@@ -14,6 +14,28 @@ const { Paragraph } = Typography;
 
 type SignupRole = "CLIENT" | "THERAPIST";
 
+function getInboxUrl(email?: string) {
+  const domain = email?.split("@")[1]?.toLowerCase();
+
+  if (!domain) {
+    return "mailto:";
+  }
+
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return "https://mail.google.com/mail/u/0/#inbox";
+  }
+
+  if (["outlook.com", "hotmail.com", "live.com", "msn.com"].includes(domain)) {
+    return "https://outlook.live.com/mail/0/inbox";
+  }
+
+  if (domain === "yahoo.com") {
+    return "https://mail.yahoo.com/";
+  }
+
+  return `mailto:${email}`;
+}
+
 function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <Button type="primary" htmlType="submit" block size="large" loading={pending}>
@@ -39,8 +61,11 @@ export function RegisterForm() {
         title={AUTH_MESSAGES.registerSuccessModalTitle}
         open={state.status === "success"}
         footer={[
-          <Button key="login" type="primary" href={AUTH_ROUTES.login}>
-            Go to login
+          <Button key="inbox" type="primary" href={getInboxUrl(state.email)} target="_blank">
+            Open email inbox
+          </Button>,
+          <Button key="login" href={AUTH_ROUTES.login}>
+            Back to login
           </Button>,
         ]}
         closable={false}
