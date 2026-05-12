@@ -2,6 +2,7 @@ import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-emp
 import { AdminTherapistReviewActions } from "@/components/dashboard/admin/admin-therapist-review-actions";
 import { Badge } from "@/components/ui/badge";
 import { InsetCard, SectionEyebrow } from "@/components/ui/card";
+import { normalizeTherapistOnboardingDraft } from "@/lib/contracts/therapist-onboarding";
 import { formatAppDateTime } from "@/lib/utils/date-time";
 import type { AdminTherapistReviewItem } from "@/server/services/admin-operations.service";
 
@@ -10,6 +11,15 @@ type AdminTherapistReviewQueueProps = {
 };
 
 type ReviewDraftFields = {
+  nameAndSurname: string | null;
+  gender: string | null;
+  email: string | null;
+  contactNumber: string | null;
+  therapyServicesProvided: string | null;
+  yearsOfExperience: string | null;
+  educationAndCertifications: string | null;
+  specialisation: string | null;
+  pricePerHour: string | null;
   displayName: string | null;
   bio: string | null;
   specialization: string | null;
@@ -31,13 +41,22 @@ function normalizeText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function getReadableDraft(profileDraft: unknown): ReviewDraftFields | null {
-  if (!profileDraft || typeof profileDraft !== "object" || Array.isArray(profileDraft)) {
-    return null;
-  }
+function getReviewUserName(review: AdminTherapistReviewItem) {
+  return [review.user.firstName, review.user.lastName].filter(Boolean).join(" ").trim() || review.user.email;
+}
 
-  const draft = profileDraft as Partial<ReviewDraftFields>;
+function getReadableDraft(profileDraft: unknown): ReviewDraftFields | null {
+  const draft = normalizeTherapistOnboardingDraft(profileDraft);
   const readableDraft = {
+    nameAndSurname: normalizeText(draft.nameAndSurname),
+    gender: normalizeText(draft.gender),
+    email: normalizeText(draft.email),
+    contactNumber: normalizeText(draft.contactNumber),
+    therapyServicesProvided: normalizeText(draft.therapyServicesProvided),
+    yearsOfExperience: normalizeText(draft.yearsOfExperience),
+    educationAndCertifications: normalizeText(draft.educationAndCertifications),
+    specialisation: normalizeText(draft.specialisation),
+    pricePerHour: normalizeText(draft.pricePerHour),
     displayName: normalizeText(draft.displayName),
     bio: normalizeText(draft.bio),
     specialization: normalizeText(draft.specialization),
@@ -56,19 +75,49 @@ function getDraftDifferences(review: AdminTherapistReviewItem) {
 
   return [
     {
-      label: "Display name",
-      profileValue: normalizeText(review.displayName),
-      draftValue: draft.displayName,
+      label: "Name & Surname",
+      profileValue: normalizeText(getReviewUserName(review)),
+      draftValue: draft.nameAndSurname,
     },
     {
-      label: "Specialization",
-      profileValue: normalizeText(review.specialization),
-      draftValue: draft.specialization,
+      label: "Email",
+      profileValue: normalizeText(review.user.email),
+      draftValue: draft.email,
     },
     {
-      label: "Bio",
-      profileValue: normalizeText(review.bio),
-      draftValue: draft.bio,
+      label: "Gender",
+      profileValue: normalizeText(review.gender),
+      draftValue: draft.gender,
+    },
+    {
+      label: "Contact number",
+      profileValue: normalizeText(review.contactNumber),
+      draftValue: draft.contactNumber,
+    },
+    {
+      label: "Therapy services provided",
+      profileValue: normalizeText(review.therapyServicesProvided),
+      draftValue: draft.therapyServicesProvided,
+    },
+    {
+      label: "Years of experience",
+      profileValue: normalizeText(review.yearsOfExperience),
+      draftValue: draft.yearsOfExperience,
+    },
+    {
+      label: "Education & certifications",
+      profileValue: normalizeText(review.educationAndCertifications),
+      draftValue: draft.educationAndCertifications,
+    },
+    {
+      label: "Specialisation",
+      profileValue: normalizeText(review.specialisation ?? review.specialization),
+      draftValue: draft.specialisation ?? draft.specialization,
+    },
+    {
+      label: "Price per hour",
+      profileValue: normalizeText(review.pricePerHour),
+      draftValue: draft.pricePerHour,
     },
   ].filter((field) => field.draftValue !== field.profileValue);
 }
@@ -85,6 +134,61 @@ function FieldValue({
       <dt className="font-semibold text-slate-900">{label}</dt>
       <dd className="mt-1 leading-6">{value ?? "Not provided"}</dd>
     </div>
+  );
+}
+
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function CertificatesList({ review }: { review: AdminTherapistReviewItem }) {
+  if (!review.certificates.length) {
+    return (
+      <p className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+        No certificates uploaded yet.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="grid gap-3">
+      {review.certificates.map((certificate) => (
+        <li
+          key={certificate.id}
+          className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <a
+                href={certificate.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+              >
+                {certificate.fileName}
+              </a>
+              <p className="mt-1 text-slate-500">
+                {certificate.mimeType} · {formatFileSize(certificate.size)}
+              </p>
+              <p className="mt-1 break-all text-xs text-slate-500">
+                {certificate.storageProvider}: {certificate.publicId}
+              </p>
+            </div>
+            <Badge variant="neutral" size="sm">
+              {formatDateTime(certificate.uploadedAt)}
+            </Badge>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -173,9 +277,32 @@ export function AdminTherapistReviewQueue({
                     Submitted profile details
                   </summary>
                   <dl className="mt-4 grid gap-4 text-sm text-slate-700">
-                    <FieldValue label="Display name" value={review.displayName} />
-                    <FieldValue label="Specialization" value={review.specialization} />
-                    <FieldValue label="Bio" value={review.bio} />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FieldValue label="Name & Surname" value={getReviewUserName(review)} />
+                      <FieldValue label="Email" value={review.user.email} />
+                      <FieldValue label="Gender" value={review.gender} />
+                      <FieldValue label="Contact number" value={review.contactNumber} />
+                      <FieldValue label="Years of experience" value={review.yearsOfExperience} />
+                      <FieldValue label="Price per hour" value={review.pricePerHour} />
+                    </div>
+                    <FieldValue
+                      label="Therapy services provided"
+                      value={review.therapyServicesProvided ?? review.bio}
+                    />
+                    <FieldValue
+                      label="Education & certifications"
+                      value={review.educationAndCertifications}
+                    />
+                    <FieldValue
+                      label="Specialisation"
+                      value={review.specialisation ?? review.specialization}
+                    />
+                    <div>
+                      <dt className="font-semibold text-slate-900">Certificates</dt>
+                      <dd className="mt-3">
+                        <CertificatesList review={review} />
+                      </dd>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <Badge variant={review.user.emailVerified ? "success" : "warning"}>
                         {review.user.emailVerified ? "Email verified" : "Email not verified"}
