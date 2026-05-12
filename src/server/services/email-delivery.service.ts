@@ -27,12 +27,28 @@ function getSmtpPort() {
   return Number.isFinite(port) ? port : 587;
 }
 
+function normalizeEnvValue(value: string | undefined, options?: { removeWhitespace?: boolean }) {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1).trim()
+      : trimmed;
+
+  return options?.removeWhitespace ? unquoted.replace(/\s/g, "") : unquoted;
+}
+
 function getSmtpConfig() {
-  const host = process.env.SMTP_HOST?.trim();
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.EMAIL_FROM?.trim();
-  const replyTo = process.env.EMAIL_REPLY_TO?.trim();
+  const host = normalizeEnvValue(process.env.SMTP_HOST);
+  const user = normalizeEnvValue(process.env.SMTP_USER);
+  const pass = normalizeEnvValue(process.env.SMTP_PASS, { removeWhitespace: true });
+  const from = normalizeEnvValue(process.env.EMAIL_FROM);
+  const replyTo = normalizeEnvValue(process.env.EMAIL_REPLY_TO);
 
   if (!host || !user || !pass || !from || !replyTo) {
     return null;
