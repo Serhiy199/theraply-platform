@@ -6,8 +6,22 @@ import {
   submitTherapistOnboardingForReviewAction,
 } from "@/app/therapist/onboarding/actions";
 import type { TherapistOnboardingActionState } from "@/app/therapist/onboarding/actions";
-import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+const genderOptions = ["Female", "Male", "Other", "Prefer not to say"] as const;
+
+type TherapistCertificateListItem = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  publicId: string;
+  storageProvider: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: Date;
+};
 
 type TherapistOnboardingFormValues = {
   nameAndSurname: string;
@@ -19,16 +33,7 @@ type TherapistOnboardingFormValues = {
   educationAndCertifications: string;
   specialisation: string;
   pricePerHour: string;
-  certificates: {
-    id: string;
-    fileName: string;
-    fileUrl: string;
-    publicId: string;
-    storageProvider: string;
-    mimeType: string;
-    size: number;
-    uploadedAt: Date;
-  }[];
+  certificates: TherapistCertificateListItem[];
   displayName: string;
   bio: string;
   specialization: string;
@@ -42,12 +47,26 @@ const initialActionState: TherapistOnboardingActionState = {
   status: "idle",
 };
 
+const fieldClassName =
+  "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500";
+
+const textareaClassName =
+  "mt-2 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-900";
+
 function FieldError({ messages }: { messages?: string[] }) {
   if (!messages?.length) {
     return null;
   }
 
   return <p className="mt-2 text-sm text-rose-700">{messages[0]}</p>;
+}
+
+function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor: string }) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-900">
+      {children}
+    </label>
+  );
 }
 
 function getStatusAlert(state: TherapistOnboardingActionState) {
@@ -59,6 +78,84 @@ function getStatusAlert(state: TherapistOnboardingActionState) {
     <Alert tone={state.status === "success" ? "success" : "error"}>
       {state.message}
     </Alert>
+  );
+}
+
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatUploadDate(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function CertificatesBlock({
+  certificates,
+}: {
+  certificates: TherapistCertificateListItem[];
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            Add your certificates here
+          </p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Certificate upload will be connected in the Cloudinary storage slice.
+          </p>
+        </div>
+        <Button type="button" variant="secondary" disabled>
+          Upload file
+        </Button>
+      </div>
+
+      {certificates.length ? (
+        <ul className="mt-4 grid gap-3">
+          {certificates.map((certificate) => (
+            <li
+              key={certificate.id}
+              className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <a
+                    href={certificate.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-slate-900 underline-offset-4 hover:underline"
+                  >
+                    {certificate.fileName}
+                  </a>
+                  <p className="mt-1 text-slate-500">
+                    {certificate.mimeType} · {formatFileSize(certificate.size)}
+                  </p>
+                </div>
+                <Badge variant="neutral" size="sm">
+                  {formatUploadDate(certificate.uploadedAt)}
+                </Badge>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+          No certificates added yet.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -80,59 +177,144 @@ export function TherapistOnboardingForm({
   const pending = savePending || submitPending;
 
   return (
-    <form className="mt-6 space-y-5">
+    <form className="mt-6 space-y-6">
       <div className="grid gap-3">
         {getStatusAlert(saveState)}
         {getStatusAlert(submitState)}
       </div>
 
-      <div>
-        <label
-          htmlFor="displayName"
-          className="text-sm font-semibold text-slate-900"
-        >
-          Display name
-        </label>
-        <input
-          id="displayName"
-          name="displayName"
-          type="text"
-          defaultValue={initialValues.displayName}
-          autoComplete="name"
-          className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-        />
-        <FieldError messages={fieldErrors?.displayName} />
+      <div className="grid gap-5 xl:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="nameAndSurname">Name &amp; Surname *</FieldLabel>
+          <input
+            id="nameAndSurname"
+            type="text"
+            value={initialValues.nameAndSurname}
+            autoComplete="name"
+            readOnly
+            disabled
+            className={fieldClassName}
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="gender">Gender *</FieldLabel>
+          <select
+            id="gender"
+            name="gender"
+            defaultValue={initialValues.gender}
+            disabled={pending}
+            className={fieldClassName}
+          >
+            <option value="">Select gender</option>
+            {genderOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <FieldError messages={fieldErrors?.gender} />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="email">Email *</FieldLabel>
+          <input
+            id="email"
+            type="email"
+            value={initialValues.email}
+            autoComplete="email"
+            readOnly
+            disabled
+            className={fieldClassName}
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="contactNumber">Contact Number *</FieldLabel>
+          <input
+            id="contactNumber"
+            name="contactNumber"
+            type="text"
+            defaultValue={initialValues.contactNumber}
+            autoComplete="tel"
+            disabled={pending}
+            className={fieldClassName}
+          />
+          <FieldError messages={fieldErrors?.contactNumber} />
+        </div>
       </div>
 
       <div>
-        <label htmlFor="bio" className="text-sm font-semibold text-slate-900">
-          Bio
-        </label>
+        <FieldLabel htmlFor="therapyServicesProvided">
+          Therapy Services Provided *
+        </FieldLabel>
         <textarea
-          id="bio"
-          name="bio"
-          defaultValue={initialValues.bio}
-          rows={7}
-          className="mt-2 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-900"
+          id="therapyServicesProvided"
+          name="therapyServicesProvided"
+          defaultValue={initialValues.therapyServicesProvided}
+          rows={5}
+          disabled={pending}
+          className={textareaClassName}
         />
-        <FieldError messages={fieldErrors?.bio} />
+        <FieldError messages={fieldErrors?.therapyServicesProvided} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="yearsOfExperience">Years of Experience *</FieldLabel>
+          <input
+            id="yearsOfExperience"
+            name="yearsOfExperience"
+            type="text"
+            defaultValue={initialValues.yearsOfExperience}
+            disabled={pending}
+            className={fieldClassName}
+          />
+          <FieldError messages={fieldErrors?.yearsOfExperience} />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="pricePerHour">Price per Hour *</FieldLabel>
+          <input
+            id="pricePerHour"
+            name="pricePerHour"
+            type="text"
+            defaultValue={initialValues.pricePerHour}
+            disabled={pending}
+            className={fieldClassName}
+          />
+          <FieldError messages={fieldErrors?.pricePerHour} />
+        </div>
       </div>
 
       <div>
-        <label
-          htmlFor="specialization"
-          className="text-sm font-semibold text-slate-900"
-        >
-          Specialization
-        </label>
-        <input
-          id="specialization"
-          name="specialization"
-          type="text"
-          defaultValue={initialValues.specialization}
-          className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+        <FieldLabel htmlFor="educationAndCertifications">
+          Education &amp; Certifications *
+        </FieldLabel>
+        <textarea
+          id="educationAndCertifications"
+          name="educationAndCertifications"
+          defaultValue={initialValues.educationAndCertifications}
+          rows={5}
+          disabled={pending}
+          className={textareaClassName}
         />
-        <FieldError messages={fieldErrors?.specialization} />
+        <FieldError messages={fieldErrors?.educationAndCertifications} />
+      </div>
+
+      <CertificatesBlock certificates={initialValues.certificates} />
+
+      <div>
+        <FieldLabel htmlFor="specialisation">Specialisation *</FieldLabel>
+        <textarea
+          id="specialisation"
+          name="specialisation"
+          defaultValue={initialValues.specialisation}
+          rows={5}
+          disabled={pending}
+          className={textareaClassName}
+        />
+        <FieldError messages={fieldErrors?.specialisation} />
       </div>
 
       <div className="flex flex-wrap gap-3">
