@@ -28,11 +28,47 @@ export async function requireRole(allowedRoles: UserRole[]) {
     redirect(AUTH_ROUTES.login);
   }
 
-  if (!hasRole(user.role, allowedRoles)) {
+  const freshUser = await prisma.user.findUnique({
+    where: {
+      id: user.id,
+    },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      isActive: true,
+      emailVerified: true,
+      emailVerifiedAt: true,
+      therapistProfile: {
+        select: {
+          approvalStatus: true,
+          onboardingCompleted: true,
+        },
+      },
+    },
+  });
+
+  if (!freshUser || !freshUser.isActive) {
+    redirect(AUTH_ROUTES.login);
+  }
+
+  if (!hasRole(freshUser.role, allowedRoles)) {
     redirect("/403");
   }
 
-  return user;
+  return {
+    id: freshUser.id,
+    email: freshUser.email,
+    firstName: freshUser.firstName ?? undefined,
+    lastName: freshUser.lastName ?? undefined,
+    role: freshUser.role,
+    emailVerified: freshUser.emailVerified,
+    emailVerifiedAt: freshUser.emailVerifiedAt?.toISOString() ?? null,
+    therapistApprovalStatus: freshUser.therapistProfile?.approvalStatus ?? null,
+    therapistOnboardingCompleted: freshUser.therapistProfile?.onboardingCompleted ?? null,
+  };
 }
 
 async function hasActiveTherapistAccess(userId: string) {

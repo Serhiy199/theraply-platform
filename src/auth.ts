@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 import { authenticateWithCredentials } from "@/server/services/auth.service";
 
@@ -69,6 +70,41 @@ export const authOptions: NextAuthOptions = {
           null;
         token.firstName = (user as { firstName?: string }).firstName;
         token.lastName = (user as { lastName?: string }).lastName;
+      }
+
+      if (!user && token.sub) {
+        const freshUser = await prisma.user.findUnique({
+          where: {
+            id: token.sub,
+          },
+          select: {
+            email: true,
+            role: true,
+            emailVerified: true,
+            emailVerifiedAt: true,
+            firstName: true,
+            lastName: true,
+            therapistProfile: {
+              select: {
+                approvalStatus: true,
+                onboardingCompleted: true,
+              },
+            },
+          },
+        });
+
+        if (freshUser) {
+          token.email = freshUser.email;
+          token.role = freshUser.role;
+          token.emailVerified = freshUser.emailVerified;
+          token.emailVerifiedAt = freshUser.emailVerifiedAt?.toISOString() ?? null;
+          token.therapistApprovalStatus =
+            freshUser.therapistProfile?.approvalStatus ?? null;
+          token.therapistOnboardingCompleted =
+            freshUser.therapistProfile?.onboardingCompleted ?? null;
+          token.firstName = freshUser.firstName ?? undefined;
+          token.lastName = freshUser.lastName ?? undefined;
+        }
       }
 
       return token;

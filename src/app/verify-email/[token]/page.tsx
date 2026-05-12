@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
+import { getCurrentUser } from "@/lib/auth/session";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import {
   EmailVerificationServiceError,
@@ -99,11 +100,22 @@ function VerifyEmailStateCard({ state }: { state: VerifyEmailState }) {
 
 export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) {
   const { token } = await params;
+  const currentUser = await getCurrentUser();
   let redirectTo: string | null = null;
 
   try {
     const result = await verifyEmailToken(token);
     redirectTo = getRedirectForVerificationResult(result);
+
+    console.info("[verify-email] token handled", {
+      status: result.status,
+      tokenUserId: result.userId,
+      currentSessionUserId: currentUser?.id ?? null,
+      tokenUserEmailVerified: true,
+      therapistApprovalStatus: result.therapistApprovalStatus ?? null,
+      sessionEmailVerified: currentUser?.emailVerified ?? null,
+      redirectTo,
+    });
 
     if (result.status === "already_verified") {
       return (
