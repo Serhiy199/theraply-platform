@@ -212,6 +212,8 @@ export function TherapistPayoutForm({
           <div className="mt-6">
             <ButtonLink
               href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
+              fullWidth
+              className="border border-slate-900 !bg-slate-900 !text-white shadow-sm shadow-slate-950/10"
             >
               {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
             </ButtonLink>
@@ -226,6 +228,22 @@ export function TherapistPayoutForm({
           <p className="mt-2 text-xs leading-5 text-slate-500">
             Only calendars that this Google account can write to are shown here.
           </p>
+          {!data.profile.isGoogleCalendarConnected ? (
+            <div className="mt-5">
+              <DashboardStatusAlert tone="warning" title="Google Calendar is not connected">
+                Connect Google Calendar first. After the OAuth connection finishes, available calendars will appear in this selector.
+              </DashboardStatusAlert>
+              <div className="mt-4">
+                <ButtonLink
+                  href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
+                  fullWidth
+                  className="border border-slate-900 !bg-slate-900 !text-white shadow-sm shadow-slate-950/10"
+                >
+                  Connect Google Calendar
+                </ButtonLink>
+              </div>
+            </div>
+          ) : null}
 
           <form action={calendarFormAction} className="mt-5 grid gap-4">
             {calendarState.message ? (
