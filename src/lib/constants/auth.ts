@@ -36,6 +36,12 @@ export const EMAIL_TEMPLATES = {
   therapistOnboardingPendingReview: "THERAPIST_ONBOARDING_PENDING_REVIEW",
   therapistOnboardingApproved: "THERAPIST_ONBOARDING_APPROVED",
   therapistOnboardingRejected: "THERAPIST_ONBOARDING_REJECTED",
+  bookingRequestCreated: "BOOKING_REQUEST_CREATED",
+  bookingConfirmed: "BOOKING_CONFIRMED",
+  bookingRejected: "BOOKING_REJECTED",
+  bookingCancelled: "BOOKING_CANCELLED",
+  paymentSuccessful: "PAYMENT_SUCCESSFUL",
+  paymentFailed: "PAYMENT_FAILED",
 } as const;
 
 export const PASSWORD_MESSAGES = {
