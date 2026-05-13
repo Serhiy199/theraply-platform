@@ -201,6 +201,12 @@ export async function uploadTherapistCertificatesAction(
       "Only therapist accounts can upload certificates.",
     );
 
+    const draftParsed = therapistOnboardingDraftSchema.safeParse(getOnboardingInput(formData));
+
+    if (draftParsed.success) {
+      await saveTherapistOnboardingDraft(user.id, draftParsed.data);
+    }
+
     const files = getCertificateUploadFiles(formData);
     const uploadedCertificates = await uploadTherapistCertificates(user.id, files);
     revalidatePath("/therapist/onboarding");
