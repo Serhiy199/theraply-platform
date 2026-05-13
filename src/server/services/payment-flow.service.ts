@@ -14,6 +14,10 @@ import {
   reverseClientCreditApplication,
 } from "@/server/services/client-credit.service";
 import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
+import {
+  sendPaymentFailedEmailBestEffort,
+  sendPaymentSuccessfulEmailBestEffort,
+} from "@/server/services/transactional-email-events.service";
 
 const paymentEligibilitySelect = {
   id: true,
@@ -553,6 +557,8 @@ export async function createClientStripeCheckoutSession(
       },
     });
 
+    await sendPaymentSuccessfulEmailBestEffort(booking.id);
+
     return {
       checkoutUrl: buildCreditSuccessUrl(input.successUrl),
       sessionId: null,
@@ -942,6 +948,8 @@ export async function markStripeCheckoutSessionCompleted(
     });
   }
 
+  await sendPaymentSuccessfulEmailBestEffort(payment.bookingId);
+
   return {
     paymentId: payment.id,
     bookingId: payment.bookingId,
@@ -999,6 +1007,10 @@ export async function markStripePaymentIntentFailed(
       bookingId: true,
       paymentStatus: true,
     },
+  });
+
+  await sendPaymentFailedEmailBestEffort(payment.bookingId, {
+    reason: input.failedReason,
   });
 
   return {
@@ -1061,6 +1073,10 @@ export async function markStripeCheckoutSessionExpired(
       bookingId: true,
       paymentStatus: true,
     },
+  });
+
+  await sendPaymentFailedEmailBestEffort(payment.bookingId, {
+    reason: input.failedReason,
   });
 
   return {

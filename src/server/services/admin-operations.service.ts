@@ -28,6 +28,7 @@ import {
   sendTherapistOnboardingApprovedEmail,
   sendTherapistOnboardingRejectedEmail,
 } from "@/server/services/therapist-onboarding-email.service";
+import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
 
 export type AdminUserListItem = {
   id: string;
@@ -526,7 +527,7 @@ export async function adminCancelBooking(
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const cancellationResult = await prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -587,6 +588,12 @@ export async function adminCancelBooking(
       refund,
     };
   });
+
+  await sendBookingCancelledEmailsBestEffort(cancellationResult.booking.id, {
+    reason: "Cancelled by Theraply support.",
+  });
+
+  return cancellationResult;
 }
 
 export async function getAdminAuditLogs(limit = 50): Promise<AdminAuditLogItem[]> {

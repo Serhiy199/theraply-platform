@@ -19,6 +19,7 @@ import {
   RefundServiceError,
   type RefundExecutionResult,
 } from "@/server/services/refund.service";
+import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
 
 const upcomingClientBookingStatuses = [
   BookingStatus.PENDING_THERAPIST,
@@ -204,7 +205,7 @@ export async function cancelClientBooking(
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const cancellationResult = await prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -241,6 +242,12 @@ export async function cancelClientBooking(
       refund,
     };
   });
+
+  await sendBookingCancelledEmailsBestEffort(cancellationResult.booking.id, {
+    reason: "Cancelled by client.",
+  });
+
+  return cancellationResult;
 }
 
 export async function resolveClientCancellationCompensation(

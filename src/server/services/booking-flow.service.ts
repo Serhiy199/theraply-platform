@@ -27,6 +27,12 @@ import {
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
 import { getPaymentDueBy } from "@/server/services/payment-flow.service";
+import {
+  sendBookingCancelledEmailsBestEffort,
+  sendBookingConfirmedEmailBestEffort,
+  sendBookingRejectedEmailBestEffort,
+  sendBookingRequestCreatedEmailsBestEffort,
+} from "@/server/services/transactional-email-events.service";
 
 const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING_THERAPIST,
@@ -395,7 +401,7 @@ export async function createBookingRequest(
 
   assertBookingLeadTime(input.startsAt);
 
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     await acquireBookingSlotCreationLock(tx, input.therapistId, input.startsAt, input.endsAt);
     await assertSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
     await assertTherapistGoogleSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
@@ -412,6 +418,10 @@ export async function createBookingRequest(
       select: bookingDetailsSelect,
     });
   });
+
+  await sendBookingRequestCreatedEmailsBestEffort(booking.id);
+
+  return booking;
 }
 
 export async function confirmBookingRequest(
@@ -499,7 +509,7 @@ export async function confirmBookingRequest(
 
     const confirmedEvent = createdEvent;
 
-    return prisma.$transaction(async (tx) => {
+    const updatedBooking = await prisma.$transaction(async (tx) => {
       const generatedMeetingUrl =
         confirmedEvent.meetingUrl ||
         booking.session?.meetingUrl?.trim() ||
@@ -551,6 +561,10 @@ export async function confirmBookingRequest(
 
       return updatedBooking;
     });
+
+    await sendBookingConfirmedEmailBestEffort(updatedBooking.id);
+
+    return updatedBooking;
   } catch (error) {
     if (createdEvent?.eventId) {
       try {
@@ -630,7 +644,7 @@ export async function rejectBookingRequest(
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const updatedBooking = await prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -666,6 +680,12 @@ export async function rejectBookingRequest(
 
     return updatedBooking;
   });
+
+  await sendBookingRejectedEmailBestEffort(updatedBooking.id, {
+    reason: normalizeOptionalString(reason),
+  });
+
+  return updatedBooking;
 }
 
 export async function cancelConfirmedBookingByTherapist(
@@ -735,7 +755,7 @@ export async function cancelConfirmedBookingByTherapist(
 
   const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  const updatedBooking = await prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: {
         id: booking.id,
@@ -799,6 +819,12 @@ export async function cancelConfirmedBookingByTherapist(
 
     return updatedBooking;
   });
+
+  await sendBookingCancelledEmailsBestEffort(updatedBooking.id, {
+    reason: "Cancelled by therapist.",
+  });
+
+  return updatedBooking;
 }
 
 export async function attachMeetingLinkToBooking(
