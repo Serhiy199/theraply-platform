@@ -12,6 +12,7 @@
     "verify:phase11-email": "tsx scripts/verify-phase-11-email.ts",
     "verify:email-records": "tsx scripts/verify-email-verification-records.ts",
     "verify:therapist-onboarding": "tsx scripts/verify-therapist-onboarding.ts",
+    "verify:cron-booking-rules": "tsx scripts/verify-cron-booking-rules.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",

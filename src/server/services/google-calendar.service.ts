@@ -110,6 +110,15 @@ function ensureGoogleCalendarConfigured() {
   }
 }
 
+function isGoogleCalendarUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    Array.isArray(error.meta?.target) &&
+    error.meta.target.includes("googleCalendarId")
+  );
+}
+
 async function logGoogleCalendarAudit(
   actorUserId: string | null | undefined,
   entityId: string,
@@ -222,19 +231,32 @@ export async function saveTherapistGoogleCalendarConnection(
 ) {
   const connection = await requireTherapistGoogleCalendarConnection(input.therapistUserId);
 
-  const updatedConnection = await prisma.therapistProfile.update({
-    where: { userId: input.therapistUserId },
-    data: {
-      googleCalendarEmail: normalizeOptionalString(input.googleAccountEmail),
-      googleCalendarId: normalizeOptionalString(input.googleCalendarId),
-      googleAccessToken: input.tokens.accessToken,
-      googleRefreshToken: input.tokens.refreshToken,
-      googleTokenExpiresAt: input.tokens.expiryDate,
-      googleCalendarConnectedAt: new Date(),
-      isGoogleCalendarConnected: true,
-    },
-    select: therapistGoogleCalendarConnectionSelect,
-  });
+  let updatedConnection: TherapistGoogleCalendarConnection;
+
+  try {
+    updatedConnection = await prisma.therapistProfile.update({
+      where: { userId: input.therapistUserId },
+      data: {
+        googleCalendarEmail: normalizeOptionalString(input.googleAccountEmail),
+        googleCalendarId: normalizeOptionalString(input.googleCalendarId),
+        googleAccessToken: input.tokens.accessToken,
+        googleRefreshToken: input.tokens.refreshToken,
+        googleTokenExpiresAt: input.tokens.expiryDate,
+        googleCalendarConnectedAt: new Date(),
+        isGoogleCalendarConnected: true,
+      },
+      select: therapistGoogleCalendarConnectionSelect,
+    });
+  } catch (error) {
+    if (isGoogleCalendarUniqueConstraintError(error)) {
+      throw new GoogleCalendarServiceError(
+        "This Google Calendar is already connected to another therapist profile.",
+        "GOOGLE_CALENDAR_SELECTION_INVALID",
+      );
+    }
+
+    throw error;
+  }
 
   await logGoogleCalendarAudit(
     input.therapistUserId,
@@ -460,14 +482,27 @@ export async function updateTherapistSelectedGoogleCalendar(
 
   const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
 
-  const updatedConnection = await prisma.therapistProfile.update({
-    where: { userId: therapistUserId },
-    data: {
-      googleCalendarId: selectedCalendar.id,
-      isGoogleCalendarConnected: true,
-    },
-    select: therapistGoogleCalendarConnectionSelect,
-  });
+  let updatedConnection: TherapistGoogleCalendarConnection;
+
+  try {
+    updatedConnection = await prisma.therapistProfile.update({
+      where: { userId: therapistUserId },
+      data: {
+        googleCalendarId: selectedCalendar.id,
+        isGoogleCalendarConnected: true,
+      },
+      select: therapistGoogleCalendarConnectionSelect,
+    });
+  } catch (error) {
+    if (isGoogleCalendarUniqueConstraintError(error)) {
+      throw new GoogleCalendarServiceError(
+        "This Google Calendar is already connected to another therapist profile.",
+        "GOOGLE_CALENDAR_SELECTION_INVALID",
+      );
+    }
+
+    throw error;
+  }
 
   await logGoogleCalendarAudit(
     therapistUserId,

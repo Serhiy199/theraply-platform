@@ -400,6 +400,15 @@ function evaluatePaymentEligibility(
   }
 }
 
+function isClosedBookingStatus(status: BookingStatus) {
+  return (
+    status === BookingStatus.REJECTED ||
+    status === BookingStatus.CANCELLED ||
+    status === BookingStatus.AUTO_CANCELLED ||
+    status === BookingStatus.COMPLETED
+  );
+}
+
 async function getPaymentEligibilityBookingOrThrow(
   bookingId: string,
   clientUserId?: string,
@@ -439,6 +448,7 @@ async function getStripePaymentBookingOrThrow(bookingId: string) {
           currency: true,
           paymentStatus: true,
           creditAppliedAmount: true,
+          stripeCheckoutSessionId: true,
           stripeRefundId: true,
         },
       },
@@ -937,7 +947,10 @@ export async function markStripeCheckoutSessionCompleted(
     },
   });
 
-  if (booking.bookingStatus !== BookingStatus.CONFIRMED) {
+  if (
+    booking.bookingStatus !== BookingStatus.CONFIRMED &&
+    !isClosedBookingStatus(booking.bookingStatus)
+  ) {
     await prisma.booking.update({
       where: {
         id: bookingId,
@@ -1023,7 +1036,7 @@ export async function markStripePaymentIntentFailed(
 export async function markStripeCheckoutSessionExpired(
   bookingId: string,
   input: {
-    checkoutSessionId: string;
+    checkoutSessionId: string | null;
     amount: number;
     currency: string;
     checkoutExpiresAt: Date | null;
@@ -1052,7 +1065,7 @@ export async function markStripeCheckoutSessionExpired(
       amount: booking.payment?.amount ?? input.amount,
       currency: booking.payment?.currency ?? input.currency,
       paymentStatus: PaymentStatus.FAILED,
-      stripeCheckoutSessionId: input.checkoutSessionId,
+      stripeCheckoutSessionId: input.checkoutSessionId ?? booking.payment?.stripeCheckoutSessionId ?? null,
       checkoutExpiresAt: input.checkoutExpiresAt,
       failedAt,
       failedReason: input.failedReason,

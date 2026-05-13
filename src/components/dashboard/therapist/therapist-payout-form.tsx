@@ -209,15 +209,6 @@ export function TherapistPayoutForm({
               <dd className="text-right">{formatConnectionDate(data.profile.googleCalendarConnectedAt)}</dd>
             </div>
           </dl>
-          <div className="mt-6">
-            <ButtonLink
-              href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
-              fullWidth
-              className="border border-slate-900 !bg-slate-900 !text-white shadow-sm shadow-slate-950/10"
-            >
-              {data.profile.isGoogleCalendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
-            </ButtonLink>
-          </div>
         </SurfaceCard>
 
         <SurfaceCard as="article" className="p-6">
