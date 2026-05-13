@@ -13,6 +13,10 @@ import {
   submitTherapistOnboardingForReview,
   TherapistOnboardingServiceError,
 } from "@/server/services/therapist-onboarding.service";
+import {
+  CertificateStorageServiceError,
+  uploadTherapistCertificates,
+} from "@/server/services/certificate-storage.service";
 
 export type TherapistOnboardingActionState = {
   status: "idle" | "success" | "error";
@@ -28,6 +32,14 @@ export type TherapistOnboardingActionState = {
     displayName?: string[];
     bio?: string[];
     specialization?: string[];
+  };
+};
+
+export type TherapistCertificateUploadActionState = {
+  status: "idle" | "success" | "error";
+  message?: string;
+  fieldErrors?: {
+    certificates?: string[];
   };
 };
 
@@ -60,6 +72,44 @@ function getActionErrorState(error: unknown, fallbackMessage: string): Therapist
   }
 
   return getGenericErrorState(fallbackMessage);
+}
+
+function getCertificateUploadFiles(formData: FormData) {
+  return formData
+    .getAll("certificates")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+}
+
+function getCertificateUploadErrorState(
+  error: unknown,
+  fallbackMessage: string,
+): TherapistCertificateUploadActionState {
+  if (error instanceof ActionPermissionError) {
+    return {
+      status: "error",
+      message: error.message,
+    };
+  }
+
+  if (error instanceof CertificateStorageServiceError) {
+    return {
+      status: "error",
+      message: error.message,
+      fieldErrors:
+        error.code === "THERAPIST_CERTIFICATE_FILE_REQUIRED" ||
+        error.code === "THERAPIST_CERTIFICATE_FILE_TOO_LARGE" ||
+        error.code === "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED"
+          ? {
+              certificates: [error.message],
+            }
+          : undefined,
+    };
+  }
+
+  return {
+    status: "error",
+    message: fallbackMessage,
+  };
 }
 
 export async function saveTherapistOnboardingDraftAction(
@@ -134,6 +184,39 @@ export async function submitTherapistOnboardingForReviewAction(
     return getActionErrorState(
       error,
       "Something went wrong while submitting onboarding for review.",
+    );
+  }
+}
+
+export async function uploadTherapistCertificatesAction(
+  _prevState: TherapistCertificateUploadActionState,
+  formData: FormData,
+): Promise<TherapistCertificateUploadActionState> {
+  const user = await getCurrentUser();
+
+  try {
+    assertActionRole(
+      user,
+      [UserRole.THERAPIST],
+      "Only therapist accounts can upload certificates.",
+    );
+
+    const files = getCertificateUploadFiles(formData);
+    const uploadedCertificates = await uploadTherapistCertificates(user.id, files);
+    revalidatePath("/therapist/onboarding");
+    revalidatePath("/admin/therapists");
+
+    return {
+      status: "success",
+      message:
+        uploadedCertificates.length === 1
+          ? "Certificate uploaded successfully."
+          : `${uploadedCertificates.length} certificates uploaded successfully.`,
+    };
+  } catch (error) {
+    return getCertificateUploadErrorState(
+      error,
+      "Something went wrong while uploading certificates.",
     );
   }
 }

@@ -4,8 +4,12 @@ import { useActionState } from "react";
 import {
   saveTherapistOnboardingDraftAction,
   submitTherapistOnboardingForReviewAction,
+  uploadTherapistCertificatesAction,
 } from "@/app/therapist/onboarding/actions";
-import type { TherapistOnboardingActionState } from "@/app/therapist/onboarding/actions";
+import type {
+  TherapistCertificateUploadActionState,
+  TherapistOnboardingActionState,
+} from "@/app/therapist/onboarding/actions";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +51,10 @@ const initialActionState: TherapistOnboardingActionState = {
   status: "idle",
 };
 
+const initialUploadActionState: TherapistCertificateUploadActionState = {
+  status: "idle",
+};
+
 const fieldClassName =
   "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:bg-slate-50 disabled:text-slate-500";
 
@@ -69,7 +77,7 @@ function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor:
   );
 }
 
-function getStatusAlert(state: TherapistOnboardingActionState) {
+function getStatusAlert(state: { status: "idle" | "success" | "error"; message?: string }) {
   if (state.status === "idle" || !state.message) {
     return null;
   }
@@ -103,21 +111,45 @@ function formatUploadDate(date: Date) {
 
 function CertificatesBlock({
   certificates,
+  fieldErrors,
+  pending,
+  uploadAction,
+  uploadPending,
 }: {
   certificates: TherapistCertificateListItem[];
+  fieldErrors?: string[];
+  pending: boolean;
+  uploadAction: (formData: FormData) => void;
+  uploadPending: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <p className="text-sm font-semibold text-slate-900">
             Add your certificates here
           </p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Certificate upload will be connected in the Cloudinary storage slice.
+            Upload JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT files up to 10MB each.
           </p>
+          <input
+            id="certificates"
+            name="certificates"
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.txt,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            disabled={pending}
+            className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-900 file:ring-1 file:ring-slate-300 hover:file:bg-slate-50"
+          />
+          <FieldError messages={fieldErrors} />
         </div>
-        <Button type="button" variant="secondary" disabled>
+        <Button
+          type="submit"
+          variant="secondary"
+          loading={uploadPending}
+          disabled={pending}
+          formAction={uploadAction}
+        >
           Upload file
         </Button>
       </div>
@@ -140,7 +172,7 @@ function CertificatesBlock({
                     {certificate.fileName}
                   </a>
                   <p className="mt-1 text-slate-500">
-                    {certificate.mimeType} · {formatFileSize(certificate.size)}
+                    {certificate.mimeType} - {formatFileSize(certificate.size)}
                   </p>
                 </div>
                 <Badge variant="neutral" size="sm">
@@ -170,17 +202,22 @@ export function TherapistOnboardingForm({
     TherapistOnboardingActionState,
     FormData
   >(submitTherapistOnboardingForReviewAction, initialActionState);
+  const [uploadState, uploadAction, uploadPending] = useActionState<
+    TherapistCertificateUploadActionState,
+    FormData
+  >(uploadTherapistCertificatesAction, initialUploadActionState);
   const fieldErrors =
     submitState.status === "error" && submitState.fieldErrors
       ? submitState.fieldErrors
       : saveState.fieldErrors;
-  const pending = savePending || submitPending;
+  const pending = savePending || submitPending || uploadPending;
 
   return (
-    <form className="mt-6 space-y-6">
+    <form className="mt-6 space-y-6" encType="multipart/form-data">
       <div className="grid gap-3">
         {getStatusAlert(saveState)}
         {getStatusAlert(submitState)}
+        {getStatusAlert(uploadState)}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -302,7 +339,13 @@ export function TherapistOnboardingForm({
         <FieldError messages={fieldErrors?.educationAndCertifications} />
       </div>
 
-      <CertificatesBlock certificates={initialValues.certificates} />
+      <CertificatesBlock
+        certificates={initialValues.certificates}
+        fieldErrors={uploadState.fieldErrors?.certificates}
+        pending={pending}
+        uploadAction={uploadAction}
+        uploadPending={uploadPending}
+      />
 
       <div>
         <FieldLabel htmlFor="specialisation">Specialisation *</FieldLabel>
