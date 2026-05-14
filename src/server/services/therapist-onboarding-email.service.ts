@@ -1,4 +1,5 @@
 import { DASHBOARD_ROUTES, EMAIL_TEMPLATES } from "@/lib/constants/auth";
+import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { sendTransactionalEmail } from "@/server/services/email-delivery.service";
 
 type TherapistOnboardingEmailRecipient = {
@@ -92,7 +93,7 @@ async function sendTherapistOnboardingEmailBestEffort(input: {
       actionUrl: input.actionUrl,
     });
   } catch (error) {
-    console.error("[therapist-onboarding-email] delivery failed", {
+    logDiagnosticEvent("therapist-onboarding-email", "Delivery failed.", {
       template: input.template,
       userId: input.recipient.userId,
       email: input.recipient.email,

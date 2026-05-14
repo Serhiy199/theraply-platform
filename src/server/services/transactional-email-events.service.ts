@@ -8,6 +8,7 @@ import {
   buildPaymentFailedEmail,
   buildPaymentSuccessfulEmail,
 } from "@/lib/email/templates/transactional";
+import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { sendTransactionalEmail } from "@/server/services/email-delivery.service";
 
 const transactionalEmailBookingSelect = {
@@ -197,7 +198,7 @@ async function sendEmailTemplateBestEffort(input: SendEmailTemplateInput) {
       actionUrl: input.email.actionUrl,
     });
   } catch (error) {
-    console.error("[transactional-email-events] email delivery failed", {
+    logDiagnosticEvent("transactional-email-events", "Email delivery failed.", {
       template: input.email.template,
       userId: input.recipient.userId,
       email: input.recipient.email,
@@ -214,13 +215,15 @@ async function sendBookingEmailsBestEffort(
     const booking = await getBookingForTransactionalEmail(bookingId);
 
     if (!booking) {
-      console.warn("[transactional-email-events] booking not found", { bookingId });
+      logDiagnosticEvent("transactional-email-events", "Booking not found for email event.", {
+        bookingId,
+      });
       return;
     }
 
     await sender(booking);
   } catch (error) {
-    console.error("[transactional-email-events] booking email event failed", {
+    logDiagnosticEvent("transactional-email-events", "Booking email event failed.", {
       bookingId,
       error,
     });

@@ -1,6 +1,10 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  captureDiagnosticEvent,
+  type DiagnosticMetadata,
+} from "@/server/services/monitoring.service";
 
 export type AuditLogInput = {
   actorUserId?: string | null;
@@ -32,7 +36,7 @@ export async function createAuditLogEntryBestEffort(input: AuditLogInput) {
   try {
     await createAuditLogEntry(input);
   } catch (error) {
-    console.error("[audit-log] Failed to persist audit entry", {
+    logDiagnosticEvent("audit-log", "Failed to persist audit entry.", {
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
@@ -44,7 +48,11 @@ export async function createAuditLogEntryBestEffort(input: AuditLogInput) {
 export function logDiagnosticEvent(
   scope: string,
   message: string,
-  metadata?: Record<string, unknown>,
+  metadata?: DiagnosticMetadata,
 ) {
-  console.error(`[${scope}] ${message}`, metadata ?? {});
+  captureDiagnosticEvent({
+    scope,
+    message,
+    metadata,
+  });
 }

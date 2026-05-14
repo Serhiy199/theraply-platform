@@ -2,6 +2,7 @@ import { UserRole } from "@prisma/client";
 import { ClientPaymentResult } from "@/components/dashboard/client/client-payment-result";
 import { requireRole } from "@/lib/permissions";
 import { getClientBookingById } from "@/server/services/client-bookings.service";
+import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 import {
   PaymentFlowServiceError,
   syncClientStripeCheckoutSuccess,
@@ -29,10 +30,10 @@ export default async function ClientPaymentSuccessPage({
     } catch (error) {
       // Keep the success page usable even if Stripe redirect data is malformed.
       if (!(error instanceof PaymentFlowServiceError)) {
-        console.error("[client-payment-success-page] Unable to reconcile checkout session.", {
+        logDiagnosticEvent("client-payment-success-page", "Unable to reconcile checkout session.", {
           bookingId: params.bookingId,
           sessionId: params.session_id,
-          error: error instanceof Error ? error.message : String(error),
+          error,
         });
       }
     }
