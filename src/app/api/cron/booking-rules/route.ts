@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { runCronBookingRules } from "@/server/services/cron-booking-rules.service";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { CRON_BOOKING_RULES_AUDIT_ACTIONS } from "@/lib/constants/cron-booking-rules";
@@ -19,14 +20,26 @@ function getBearerToken(request: NextRequest) {
   return authorization.slice("bearer ".length).trim() || null;
 }
 
-function isAuthorizedCronRequest(request: NextRequest) {
-  const cronSecret = getCronSecret();
+function secretsMatch(providedSecret: string, expectedSecret: string) {
+  const providedBuffer = Buffer.from(providedSecret);
+  const expectedBuffer = Buffer.from(expectedSecret);
 
-  if (!cronSecret) {
+  if (providedBuffer.length !== expectedBuffer.length) {
     return false;
   }
 
-  return getBearerToken(request) === cronSecret;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function isAuthorizedCronRequest(request: NextRequest) {
+  const cronSecret = getCronSecret();
+  const providedSecret = getBearerToken(request);
+
+  if (!cronSecret || !providedSecret) {
+    return false;
+  }
+
+  return secretsMatch(providedSecret, cronSecret);
 }
 
 function parseBoolean(value: string | null) {
