@@ -1,9 +1,14 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 import { authenticateWithCredentials } from "@/server/services/auth.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+} from "@/server/services/rate-limit.service";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -22,6 +27,15 @@ export const authOptions: NextAuthOptions = {
 
         if (!parsed.success) {
           throw new Error(AUTH_MESSAGES.loginInvalid);
+        }
+
+        const rateLimit = await checkRateLimitPreset(
+          RATE_LIMIT_PRESETS.authLogin,
+          buildUserRateLimitIdentifier({ email: parsed.data.email }),
+        );
+
+        if (!rateLimit.allowed) {
+          throw new Error(AUTH_MESSAGES.rateLimited);
         }
 
         const user = await authenticateWithCredentials(parsed.data);

@@ -2,7 +2,8 @@ import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
-import { AUTH_ROUTES } from "@/lib/constants/auth";
+import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   GoogleCalendarServiceError,
@@ -12,6 +13,10 @@ import {
   createAuditLogEntryBestEffort,
   logDiagnosticEvent,
 } from "@/server/services/audit-log.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+} from "@/server/services/rate-limit.service";
 
 function buildAppUrl(request: NextRequest, pathname: string) {
   return new URL(pathname, request.url);
@@ -43,8 +48,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(buildAppUrl(request, "/403"));
   }
 
+  let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
+
   try {
-    await requireActionActiveTherapistFeatures(user);
+    activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
       return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
@@ -53,16 +60,25 @@ export async function GET(request: NextRequest) {
     throw error;
   }
 
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.googleCalendarConnect,
+    buildUserRateLimitIdentifier({ userId: activeTherapist.id }),
+  );
+
+  if (!rateLimit.allowed) {
+    return NextResponse.redirect(buildTherapistRedirect(request, "error", AUTH_MESSAGES.rateLimited));
+  }
+
   const returnTo = normalizeReturnTo(request.nextUrl.searchParams.get("returnTo"));
 
   try {
-    const consentUrl = await buildTherapistGoogleCalendarConnectUrl(user.id, returnTo);
+    const consentUrl = await buildTherapistGoogleCalendarConnectUrl(activeTherapist.id, returnTo);
     return NextResponse.redirect(consentUrl);
   } catch (error) {
     await createAuditLogEntryBestEffort({
-      actorUserId: user.id,
+      actorUserId: activeTherapist.id,
       entityType: "GoogleCalendarIntegration",
-      entityId: user.id,
+      entityId: activeTherapist.id,
       action: "GOOGLE_CALENDAR_CONNECT_ROUTE_FAILED",
       after: {
         returnTo,
@@ -70,7 +86,7 @@ export async function GET(request: NextRequest) {
       },
     });
     logDiagnosticEvent("google-calendar-connect-route", "Unable to start Google Calendar connection.", {
-      therapistUserId: user.id,
+      therapistUserId: activeTherapist.id,
       returnTo,
       error: error instanceof Error ? error.message : String(error),
     });

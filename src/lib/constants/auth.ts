@@ -87,4 +87,5 @@ export const AUTH_MESSAGES = {
   resetPasswordSuccess: "Password updated successfully. You can now sign in.",
   resetPasswordInvalidToken: "This reset link is invalid or has expired.",
   resetPasswordGenericError: "Unable to reset your password right now.",
+  rateLimited: "Too many attempts. Please wait a little and try again.",
 } as const;

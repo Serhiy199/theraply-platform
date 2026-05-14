@@ -1,6 +1,8 @@
 import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { ActionPermissionError, requireCurrentActionRole } from "@/lib/permissions";
 import { StripeConfigError } from "@/lib/stripe/stripe-config";
 import { paymentCheckoutRequestSchema } from "@/lib/validations/payments";
@@ -8,6 +10,11 @@ import {
   createClientStripeCheckoutSession,
   PaymentFlowServiceError,
 } from "@/server/services/payment-flow.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+  getRateLimitHeaders,
+} from "@/server/services/rate-limit.service";
 
 export const runtime = "nodejs";
 
@@ -48,6 +55,18 @@ export async function POST(request: NextRequest) {
     }
 
     throw error;
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.stripeCheckout,
+    buildUserRateLimitIdentifier({ userId: user.id }),
+  );
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: AUTH_MESSAGES.rateLimited },
+      { status: 429, headers: getRateLimitHeaders(rateLimit) },
+    );
   }
 
   let payload: unknown;

@@ -3,6 +3,13 @@ import { timingSafeEqual } from "node:crypto";
 import { runCronBookingRules } from "@/server/services/cron-booking-rules.service";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { CRON_BOOKING_RULES_AUDIT_ACTIONS } from "@/lib/constants/cron-booking-rules";
+import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
+import {
+  checkRateLimitPreset,
+  getClientIpFromRequest,
+  getRateLimitHeaders,
+} from "@/server/services/rate-limit.service";
 
 export const runtime = "nodejs";
 
@@ -60,6 +67,18 @@ async function handleCronBookingRulesRequest(request: NextRequest) {
     return NextResponse.json(
       { error: "Cron endpoint is not configured." },
       { status: 503 },
+    );
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.cronBookingRules,
+    getClientIpFromRequest(request),
+  );
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: AUTH_MESSAGES.rateLimited },
+      { status: 429, headers: getRateLimitHeaders(rateLimit) },
     );
   }
 

@@ -1,11 +1,16 @@
 "use server";
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import {
   AuthServiceError,
   requestPasswordReset,
 } from "@/server/services/auth.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+} from "@/server/services/rate-limit.service";
 import type { ForgotPasswordActionState } from "@/app/forgot-password/state";
 
 export async function forgotPasswordAction(
@@ -21,6 +26,18 @@ export async function forgotPasswordAction(
       status: "error",
       message: AUTH_MESSAGES.forgotPasswordGenericError,
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.authForgotPassword,
+    buildUserRateLimitIdentifier({ email: parsed.data.email }),
+  );
+
+  if (!rateLimit.allowed) {
+    return {
+      status: "error",
+      message: AUTH_MESSAGES.rateLimited,
     };
   }
 

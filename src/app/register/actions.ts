@@ -1,8 +1,13 @@
 "use server";
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { registerSchema } from "@/lib/validations/auth";
 import { AuthServiceError, registerAccount } from "@/server/services/auth.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+} from "@/server/services/rate-limit.service";
 import type { RegisterActionState } from "@/app/register/state";
 
 export async function registerAction(
@@ -23,6 +28,18 @@ export async function registerAction(
       status: "error",
       message: AUTH_MESSAGES.registerGenericError,
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.authRegister,
+    buildUserRateLimitIdentifier({ email: parsed.data.email }),
+  );
+
+  if (!rateLimit.allowed) {
+    return {
+      status: "error",
+      message: AUTH_MESSAGES.rateLimited,
     };
   }
 

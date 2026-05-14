@@ -2,11 +2,16 @@
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import {
   EmailVerificationServiceError,
   resendEmailVerification,
 } from "@/server/services/email-verification.service";
+import {
+  buildUserRateLimitIdentifier,
+  checkRateLimitPreset,
+} from "@/server/services/rate-limit.service";
 import type { ResendEmailVerificationActionState } from "@/app/verify-email/state";
 
 export async function resendEmailVerificationAction(
@@ -16,6 +21,18 @@ export async function resendEmailVerificationAction(
   const currentUser = await getCurrentUser();
 
   if (currentUser?.id) {
+    const rateLimit = await checkRateLimitPreset(
+      RATE_LIMIT_PRESETS.authResendVerification,
+      buildUserRateLimitIdentifier({ userId: currentUser.id }),
+    );
+
+    if (!rateLimit.allowed) {
+      return {
+        status: "error",
+        message: AUTH_MESSAGES.rateLimited,
+      };
+    }
+
     return resendForUserId(currentUser.id);
   }
 
@@ -28,6 +45,18 @@ export async function resendEmailVerificationAction(
       status: "error",
       message: AUTH_MESSAGES.emailVerificationResendGenericError,
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.authResendVerification,
+    buildUserRateLimitIdentifier({ email: parsed.data.email }),
+  );
+
+  if (!rateLimit.allowed) {
+    return {
+      status: "error",
+      message: AUTH_MESSAGES.rateLimited,
     };
   }
 

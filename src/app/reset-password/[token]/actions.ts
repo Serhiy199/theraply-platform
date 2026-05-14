@@ -1,11 +1,13 @@
 "use server";
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import {
   AuthServiceError,
   resetPasswordWithToken,
 } from "@/server/services/auth.service";
+import { checkRateLimitPreset } from "@/server/services/rate-limit.service";
 import type { ResetPasswordActionState } from "@/app/reset-password/[token]/state";
 
 export async function resetPasswordAction(
@@ -23,6 +25,18 @@ export async function resetPasswordAction(
       status: "error",
       message: AUTH_MESSAGES.resetPasswordGenericError,
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const rateLimit = await checkRateLimitPreset(
+    RATE_LIMIT_PRESETS.authResetPassword,
+    `token:${parsed.data.token}`,
+  );
+
+  if (!rateLimit.allowed) {
+    return {
+      status: "error",
+      message: AUTH_MESSAGES.rateLimited,
     };
   }
 
