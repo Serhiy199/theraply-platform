@@ -75,7 +75,7 @@ async function resendForUserId(userId: string): Promise<ResendEmailVerificationA
     if (error instanceof EmailVerificationServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: AUTH_MESSAGES.emailVerificationResendGenericError,
       };
     }
 

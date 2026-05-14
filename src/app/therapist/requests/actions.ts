@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafeBookingFlowErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   therapistCancelSessionPayloadSchema,
@@ -82,14 +86,14 @@ export async function requestDecisionAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof BookingFlowServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeBookingFlowErrorMessage(error.code),
       };
     }
 
@@ -138,14 +142,14 @@ export async function therapistCancelSessionAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof BookingFlowServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeBookingFlowErrorMessage(error.code),
       };
     }
 

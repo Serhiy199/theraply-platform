@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafeAdminOperationErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import {
   therapistRejectReviewPayloadSchema,
@@ -25,14 +29,14 @@ function getErrorState(
   if (error instanceof ActionPermissionError) {
     return {
       status: "error",
-      message: error.message,
+      message: SAFE_ERROR_MESSAGES.permissionDenied,
     };
   }
 
   if (error instanceof AdminOperationsServiceError) {
     return {
       status: "error",
-      message: error.message,
+      message: getSafeAdminOperationErrorMessage(error.code),
     };
   }
 

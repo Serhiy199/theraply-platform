@@ -2,6 +2,7 @@
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
+import { getSafeAuthErrorMessage } from "@/lib/errors/safe-error-messages";
 import { registerSchema } from "@/lib/validations/auth";
 import { AuthServiceError, registerAccount } from "@/server/services/auth.service";
 import {
@@ -55,7 +56,7 @@ export async function registerAction(
     if (error instanceof AuthServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeAuthErrorMessage(error.code),
       };
     }
 

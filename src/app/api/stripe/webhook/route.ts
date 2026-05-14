@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { getStripeConfig, StripeConfigError } from "@/lib/stripe/stripe-config";
+import { SAFE_ERROR_MESSAGES, getSafePaymentFlowErrorMessage } from "@/lib/errors/safe-error-messages";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { processStripeWebhookEventBestEffort, StripeWebhookServiceError } from "@/server/services/stripe-webhook.service";
 
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
     if (error instanceof StripeConfigError) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+      return NextResponse.json({ error: getSafePaymentFlowErrorMessage("STRIPE_NOT_CONFIGURED") }, { status: 503 });
     }
 
     if (error instanceof Stripe.errors.StripeSignatureVerificationError) {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
         error: error.message,
       });
 
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ error: "Invalid Stripe webhook signature." }, { status: 400 });
     }
 
     if (error instanceof StripeWebhookServiceError) {
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           received: true,
-          message: error.message,
+          message: SAFE_ERROR_MESSAGES.genericWebhook,
         },
         { status },
       );

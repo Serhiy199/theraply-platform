@@ -2,6 +2,7 @@
 
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
+import { getSafeAuthErrorMessage } from "@/lib/errors/safe-error-messages";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import {
   AuthServiceError,
@@ -52,7 +53,7 @@ export async function forgotPasswordAction(
     if (error instanceof AuthServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeAuthErrorMessage(error.code),
       };
     }
 

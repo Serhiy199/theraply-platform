@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafeCertificateStorageErrorMessage,
+  getSafeTherapistOnboardingErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import {
   therapistOnboardingDraftSchema,
@@ -63,11 +68,11 @@ function getGenericErrorState(message: string): TherapistOnboardingActionState {
 
 function getActionErrorState(error: unknown, fallbackMessage: string): TherapistOnboardingActionState {
   if (error instanceof ActionPermissionError) {
-    return getGenericErrorState(error.message);
+    return getGenericErrorState(SAFE_ERROR_MESSAGES.permissionDenied);
   }
 
   if (error instanceof TherapistOnboardingServiceError) {
-    return getGenericErrorState(error.message);
+    return getGenericErrorState(getSafeTherapistOnboardingErrorMessage(error.code));
   }
 
   return getGenericErrorState(fallbackMessage);
@@ -86,20 +91,22 @@ function getCertificateUploadErrorState(
   if (error instanceof ActionPermissionError) {
     return {
       status: "error",
-      message: error.message,
+      message: SAFE_ERROR_MESSAGES.permissionDenied,
     };
   }
 
   if (error instanceof CertificateStorageServiceError) {
+    const safeMessage = getSafeCertificateStorageErrorMessage(error.code);
+
     return {
       status: "error",
-      message: error.message,
+      message: safeMessage,
       fieldErrors:
         error.code === "THERAPIST_CERTIFICATE_FILE_REQUIRED" ||
         error.code === "THERAPIST_CERTIFICATE_FILE_TOO_LARGE" ||
         error.code === "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED"
           ? {
-              certificates: [error.message],
+              certificates: [safeMessage],
             }
           : undefined,
     };

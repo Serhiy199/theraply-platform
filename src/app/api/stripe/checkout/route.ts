@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafePaymentFlowErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireCurrentActionRole } from "@/lib/permissions";
 import { StripeConfigError } from "@/lib/stripe/stripe-config";
 import { paymentCheckoutRequestSchema } from "@/lib/validations/payments";
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
+      return NextResponse.json({ error: SAFE_ERROR_MESSAGES.permissionDenied }, { status: 403 });
     }
 
     throw error;
@@ -112,7 +116,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof StripeConfigError) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+      return NextResponse.json({ error: getSafePaymentFlowErrorMessage("STRIPE_NOT_CONFIGURED") }, { status: 503 });
     }
 
     if (error instanceof PaymentFlowServiceError) {
@@ -125,7 +129,10 @@ export async function POST(request: NextRequest) {
               ? 502
               : 409;
 
-      return NextResponse.json({ error: error.message, code: error.code }, { status });
+      return NextResponse.json(
+        { error: getSafePaymentFlowErrorMessage(error.code), code: error.code },
+        { status },
+      );
     }
 
     return NextResponse.json(

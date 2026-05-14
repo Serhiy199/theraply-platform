@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafeGoogleCalendarErrorMessage,
+  getSafeTherapistBookingsErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import { googleCalendarSelectionPayloadSchema } from "@/lib/validations/action-payloads";
 import { therapistPayoutDetailsPayloadSchema } from "@/lib/validations/therapist-payout";
@@ -73,14 +78,14 @@ export async function payoutDetailsAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof TherapistBookingsServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeTherapistBookingsErrorMessage(error.code),
       };
     }
 
@@ -128,14 +133,14 @@ export async function googleCalendarSelectionAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof GoogleCalendarServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeGoogleCalendarErrorMessage(error.code),
       };
     }
 

@@ -1,6 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { TherapistAvailability } from "@/components/booking/client/therapist-availability";
+import { getSafeGoogleAvailabilityErrorMessage } from "@/lib/errors/safe-error-messages";
 import { requireRole } from "@/lib/permissions";
 import { GoogleAvailabilityServiceError } from "@/server/services/google-availability.service";
 import {
@@ -38,7 +39,7 @@ export default async function ClientTherapistAvailabilityPage({ params }: Client
         <TherapistAvailability
           therapist={therapist}
           slots={[]}
-          availabilityIssue={error.message}
+          availabilityIssue={getSafeGoogleAvailabilityErrorMessage(error.code)}
         />
       );
     }

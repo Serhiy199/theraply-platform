@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import {
+  SAFE_ERROR_MESSAGES,
+  getSafeClientBookingErrorMessage,
+} from "@/lib/errors/safe-error-messages";
+import {
   bookingIdPayloadSchema,
   clientCompensationPayloadSchema,
 } from "@/lib/validations/action-payloads";
@@ -73,14 +77,14 @@ export async function cancelBookingAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof ClientBookingsServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeClientBookingErrorMessage(error.code),
       };
     }
 
@@ -130,14 +134,14 @@ export async function resolveCompensationAction(
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
     if (error instanceof ClientBookingsServiceError) {
       return {
         status: "error",
-        message: error.message,
+        message: getSafeClientBookingErrorMessage(error.code),
       };
     }
 

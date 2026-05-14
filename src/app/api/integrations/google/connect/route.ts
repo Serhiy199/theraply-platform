@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
+import { getSafeGoogleCalendarErrorMessage } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   GoogleCalendarServiceError,
@@ -92,7 +93,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (error instanceof GoogleCalendarServiceError) {
-      return NextResponse.redirect(buildTherapistRedirect(request, "error", error.message));
+      return NextResponse.redirect(
+        buildTherapistRedirect(request, "error", getSafeGoogleCalendarErrorMessage(error.code)),
+      );
     }
 
     return NextResponse.redirect(

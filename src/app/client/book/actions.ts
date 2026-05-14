@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
+import {
+  SAFE_ERROR_MESSAGES,
+  getSafeBookingFlowErrorMessage,
+} from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import { bookingRequestSchema } from "@/lib/validations/booking-flow";
 import {
@@ -63,7 +67,7 @@ export async function createBookingRequestAction(
       return {
         status: "error",
         code: "permission",
-        message: error.message,
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
       };
     }
 
@@ -76,7 +80,7 @@ export async function createBookingRequestAction(
             : error.code === "BOOKING_LEAD_TIME"
               ? "validation"
               : "unknown",
-        message: error.message,
+        message: getSafeBookingFlowErrorMessage(error.code),
       };
     }
 
