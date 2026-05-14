@@ -6,6 +6,7 @@ import {
   therapistOnboardingSubmitSchema,
 } from "@/lib/validations/therapist-onboarding";
 import { prisma } from "@/lib/prisma";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import { sendTherapistOnboardingPendingReviewEmail } from "@/server/services/therapist-onboarding-email.service";
 
 export type TherapistOnboardingDraftResult = {
@@ -136,6 +137,20 @@ export async function saveTherapistOnboardingDraft(
     },
   });
 
+  await createAuditLogEntryBestEffort({
+    actorUserId: userId,
+    entityType: "TherapistProfile",
+    entityId: updatedProfile.id,
+    action: "THERAPIST_ONBOARDING_DRAFT_SAVED",
+    before: {
+      approvalStatus: profile.approvalStatus,
+    },
+    after: {
+      approvalStatus: updatedProfile.approvalStatus,
+      draftVersion: draft.version,
+    },
+  });
+
   return {
     profileId: updatedProfile.id,
     userId: updatedProfile.userId,
@@ -196,6 +211,22 @@ export async function submitTherapistOnboardingForReview(
           firstName: true,
         },
       },
+    },
+  });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: userId,
+    entityType: "TherapistProfile",
+    entityId: updatedProfile.id,
+    action: "THERAPIST_ONBOARDING_SUBMITTED_FOR_REVIEW",
+    before: {
+      approvalStatus: profile.approvalStatus,
+    },
+    after: {
+      approvalStatus: updatedProfile.approvalStatus,
+      onboardingCompleted: true,
+      submittedForReviewAt: now,
+      draftVersion: draft.version,
     },
   });
 

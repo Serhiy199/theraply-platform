@@ -462,6 +462,7 @@ export async function confirmBookingRequest(
       session: {
         select: {
           id: true,
+          sessionStatus: true,
           meetingUrl: true,
           googleCalendarEventId: true,
         },
@@ -547,6 +548,27 @@ export async function confirmBookingRequest(
         });
       }
 
+      await tx.auditLog.create({
+        data: {
+          actorUserId: therapistUserId,
+          entityType: "Booking",
+          entityId: booking.id,
+          action: "THERAPIST_CONFIRM_BOOKING",
+          before: {
+            bookingStatus: booking.bookingStatus,
+            sessionStatus: booking.session?.sessionStatus ?? null,
+            paymentDueBy: null,
+          },
+          after: {
+            bookingStatus: BookingStatus.CONFIRMED,
+            sessionStatus: SessionStatus.SCHEDULED,
+            paymentDueBy: getPaymentDueBy(booking.startsAt),
+            googleCalendarEventId: confirmedEvent.eventId,
+            meetingUrl: generatedMeetingUrl,
+          },
+        },
+      });
+
       const updatedBooking = await tx.booking.findUnique({
         where: { id: booking.id },
         select: bookingDetailsSelect,
@@ -604,6 +626,7 @@ export async function rejectBookingRequest(
       session: {
         select: {
           id: true,
+          sessionStatus: true,
           meetingUrl: true,
           googleCalendarEventId: true,
         },
@@ -665,6 +688,25 @@ export async function rejectBookingRequest(
         },
       });
     }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: therapistUserId,
+        entityType: "Booking",
+        entityId: booking.id,
+        action: "THERAPIST_REJECT_BOOKING",
+        before: {
+          bookingStatus: booking.bookingStatus,
+          sessionStatus: booking.session?.sessionStatus ?? null,
+          notes: booking.notes,
+        },
+        after: {
+          bookingStatus: BookingStatus.REJECTED,
+          sessionStatus: booking.session?.id ? SessionStatus.CANCELLED : null,
+          rejectionReason: normalizeOptionalString(reason),
+        },
+      },
+    });
 
     const updatedBooking = await tx.booking.findUnique({
       where: { id: booking.id },

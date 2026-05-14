@@ -7,6 +7,7 @@ import {
   EMAIL_VERIFICATION_RULES,
 } from "@/lib/constants/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import { sendTransactionalEmail } from "@/server/services/email-delivery.service";
 
 type EmailVerificationUser = {
@@ -470,6 +471,25 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
     therapistStatusAfter: willMoveTherapistToProfileIncomplete
       ? TherapistApprovalStatus.PROFILE_INCOMPLETE
       : therapistStatusBefore,
+  });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: tokenRecord.user.id,
+    entityType: "User",
+    entityId: tokenRecord.user.id,
+    action: "EMAIL_VERIFIED",
+    before: {
+      emailVerified: tokenRecord.user.emailVerified,
+      emailVerifiedAt: tokenRecord.user.emailVerifiedAt,
+      therapistApprovalStatus: therapistStatusBefore,
+    },
+    after: {
+      emailVerified: true,
+      emailVerifiedAt: now,
+      therapistApprovalStatus: willMoveTherapistToProfileIncomplete
+        ? TherapistApprovalStatus.PROFILE_INCOMPLETE
+        : therapistStatusBefore,
+    },
   });
 
   return {

@@ -8,6 +8,7 @@ import {
   type PaymentSummaryItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
@@ -150,10 +151,19 @@ export async function cancelClientBooking(
       bookingStatus: true,
       startsAt: true,
       therapistId: true,
+      cancelledAt: true,
+      cancelledByUserId: true,
       session: {
         select: {
           id: true,
+          sessionStatus: true,
           googleCalendarEventId: true,
+        },
+      },
+      payment: {
+        select: {
+          id: true,
+          paymentStatus: true,
         },
       },
     },
@@ -227,6 +237,32 @@ export async function cancelClientBooking(
         },
       });
     }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: userId,
+        entityType: "Booking",
+        entityId: booking.id,
+        action: "CLIENT_CANCEL_BOOKING",
+        before: {
+          bookingStatus: booking.bookingStatus,
+          cancelledAt: booking.cancelledAt,
+          cancelledByUserId: booking.cancelledByUserId,
+          sessionStatus: booking.session?.sessionStatus ?? null,
+          paymentStatus: booking.payment?.paymentStatus ?? null,
+        },
+        after: {
+          bookingStatus: BookingStatus.CANCELLED,
+          cancelledAt: now,
+          cancelledByUserId: userId,
+          sessionStatus: SessionStatus.CANCELLED,
+          paymentStatus: booking.payment?.paymentStatus ?? null,
+          refundStatus: refund.status,
+          refundReason: refund.reason,
+          refundId: refund.refundId,
+        },
+      },
+    });
 
     const updatedBooking = await tx.booking.findUnique({
       where: { id: booking.id },
@@ -359,6 +395,22 @@ export async function resolveClientCancellationCompensation(
       compensationResolvedAt: new Date(),
     },
     select: bookingDetailsSelect,
+  });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: userId,
+    entityType: "Booking",
+    entityId: booking.id,
+    action: "CLIENT_COMPENSATION_CREDIT_SELECTED",
+    before: {
+      compensationResolutionType: booking.compensationResolutionType,
+      paymentStatus: booking.payment.paymentStatus,
+    },
+    after: {
+      compensationResolutionType: "CREDIT",
+      issuedCreditAmount,
+      currency: booking.payment.currency,
+    },
   });
 
   return {

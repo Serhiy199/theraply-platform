@@ -10,6 +10,7 @@ import {
   type TherapistRequestItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 
 const therapistUpcomingBookingStatuses = [BookingStatus.CONFIRMED] as const;
 const therapistPastBookingStatuses = [
@@ -415,7 +416,7 @@ export async function updateTherapistPayoutDetails(
 
   const normalizedAccountHolderName = input.accountHolderName.trim();
 
-  return prisma.$transaction(async (tx) => {
+  const updatedPayoutDetails = await prisma.$transaction(async (tx) => {
     await tx.therapistProfile.update({
       where: {
         id: therapistProfile.id,
@@ -425,7 +426,7 @@ export async function updateTherapistPayoutDetails(
       },
     });
 
-    return tx.therapistPayoutDetails.upsert({
+    const payoutDetails = await tx.therapistPayoutDetails.upsert({
       where: {
         therapistProfileId: therapistProfile.id,
       },
@@ -456,5 +457,59 @@ export async function updateTherapistPayoutDetails(
         updatedAt: true,
       },
     });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: userId,
+        entityType: "TherapistPayoutDetails",
+        entityId: payoutDetails.id,
+        action: "THERAPIST_PAYOUT_DETAILS_UPDATED",
+        before: {
+          therapistProfileId: therapistProfile.id,
+          sessionPricePence: therapistProfile.sessionPricePence,
+          payoutDetails: therapistProfile.payoutDetails
+            ? {
+                id: therapistProfile.payoutDetails.id,
+                accountHolderName: therapistProfile.payoutDetails.accountHolderName,
+                bankName: therapistProfile.payoutDetails.bankName,
+                iban: therapistProfile.payoutDetails.iban,
+                swift: therapistProfile.payoutDetails.swift,
+                country: therapistProfile.payoutDetails.country,
+                isVerified: therapistProfile.payoutDetails.isVerified,
+              }
+            : null,
+        },
+        after: {
+          therapistProfileId: therapistProfile.id,
+          sessionPricePence: input.sessionPricePence ?? null,
+          payoutDetails: {
+            id: payoutDetails.id,
+            accountHolderName: payoutDetails.accountHolderName,
+            bankName: payoutDetails.bankName,
+            iban: payoutDetails.iban,
+            swift: payoutDetails.swift,
+            country: payoutDetails.country,
+            isVerified: payoutDetails.isVerified,
+          },
+        },
+      },
+    });
+
+    return payoutDetails;
   });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: userId,
+    entityType: "TherapistProfile",
+    entityId: therapistProfile.id,
+    action: "THERAPIST_SESSION_PRICE_UPDATED",
+    before: {
+      sessionPricePence: therapistProfile.sessionPricePence,
+    },
+    after: {
+      sessionPricePence: input.sessionPricePence ?? null,
+    },
+  });
+
+  return updatedPayoutDetails;
 }
