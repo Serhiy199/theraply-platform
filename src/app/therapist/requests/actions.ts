@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
+  therapistCancelSessionPayloadSchema,
+  therapistRequestDecisionPayloadSchema,
+} from "@/lib/validations/action-payloads";
+import {
   BookingFlowServiceError,
   cancelConfirmedBookingByTherapist,
   confirmBookingRequest,
@@ -39,8 +43,10 @@ export async function requestDecisionAction(
   _prevState: RequestDecisionActionState,
   formData: FormData,
 ): Promise<RequestDecisionActionState> {
-  const bookingId = String(formData.get("bookingId") ?? "").trim();
-  const intent = String(formData.get("intent") ?? "").trim();
+  const parsed = therapistRequestDecisionPayloadSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+    intent: formData.get("intent"),
+  });
   const user = await getCurrentUser();
 
   try {
@@ -49,13 +55,14 @@ export async function requestDecisionAction(
       "Only therapist accounts can confirm or reject therapist booking requests.",
     );
 
-    if (!bookingId || (intent !== "confirm" && intent !== "reject")) {
+    if (!parsed.success) {
       return {
         status: "error",
         message: "Request action payload is incomplete.",
       };
     }
 
+    const { bookingId, intent } = parsed.data;
     if (intent === "confirm") {
       await confirmBookingRequest(activeTherapist.id, bookingId);
     } else {
@@ -97,7 +104,9 @@ export async function therapistCancelSessionAction(
   _prevState: TherapistCancelSessionActionState,
   formData: FormData,
 ): Promise<TherapistCancelSessionActionState> {
-  const bookingId = String(formData.get("bookingId") ?? "").trim();
+  const parsed = therapistCancelSessionPayloadSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+  });
   const user = await getCurrentUser();
 
   try {
@@ -106,13 +115,14 @@ export async function therapistCancelSessionAction(
       "Only therapist accounts can cancel confirmed sessions from the therapist area.",
     );
 
-    if (!bookingId) {
+    if (!parsed.success) {
       return {
         status: "error",
-        message: "Booking identifier is missing.",
+        message: parsed.error.flatten().fieldErrors.bookingId?.[0] ?? "Booking identifier is missing.",
       };
     }
 
+    const { bookingId } = parsed.data;
     const booking = await cancelConfirmedBookingByTherapist(activeTherapist.id, bookingId);
 
     revalidateTherapistBookingPaths(bookingId);

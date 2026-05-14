@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
+import {
+  therapistRejectReviewPayloadSchema,
+  therapistReviewPayloadSchema,
+} from "@/lib/validations/action-payloads";
 import {
   AdminOperationsServiceError,
   approveTherapistReview,
@@ -14,10 +17,6 @@ export type AdminTherapistReviewActionState = {
   status: "idle" | "success" | "error";
   message?: string;
 };
-
-function getTherapistProfileId(formData: FormData) {
-  return String(formData.get("therapistProfileId") ?? "").trim();
-}
 
 function getErrorState(
   error: unknown,
@@ -47,23 +46,26 @@ export async function approveTherapistAction(
   _prevState: AdminTherapistReviewActionState,
   formData: FormData,
 ): Promise<AdminTherapistReviewActionState> {
-  const user = await getCurrentUser();
-  const therapistProfileId = getTherapistProfileId(formData);
+  const parsed = therapistReviewPayloadSchema.safeParse({
+    therapistProfileId: formData.get("therapistProfileId"),
+  });
 
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.ADMIN],
       "Only admin accounts can approve therapist profiles.",
     );
 
-    if (!therapistProfileId) {
+    if (!parsed.success) {
       return {
         status: "error",
-        message: "Therapist profile identifier is missing.",
+        message:
+          parsed.error.flatten().fieldErrors.therapistProfileId?.[0] ??
+          "Therapist profile identifier is missing.",
       };
     }
 
+    const { therapistProfileId } = parsed.data;
     await approveTherapistReview(user.id, therapistProfileId);
     revalidatePath("/admin/therapists");
     revalidatePath("/admin/dashboard");
@@ -86,24 +88,29 @@ export async function rejectTherapistAction(
   _prevState: AdminTherapistReviewActionState,
   formData: FormData,
 ): Promise<AdminTherapistReviewActionState> {
-  const user = await getCurrentUser();
-  const therapistProfileId = getTherapistProfileId(formData);
-  const rejectionReason = String(formData.get("rejectionReason") ?? "");
+  const parsed = therapistRejectReviewPayloadSchema.safeParse({
+    therapistProfileId: formData.get("therapistProfileId"),
+    rejectionReason: formData.get("rejectionReason"),
+  });
 
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.ADMIN],
       "Only admin accounts can reject therapist profiles.",
     );
 
-    if (!therapistProfileId) {
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
       return {
         status: "error",
-        message: "Therapist profile identifier is missing.",
+        message:
+          fieldErrors.therapistProfileId?.[0] ??
+          fieldErrors.rejectionReason?.[0] ??
+          "Therapist review payload is incomplete.",
       };
     }
 
+    const { therapistProfileId, rejectionReason } = parsed.data;
     await rejectTherapistReview(user.id, therapistProfileId, rejectionReason);
     revalidatePath("/admin/therapists");
     revalidatePath("/admin/dashboard");

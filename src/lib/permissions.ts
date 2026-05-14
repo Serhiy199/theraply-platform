@@ -21,6 +21,49 @@ export function hasRole(userRole: string | undefined, allowedRoles: UserRole[]) 
   return allowedRoles.includes(userRole as UserRole);
 }
 
+const actionUserSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isActive: true,
+  emailVerified: true,
+  emailVerifiedAt: true,
+  therapistProfile: {
+    select: {
+      approvalStatus: true,
+      onboardingCompleted: true,
+    },
+  },
+} as const;
+
+function toCurrentUser(user: {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: UserRole;
+  emailVerified: boolean;
+  emailVerifiedAt: Date | null;
+  therapistProfile: {
+    approvalStatus: string;
+    onboardingCompleted: boolean;
+  } | null;
+}): CurrentUser {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName ?? undefined,
+    lastName: user.lastName ?? undefined,
+    role: user.role,
+    emailVerified: user.emailVerified,
+    emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+    therapistApprovalStatus: user.therapistProfile?.approvalStatus ?? null,
+    therapistOnboardingCompleted: user.therapistProfile?.onboardingCompleted ?? null,
+  };
+}
+
 export async function requireRole(allowedRoles: UserRole[]) {
   const user = await getCurrentUser();
 
@@ -111,15 +154,44 @@ export function assertActionRole(
   }
 }
 
+export async function requireCurrentActionRole(
+  user: CurrentUser | null,
+  allowedRoles: UserRole[],
+  message = "You do not have permission to perform this action.",
+) {
+  assertActionRole(user, allowedRoles, message);
+
+  const freshUser = await prisma.user.findUnique({
+    where: {
+      id: user.id,
+    },
+    select: actionUserSelect,
+  });
+
+  if (!freshUser || !freshUser.isActive || !hasRole(freshUser.role, allowedRoles)) {
+    throw new ActionPermissionError(message);
+  }
+
+  return toCurrentUser(freshUser);
+}
+
+export async function requireActionRole(
+  allowedRoles: UserRole[],
+  message = "You do not have permission to perform this action.",
+) {
+  const user = await getCurrentUser();
+  return requireCurrentActionRole(user, allowedRoles, message);
+}
+
 export async function requireActionActiveTherapistFeatures(
   user: CurrentUser | null,
   message = "Your therapist profile must be verified and approved before using active therapist features.",
 ) {
-  assertActionRole(user, [UserRole.THERAPIST], message);
+  const freshUser = await requireCurrentActionRole(user, [UserRole.THERAPIST], message);
 
-  if (!(await hasActiveTherapistAccess(user.id))) {
+  if (!(await hasActiveTherapistAccess(freshUser.id))) {
     throw new ActionPermissionError(message);
   }
 
-  return user;
+  return freshUser;
 }

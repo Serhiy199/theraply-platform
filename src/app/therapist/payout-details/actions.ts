@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
+import { googleCalendarSelectionPayloadSchema } from "@/lib/validations/action-payloads";
+import { therapistPayoutDetailsPayloadSchema } from "@/lib/validations/therapist-payout";
 import {
   GoogleCalendarServiceError,
   updateTherapistSelectedGoogleCalendar,
@@ -28,6 +30,14 @@ export async function payoutDetailsAction(
   formData: FormData,
 ): Promise<PayoutDetailsActionState> {
   const user = await getCurrentUser();
+  const parsed = therapistPayoutDetailsPayloadSchema.safeParse({
+    accountHolderName: formData.get("accountHolderName"),
+    bankName: formData.get("bankName") ?? "",
+    iban: formData.get("iban") ?? "",
+    swift: formData.get("swift") ?? "",
+    country: formData.get("country") ?? "",
+    sessionPriceGbp: formData.get("sessionPriceGbp") ?? "",
+  });
 
   try {
     const activeTherapist = await requireActionActiveTherapistFeatures(
@@ -35,49 +45,21 @@ export async function payoutDetailsAction(
       "Only therapist accounts can update payout details.",
     );
 
-    const accountHolderName = String(formData.get("accountHolderName") ?? "").trim();
-    const bankName = String(formData.get("bankName") ?? "").trim();
-    const iban = String(formData.get("iban") ?? "").trim();
-    const swift = String(formData.get("swift") ?? "").trim();
-    const country = String(formData.get("country") ?? "").trim();
-    const sessionPriceGbp = String(formData.get("sessionPriceGbp") ?? "").trim();
-
-    if (!accountHolderName) {
+    if (!parsed.success) {
       return {
         status: "error",
         message: "Please complete the required payout fields.",
-        fieldErrors: {
-          accountHolderName: ["Account holder name is required."],
-        },
+        fieldErrors: parsed.error.flatten().fieldErrors,
       };
     }
 
-    let sessionPricePence: number | null = null;
-
-    if (sessionPriceGbp) {
-      const normalizedSessionPrice = sessionPriceGbp.replace(",", ".");
-      const parsedSessionPrice = Number(normalizedSessionPrice);
-
-      if (!Number.isFinite(parsedSessionPrice) || parsedSessionPrice <= 0) {
-        return {
-          status: "error",
-          message: "Please enter a valid session price in GBP.",
-          fieldErrors: {
-            sessionPriceGbp: ["Session price must be greater than 0."],
-          },
-        };
-      }
-
-      sessionPricePence = Math.round(parsedSessionPrice * 100);
-    }
-
     await updateTherapistPayoutDetails(activeTherapist.id, {
-      accountHolderName,
-      bankName,
-      iban,
-      swift,
-      country,
-      sessionPricePence,
+      accountHolderName: parsed.data.accountHolderName,
+      bankName: parsed.data.bankName,
+      iban: parsed.data.iban,
+      swift: parsed.data.swift,
+      country: parsed.data.country,
+      sessionPricePence: parsed.data.sessionPriceGbp,
     });
 
     revalidatePath("/therapist/payout-details");
@@ -114,6 +96,9 @@ export async function googleCalendarSelectionAction(
   formData: FormData,
 ): Promise<GoogleCalendarSelectionActionState> {
   const user = await getCurrentUser();
+  const parsed = googleCalendarSelectionPayloadSchema.safeParse({
+    googleCalendarId: formData.get("googleCalendarId"),
+  });
 
   try {
     const activeTherapist = await requireActionActiveTherapistFeatures(
@@ -121,9 +106,16 @@ export async function googleCalendarSelectionAction(
       "Only therapist accounts can choose the target Google Calendar.",
     );
 
-    const googleCalendarId = String(formData.get("googleCalendarId") ?? "").trim();
+    if (!parsed.success) {
+      return {
+        status: "error",
+        message:
+          parsed.error.flatten().fieldErrors.googleCalendarId?.[0] ??
+          "Choose a Google Calendar first.",
+      };
+    }
 
-    await updateTherapistSelectedGoogleCalendar(activeTherapist.id, googleCalendarId);
+    await updateTherapistSelectedGoogleCalendar(activeTherapist.id, parsed.data.googleCalendarId);
 
     revalidatePath("/therapist/payout-details");
     revalidatePath("/therapist/dashboard");

@@ -1,7 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { hasRole } from "@/lib/permissions";
+import { ActionPermissionError, requireCurrentActionRole } from "@/lib/permissions";
 import { StripeConfigError } from "@/lib/stripe/stripe-config";
 import { paymentCheckoutRequestSchema } from "@/lib/validations/payments";
 import {
@@ -28,17 +28,26 @@ function buildCancelUrl(request: NextRequest, bookingId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
+  const currentUser = await getCurrentUser();
 
-  if (!user) {
+  if (!currentUser) {
     return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
   }
 
-  if (!hasRole(user.role, [UserRole.CLIENT])) {
-    return NextResponse.json(
-      { error: "Only client accounts can start a Stripe Checkout session." },
-      { status: 403 },
+  let user: Awaited<ReturnType<typeof requireCurrentActionRole>>;
+
+  try {
+    user = await requireCurrentActionRole(
+      currentUser,
+      [UserRole.CLIENT],
+      "Only client accounts can start a Stripe Checkout session.",
     );
+  } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
+    throw error;
   }
 
   let payload: unknown;

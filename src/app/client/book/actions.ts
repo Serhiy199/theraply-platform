@@ -3,9 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/session";
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import { bookingRequestSchema } from "@/lib/validations/booking-flow";
 import {
   BookingFlowServiceError,
@@ -23,13 +22,11 @@ export async function createBookingRequestAction(
   _prevState: BookingRequestActionState,
   formData: FormData,
 ): Promise<BookingRequestActionState> {
-  const user = await getCurrentUser();
   let bookingId: string | null = null;
   let therapistId: string | null = null;
 
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.CLIENT],
       "Only client accounts can create booking requests.",
     );

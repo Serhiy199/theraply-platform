@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
+import {
+  bookingIdPayloadSchema,
+  clientCompensationPayloadSchema,
+} from "@/lib/validations/action-payloads";
 import {
   cancelClientBooking,
   ClientBookingsServiceError,
@@ -40,19 +43,24 @@ export async function cancelBookingAction(
   _prevState: CancelBookingActionState,
   formData: FormData,
 ): Promise<CancelBookingActionState> {
-  const bookingId = String(formData.get("bookingId") ?? "").trim();
-  const user = await getCurrentUser();
+  const parsed = bookingIdPayloadSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+  });
 
   try {
-    assertActionRole(user, [UserRole.CLIENT], "Only client accounts can cancel client bookings.");
+    const user = await requireActionRole(
+      [UserRole.CLIENT],
+      "Only client accounts can cancel client bookings.",
+    );
 
-    if (!bookingId) {
+    if (!parsed.success) {
       return {
         status: "error",
-        message: "Booking identifier is missing.",
+        message: parsed.error.flatten().fieldErrors.bookingId?.[0] ?? "Booking identifier is missing.",
       };
     }
 
+    const { bookingId } = parsed.data;
     const cancellationResult = await cancelClientBooking(user.id, bookingId);
 
     revalidateClientBookingPaths(bookingId);
@@ -87,24 +95,25 @@ export async function resolveCompensationAction(
   _prevState: ResolveCompensationActionState,
   formData: FormData,
 ): Promise<ResolveCompensationActionState> {
-  const bookingId = String(formData.get("bookingId") ?? "").trim();
-  const resolution = String(formData.get("resolution") ?? "").trim();
-  const user = await getCurrentUser();
+  const parsed = clientCompensationPayloadSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+    resolution: formData.get("resolution"),
+  });
 
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.CLIENT],
       "Only client accounts can resolve compensation for cancelled bookings.",
     );
 
-    if (!bookingId || (resolution !== "refund" && resolution !== "credit")) {
+    if (!parsed.success) {
       return {
         status: "error",
         message: "Compensation action payload is incomplete.",
       };
     }
 
+    const { bookingId, resolution } = parsed.data;
     const result = await resolveClientCancellationCompensation(
       user.id,
       bookingId,

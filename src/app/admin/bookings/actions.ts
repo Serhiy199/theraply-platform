@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
+import { adminCancelBookingPayloadSchema } from "@/lib/validations/action-payloads";
 import {
   AdminOperationsServiceError,
   adminCancelBooking,
@@ -19,23 +19,24 @@ export async function adminCancelBookingAction(
   _prevState: AdminCancelBookingActionState,
   formData: FormData,
 ): Promise<AdminCancelBookingActionState> {
-  const bookingId = String(formData.get("bookingId") ?? "").trim();
-  const user = await getCurrentUser();
+  const parsed = adminCancelBookingPayloadSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+  });
 
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.ADMIN],
       "Only admin accounts can cancel bookings manually from the admin panel.",
     );
 
-    if (!bookingId) {
+    if (!parsed.success) {
       return {
         status: "error",
-        message: "Booking identifier is missing.",
+        message: parsed.error.flatten().fieldErrors.bookingId?.[0] ?? "Booking identifier is missing.",
       };
     }
 
+    const { bookingId } = parsed.data;
     const cancellationResult = await adminCancelBooking(user.id, bookingId);
 
     revalidatePath("/admin/bookings");

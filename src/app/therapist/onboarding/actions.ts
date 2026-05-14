@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth/session";
-import { ActionPermissionError, assertActionRole } from "@/lib/permissions";
+import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import {
   therapistOnboardingDraftSchema,
   therapistOnboardingSubmitSchema,
@@ -116,11 +115,8 @@ export async function saveTherapistOnboardingDraftAction(
   _prevState: TherapistOnboardingActionState,
   formData: FormData,
 ): Promise<TherapistOnboardingActionState> {
-  const user = await getCurrentUser();
-
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.THERAPIST],
       "Only therapist accounts can save onboarding drafts.",
     );
@@ -154,11 +150,8 @@ export async function submitTherapistOnboardingForReviewAction(
   _prevState: TherapistOnboardingActionState,
   formData: FormData,
 ): Promise<TherapistOnboardingActionState> {
-  const user = await getCurrentUser();
-
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.THERAPIST],
       "Only therapist accounts can submit onboarding for review.",
     );
@@ -192,11 +185,8 @@ export async function uploadTherapistCertificatesAction(
   _prevState: TherapistCertificateUploadActionState,
   formData: FormData,
 ): Promise<TherapistCertificateUploadActionState> {
-  const user = await getCurrentUser();
-
   try {
-    assertActionRole(
-      user,
+    const user = await requireActionRole(
       [UserRole.THERAPIST],
       "Only therapist accounts can upload certificates.",
     );
