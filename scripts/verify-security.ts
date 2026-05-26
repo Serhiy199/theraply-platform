@@ -499,6 +499,46 @@ function checkMonitoringSanitization(): CheckResult {
   };
 }
 
+function checkCertificateDirectUploadUi(): CheckResult {
+  const file = "src/components/forms/therapist-onboarding-form.tsx";
+
+  if (!fileExists(file)) {
+    return {
+      name: "Certificate UI uploads directly to Cloudinary",
+      status: "fail",
+      details: [`${file}: missing`],
+    };
+  }
+
+  const content = readText(file);
+  const details: string[] = [];
+
+  for (const pattern of [
+    "/api/therapist/certificates/upload-signature",
+    "/api/therapist/certificates/confirm-upload",
+    'cloudinaryPayload.append("file", file)',
+    'type="button"',
+  ]) {
+    if (!content.includes(pattern)) {
+      details.push(`${file}: missing ${pattern}`);
+    }
+  }
+
+  if (content.includes("uploadTherapistCertificatesAction")) {
+    details.push(`${file}: certificate binary upload must not use an onboarding Server Action`);
+  }
+
+  if (/name\s*=\s*["']certificates["']/.test(content)) {
+    details.push(`${file}: file input must not be included in onboarding FormData`);
+  }
+
+  return {
+    name: "Certificate UI uploads directly to Cloudinary",
+    status: details.length ? "fail" : "pass",
+    details,
+  };
+}
+
 function printResult(result: CheckResult) {
   const icon = result.status === "pass" ? "PASS" : result.status === "warn" ? "WARN" : "FAIL";
   console.log(`[${icon}] ${result.name}`);
@@ -517,6 +557,7 @@ function main() {
     checkDangerousPatterns(),
     checkValidationCoverage(),
     checkMonitoringSanitization(),
+    checkCertificateDirectUploadUi(),
   ];
 
   console.log("Theraply security verification\n");

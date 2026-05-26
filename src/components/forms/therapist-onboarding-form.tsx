@@ -1,22 +1,20 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useRef, useState } from "react";
 import {
   saveTherapistOnboardingDraftAction,
   submitTherapistOnboardingForReviewAction,
-  uploadTherapistCertificatesAction,
 } from "@/app/therapist/onboarding/actions";
-import type {
-  TherapistCertificateUploadActionState,
-  TherapistOnboardingActionState,
-} from "@/app/therapist/onboarding/actions";
+import type { TherapistOnboardingActionState } from "@/app/therapist/onboarding/actions";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE,
-  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES,
-  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_LABEL,
+  CERTIFICATE_ALLOWED_FORMATS,
+  CERTIFICATE_FILE_TOO_LARGE_MESSAGE,
+  CERTIFICATE_MAX_FILE_SIZE_BYTES,
+  CERTIFICATE_MAX_FILE_SIZE_LABEL,
 } from "@/lib/constants/certificate-upload";
 
 const genderOptions = ["Female", "Male", "Other", "Prefer not to say"] as const;
@@ -56,7 +54,33 @@ const initialActionState: TherapistOnboardingActionState = {
   status: "idle",
 };
 
-const initialUploadActionState: TherapistCertificateUploadActionState = {
+type CertificateUploadState = {
+  status: "idle" | "success" | "error";
+  message?: string;
+  fieldErrors?: {
+    certificates?: string[];
+  };
+};
+
+type CertificateUploadSignatureResponse = {
+  success: true;
+  upload: {
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    publicId: string;
+    uploadUrl: string;
+  };
+};
+
+type CloudinaryDirectUploadResponse = {
+  public_id?: unknown;
+  version?: unknown;
+  signature?: unknown;
+  resource_type?: unknown;
+};
+
+const initialUploadState: CertificateUploadState = {
   status: "idle",
 };
 
@@ -114,33 +138,186 @@ function formatUploadDate(date: Date) {
   }).format(new Date(date));
 }
 
+async function getUploadResponseError(response: Response, fallbackMessage: string) {
+  const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+
+  return typeof body?.error === "string" ? body.error : fallbackMessage;
+}
+
+function getFileExtension(fileName: string) {
+  return fileName.split(".").pop()?.trim().toLowerCase() ?? "";
+}
+
+function hasAllowedCertificateFileType(file: File) {
+  return CERTIFICATE_ALLOWED_FORMATS.some((extension) => extension === getFileExtension(file.name));
+}
+
+function getCertificateMimeType(file: File) {
+  if (file.type.trim()) {
+    return file.type;
+  }
+
+  switch (getFileExtension(file.name)) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "pdf":
+      return "application/pdf";
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "txt":
+      return "text/plain";
+    default:
+      return "";
+  }
+}
+
 function CertificatesBlock({
   certificates,
   fieldErrors,
   pending,
-  uploadAction,
   uploadPending,
+  setUploadPending,
+  setUploadState,
 }: {
   certificates: TherapistCertificateListItem[];
   fieldErrors?: string[];
   pending: boolean;
-  uploadAction: (formData: FormData) => void;
   uploadPending: boolean;
+  setUploadPending: (pending: boolean) => void;
+  setUploadState: (state: CertificateUploadState) => void;
 }) {
-  const [clientFileError, setClientFileError] = useState<string | null>(null);
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleUploadAction(formData: FormData) {
-    const file = formData.get("certificates");
+  async function handleUpload() {
+    const file = fileInputRef.current?.files?.[0];
 
-    if (file instanceof File && file.size > CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES) {
-      setClientFileError(CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE);
+    if (!file) {
+      setUploadState({
+        status: "error",
+        message: "Choose at least one certificate file to upload.",
+        fieldErrors: { certificates: ["Choose at least one certificate file to upload."] },
+      });
       return;
     }
 
-    setClientFileError(null);
-    startTransition(() => {
-      uploadAction(formData);
-    });
+    if (file.size > CERTIFICATE_MAX_FILE_SIZE_BYTES) {
+      setUploadState({
+        status: "error",
+        message: CERTIFICATE_FILE_TOO_LARGE_MESSAGE,
+        fieldErrors: { certificates: [CERTIFICATE_FILE_TOO_LARGE_MESSAGE] },
+      });
+      return;
+    }
+
+    if (!hasAllowedCertificateFileType(file)) {
+      const message = "Certificate files must be JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT.";
+
+      setUploadState({
+        status: "error",
+        message,
+        fieldErrors: { certificates: [message] },
+      });
+      return;
+    }
+
+    setUploadPending(true);
+    setUploadState({ status: "idle" });
+
+    try {
+      const signatureResponse = await fetch("/api/therapist/certificates/upload-signature", {
+        method: "POST",
+      });
+
+      if (!signatureResponse.ok) {
+        throw new Error(
+          await getUploadResponseError(
+            signatureResponse,
+            "Could not prepare certificate upload. Please try again.",
+          ),
+        );
+      }
+
+      const signaturePayload = (await signatureResponse.json()) as CertificateUploadSignatureResponse;
+      const cloudinaryPayload = new FormData();
+
+      cloudinaryPayload.append("file", file);
+      cloudinaryPayload.append("api_key", signaturePayload.upload.apiKey);
+      cloudinaryPayload.append("timestamp", String(signaturePayload.upload.timestamp));
+      cloudinaryPayload.append("public_id", signaturePayload.upload.publicId);
+      cloudinaryPayload.append("signature", signaturePayload.upload.signature);
+
+      const cloudinaryResponse = await fetch(signaturePayload.upload.uploadUrl, {
+        method: "POST",
+        body: cloudinaryPayload,
+      });
+
+      if (!cloudinaryResponse.ok) {
+        throw new Error("Certificate upload failed. Please try again.");
+      }
+
+      const cloudinaryResult =
+        (await cloudinaryResponse.json()) as CloudinaryDirectUploadResponse;
+      const resourceType = cloudinaryResult.resource_type;
+
+      if (
+        typeof cloudinaryResult.public_id !== "string" ||
+        typeof cloudinaryResult.version !== "number" ||
+        typeof cloudinaryResult.signature !== "string" ||
+        (resourceType !== "image" && resourceType !== "raw")
+      ) {
+        throw new Error("Could not verify the uploaded certificate. Please try again.");
+      }
+
+      const confirmResponse = await fetch("/api/therapist/certificates/confirm-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: getCertificateMimeType(file),
+          publicId: cloudinaryResult.public_id,
+          version: cloudinaryResult.version,
+          signature: cloudinaryResult.signature,
+          resourceType,
+        }),
+      });
+
+      if (!confirmResponse.ok) {
+        throw new Error(
+          await getUploadResponseError(
+            confirmResponse,
+            "Could not confirm certificate upload. Please try again.",
+          ),
+        );
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setUploadState({
+        status: "success",
+        message: "Certificate uploaded successfully.",
+      });
+      router.refresh();
+    } catch (error) {
+      setUploadState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while uploading certificates.",
+      });
+    } finally {
+      setUploadPending(false);
+    }
   }
 
   return (
@@ -152,25 +329,25 @@ function CertificatesBlock({
           </p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             Upload one JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT file up to{" "}
-            {CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_LABEL}. Add more files one at a time.
+            {CERTIFICATE_MAX_FILE_SIZE_LABEL}. Add more files one at a time.
           </p>
           <input
+            ref={fileInputRef}
             id="certificates"
-            name="certificates"
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.txt,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             disabled={pending}
-            onChange={() => setClientFileError(null)}
+            onChange={() => setUploadState({ status: "idle" })}
             className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-900 file:ring-1 file:ring-slate-300 hover:file:bg-slate-50"
           />
-          <FieldError messages={clientFileError ? [clientFileError] : fieldErrors} />
+          <FieldError messages={fieldErrors} />
         </div>
         <Button
-          type="submit"
+          type="button"
           variant="secondary"
           loading={uploadPending}
           disabled={pending}
-          formAction={handleUploadAction}
+          onClick={handleUpload}
         >
           Upload file
         </Button>
@@ -224,10 +401,8 @@ export function TherapistOnboardingForm({
     TherapistOnboardingActionState,
     FormData
   >(submitTherapistOnboardingForReviewAction, initialActionState);
-  const [uploadState, uploadAction, uploadPending] = useActionState<
-    TherapistCertificateUploadActionState,
-    FormData
-  >(uploadTherapistCertificatesAction, initialUploadActionState);
+  const [uploadState, setUploadState] = useState<CertificateUploadState>(initialUploadState);
+  const [uploadPending, setUploadPending] = useState(false);
   const fieldErrors =
     submitState.status === "error" && submitState.fieldErrors
       ? submitState.fieldErrors
@@ -235,7 +410,7 @@ export function TherapistOnboardingForm({
   const pending = savePending || submitPending || uploadPending;
 
   return (
-    <form className="mt-6 space-y-6" encType="multipart/form-data">
+    <form className="mt-6 space-y-6">
       <div className="grid gap-3">
         {getStatusAlert(saveState)}
         {getStatusAlert(submitState)}
@@ -365,8 +540,9 @@ export function TherapistOnboardingForm({
         certificates={initialValues.certificates}
         fieldErrors={uploadState.fieldErrors?.certificates}
         pending={pending}
-        uploadAction={uploadAction}
         uploadPending={uploadPending}
+        setUploadPending={setUploadPending}
+        setUploadState={setUploadState}
       />
 
       <div>
