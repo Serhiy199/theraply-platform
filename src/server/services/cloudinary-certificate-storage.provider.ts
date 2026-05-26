@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { CERTIFICATE_ALLOWED_FORMATS } from "@/lib/constants/certificate-upload";
 
 type CloudinaryResourceResponse = {
   public_id?: string;
@@ -32,6 +33,7 @@ export type CloudinarySignedCertificateUploadParameters = {
   timestamp: number;
   signature: string;
   publicId: string;
+  allowedFormats: string;
   uploadUrl: string;
 };
 
@@ -88,14 +90,6 @@ function getCloudinaryConfig() {
   };
 }
 
-export function isCloudinaryCertificateStorageConfigured() {
-  return Boolean(
-    normalizeEnvValue(process.env.CLOUDINARY_CLOUD_NAME) &&
-      normalizeEnvValue(process.env.CLOUDINARY_API_KEY) &&
-      normalizeEnvValue(process.env.CLOUDINARY_API_SECRET),
-  );
-}
-
 function signCloudinaryParams(
   params: Record<string, string>,
   apiSecret: string,
@@ -120,8 +114,10 @@ export function createSignedCertificateUploadParameters(
   const config = getCloudinaryConfig();
   const timestamp = Math.floor(Date.now() / 1000);
   const publicId = `${getTherapistCertificateFolder(config.folder, therapistProfileId)}/${randomUUID()}`;
+  const allowedFormats = CERTIFICATE_ALLOWED_FORMATS.join(",");
   const signature = signCloudinaryParams(
     {
+      allowed_formats: allowedFormats,
       public_id: publicId,
       timestamp: String(timestamp),
     },
@@ -134,6 +130,7 @@ export function createSignedCertificateUploadParameters(
     timestamp,
     signature,
     publicId,
+    allowedFormats,
     uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/auto/upload`,
   };
 }

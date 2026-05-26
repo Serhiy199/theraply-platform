@@ -69,6 +69,7 @@ type CertificateUploadSignatureResponse = {
     timestamp: number;
     signature: string;
     publicId: string;
+    allowedFormats: string;
     uploadUrl: string;
   };
 };
@@ -252,6 +253,7 @@ function CertificatesBlock({
       cloudinaryPayload.append("api_key", signaturePayload.upload.apiKey);
       cloudinaryPayload.append("timestamp", String(signaturePayload.upload.timestamp));
       cloudinaryPayload.append("public_id", signaturePayload.upload.publicId);
+      cloudinaryPayload.append("allowed_formats", signaturePayload.upload.allowedFormats);
       cloudinaryPayload.append("signature", signaturePayload.upload.signature);
 
       const cloudinaryResponse = await fetch(signaturePayload.upload.uploadUrl, {

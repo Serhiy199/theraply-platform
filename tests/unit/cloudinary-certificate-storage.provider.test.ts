@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CloudinaryCertificateStorageConfigError,
   createSignedCertificateUploadParameters,
   verifyUploadedCertificateAsset,
 } from "@/server/services/cloudinary-certificate-storage.provider";
@@ -22,7 +23,7 @@ describe("createSignedCertificateUploadParameters", () => {
     const result = createSignedCertificateUploadParameters("profile-id");
     const expectedSignature = createHash("sha1")
       .update(
-        `public_id=${result.publicId}&timestamp=1779832800private-secret`,
+        `allowed_formats=jpg,jpeg,png,webp,pdf,doc,docx,txt&public_id=${result.publicId}&timestamp=1779832800private-secret`,
       )
       .digest("hex");
 
@@ -31,10 +32,21 @@ describe("createSignedCertificateUploadParameters", () => {
       apiKey: "public-key",
       timestamp: 1_779_832_800,
       signature: expectedSignature,
+      allowedFormats: "jpg,jpeg,png,webp,pdf,doc,docx,txt",
       uploadUrl: "https://api.cloudinary.com/v1_1/test-cloud/auto/upload",
     });
     expect(result.publicId).toMatch(/^theraply\/therapist-certificates\/profile-id\/[0-9a-f-]+$/);
     expect(JSON.stringify(result)).not.toContain("private-secret");
+  });
+
+  it("throws a controlled configuration error when Cloudinary secrets are missing", () => {
+    vi.stubEnv("CLOUDINARY_CLOUD_NAME", "test-cloud");
+    vi.stubEnv("CLOUDINARY_API_KEY", "public-key");
+    vi.stubEnv("CLOUDINARY_API_SECRET", "");
+
+    expect(() => createSignedCertificateUploadParameters("profile-id")).toThrowError(
+      CloudinaryCertificateStorageConfigError,
+    );
   });
 });
 
@@ -126,5 +138,40 @@ describe("verifyUploadedCertificateAsset", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects Cloudinary resource metadata that does not match the signed confirmation", async () => {
+    setupConfig();
+    const confirmation = buildConfirmation();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          public_id: "theraply/therapist-certificates/profile-id/different-asset",
+          secure_url: "https://res.cloudinary.com/test-cloud/image/upload/asset-id.jpg",
+          bytes: 2_048,
+          version: confirmation.version,
+          resource_type: "image",
+          type: "upload",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      verifyUploadedCertificateAsset("profile-id", confirmation),
+    ).rejects.toMatchObject({
+      name: "CloudinaryCertificateAssetVerificationError",
+    });
+  });
+
+  it("rejects an asset when Cloudinary cannot read it back for confirmation", async () => {
+    setupConfig();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("not found", { status: 404 }));
+
+    await expect(
+      verifyUploadedCertificateAsset("profile-id", buildConfirmation()),
+    ).rejects.toMatchObject({
+      name: "CloudinaryCertificateAssetVerificationError",
+    });
   });
 });

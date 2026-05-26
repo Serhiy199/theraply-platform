@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { ActionPermissionError } from "@/lib/permissions";
 import { CertificateStorageServiceError } from "@/server/services/certificate-storage.service";
 import { CloudinaryCertificateStorageConfigError } from "@/server/services/cloudinary-certificate-storage.provider";
@@ -85,6 +86,7 @@ beforeEach(() => {
     timestamp: 1779832800,
     signature: "signed-value",
     publicId: "theraply/therapist-certificates/therapist-profile-id/signed-asset-id",
+    allowedFormats: "jpg,jpeg,png,webp,pdf,doc,docx,txt",
     uploadUrl: "https://api.cloudinary.com/v1_1/cloud-name/auto/upload",
   });
 });
@@ -119,6 +121,10 @@ describe("POST /api/therapist/certificates/upload-signature", () => {
 
     expect(response.status).toBe(200);
     expect(assertCanUploadMock).toHaveBeenCalledWith("therapist-user-id");
+    expect(checkRateLimitPresetMock).toHaveBeenCalledWith(
+      RATE_LIMIT_PRESETS.therapistCertificateUpload,
+      expect.stringContaining("therapist-user-id"),
+    );
     expect(createSignedUploadMock).toHaveBeenCalledWith("therapist-profile-id");
     expect(body).toMatchObject({
       success: true,
@@ -127,8 +133,9 @@ describe("POST /api/therapist/certificates/upload-signature", () => {
         apiKey: "public-api-key",
         signature: "signed-value",
         publicId: "theraply/therapist-certificates/therapist-profile-id/signed-asset-id",
+        allowedFormats: "jpg,jpeg,png,webp,pdf,doc,docx,txt",
         maxFileSize: 10 * 1024 * 1024,
-        allowedFormats: ["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "txt"],
+        acceptedFormats: ["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "txt"],
       },
     });
     expect(JSON.stringify(body)).not.toContain("CLOUDINARY_API_SECRET");

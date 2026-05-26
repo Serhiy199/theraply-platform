@@ -110,6 +110,7 @@ const criticalFiles: Array<{
       "checkRateLimitPreset",
       "assertTherapistCanUploadCertificate",
       "createSignedCertificateUploadParameters",
+      "acceptedFormats",
     ],
   },
   {
@@ -400,6 +401,69 @@ function checkWixIntegrationSecrets(): CheckResult {
   };
 }
 
+function checkCloudinaryCertificateUploadSecrets(): CheckResult {
+  const details: string[] = [];
+  const providerFile = "src/server/services/cloudinary-certificate-storage.provider.ts";
+  const uiFile = "src/components/forms/therapist-onboarding-form.tsx";
+  const gitignoreFile = ".gitignore";
+
+  for (const file of exampleEnvFiles) {
+    if (fileExists(file) && parseEnvKeys(readText(file)).has("NEXT_PUBLIC_CLOUDINARY_API_SECRET")) {
+      details.push(`${file}: NEXT_PUBLIC_CLOUDINARY_API_SECRET must not be defined`);
+    }
+  }
+
+  if (!fileExists(providerFile)) {
+    details.push(`${providerFile}: missing`);
+  } else {
+    const content = readText(providerFile);
+
+    for (const pattern of ['import "server-only"', "process.env.CLOUDINARY_API_SECRET"]) {
+      if (!content.includes(pattern)) {
+        details.push(`${providerFile}: missing ${pattern}`);
+      }
+    }
+  }
+
+  if (!fileExists(uiFile)) {
+    details.push(`${uiFile}: missing`);
+  } else if (readText(uiFile).includes("CLOUDINARY_API_SECRET")) {
+    details.push(`${uiFile}: must not reference CLOUDINARY_API_SECRET`);
+  }
+
+  const sourceFiles = sourceScanRoots
+    .flatMap(listFiles)
+    .filter((file) => file !== "scripts/verify-security.ts");
+
+  for (const file of sourceFiles) {
+    if (readText(file).includes("NEXT_PUBLIC_CLOUDINARY_API_SECRET")) {
+      details.push(`${file}: NEXT_PUBLIC_CLOUDINARY_API_SECRET must not be used`);
+    }
+  }
+
+  if (!fileExists(gitignoreFile)) {
+    details.push(`${gitignoreFile}: missing`);
+  } else {
+    const content = readText(gitignoreFile);
+
+    if (!/^\s*\.env\*\s*$/m.test(content)) {
+      details.push(`${gitignoreFile}: real .env files must remain ignored`);
+    }
+
+    for (const file of exampleEnvFiles) {
+      if (!new RegExp(`^\\s*!${file.replace(".", "\\.")}\\s*$`, "m").test(content)) {
+        details.push(`${gitignoreFile}: ${file} must remain commit-visible`);
+      }
+    }
+  }
+
+  return {
+    name: "Cloudinary direct upload keeps secrets server-only and templates commit-visible",
+    status: details.length ? "fail" : "pass",
+    details,
+  };
+}
+
 function checkCriticalFiles(): CheckResult {
   const details: string[] = [];
 
@@ -516,6 +580,7 @@ function checkCertificateDirectUploadUi(): CheckResult {
     "/api/therapist/certificates/upload-signature",
     "/api/therapist/certificates/confirm-upload",
     'cloudinaryPayload.append("file", file)',
+    'cloudinaryPayload.append("allowed_formats", signaturePayload.upload.allowedFormats)',
     'type="button"',
   ]) {
     if (!content.includes(pattern)) {
@@ -564,6 +629,7 @@ function main() {
     checkEnvExamples(),
     checkHardcodedSecrets(),
     checkWixIntegrationSecrets(),
+    checkCloudinaryCertificateUploadSecrets(),
     checkCriticalFiles(),
     checkDangerousPatterns(),
     checkValidationCoverage(),

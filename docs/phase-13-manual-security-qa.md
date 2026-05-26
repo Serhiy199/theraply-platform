@@ -167,6 +167,7 @@ Expected:
 - Oversized file shows a friendly validation error.
 - Valid file is uploaded directly from the browser to Cloudinary, confirmed through Theraply, and appears in the certificates list.
 - Uploading a valid file larger than 1MB and no larger than 10MB does not fail with a Server Action request-body limit error.
+- Uploading an unsupported extension is rejected by the signed Cloudinary format allowlist; when a Cloudinary certificate upload preset is configured, verify it also rejects files over 10MB before storage.
 - Admin review can see the uploaded certificate metadata/link.
 
 Evidence:

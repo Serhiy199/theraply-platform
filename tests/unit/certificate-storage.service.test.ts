@@ -117,4 +117,34 @@ describe("certificate storage service direct upload foundation", () => {
 
     expect(createMock).not.toHaveBeenCalled();
   });
+
+  it("rejects confirmed certificate metadata with an insecure URL", async () => {
+    findUniqueMock.mockResolvedValue(editableProfile);
+
+    await expect(
+      createTherapistCertificateFromCloudinaryUpload("therapist-user-id", {
+        ...buildMetadata(1_024),
+        fileUrl: "http://res.cloudinary.com/demo/raw/upload/qualification.pdf",
+      }),
+    ).rejects.toMatchObject({
+      code: "THERAPIST_CERTIFICATE_METADATA_INVALID",
+    });
+
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects confirmed certificate metadata without a Cloudinary public ID", async () => {
+    findUniqueMock.mockResolvedValue(editableProfile);
+
+    await expect(
+      createTherapistCertificateFromCloudinaryUpload("therapist-user-id", {
+        ...buildMetadata(1_024),
+        publicId: " ",
+      }),
+    ).rejects.toMatchObject({
+      code: "THERAPIST_CERTIFICATE_METADATA_INVALID",
+    });
+
+    expect(createMock).not.toHaveBeenCalled();
+  });
 });

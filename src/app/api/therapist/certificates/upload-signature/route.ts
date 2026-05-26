@@ -71,7 +71,7 @@ export async function POST() {
         upload: {
           ...signedUpload,
           maxFileSize: CERTIFICATE_MAX_FILE_SIZE_BYTES,
-          allowedFormats: CERTIFICATE_ALLOWED_FORMATS,
+          acceptedFormats: CERTIFICATE_ALLOWED_FORMATS,
         },
       },
       { status: 200, headers: getRateLimitHeaders(rateLimit) },

@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { ActionPermissionError } from "@/lib/permissions";
-import { CloudinaryCertificateAssetVerificationError } from "@/server/services/cloudinary-certificate-storage.provider";
+import { CertificateStorageServiceError } from "@/server/services/certificate-storage.service";
+import {
+  CloudinaryCertificateAssetVerificationError,
+  CloudinaryCertificateStorageConfigError,
+} from "@/server/services/cloudinary-certificate-storage.provider";
 import { POST } from "@/app/api/therapist/certificates/confirm-upload/route";
 
 const getCurrentUserMock = vi.hoisted(() => vi.fn());
@@ -152,10 +157,31 @@ describe("POST /api/therapist/certificates/confirm-upload", () => {
     expect(verifyAssetMock).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed JSON before verifying the asset", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/therapist/certificates/confirm-upload", {
+        method: "POST",
+        body: "{",
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Request body must be valid JSON.",
+    });
+    expect(verifyAssetMock).not.toHaveBeenCalled();
+  });
+
   it("persists only Cloudinary-verified URL and bytes", async () => {
     const response = await POST(buildRequest() as never);
 
     expect(response.status).toBe(201);
+    expect(checkRateLimitPresetMock).toHaveBeenCalledWith(
+      RATE_LIMIT_PRESETS.therapistCertificateConfirmUpload,
+      expect.stringContaining("therapist-user-id"),
+    );
     expect(verifyAssetMock).toHaveBeenCalledWith("profile-id", {
       publicId: requestPayload.publicId,
       version: requestPayload.version,
@@ -190,6 +216,38 @@ describe("POST /api/therapist/certificates/confirm-upload", () => {
     });
     expect(persistCertificateMock).not.toHaveBeenCalled();
     expect(logDiagnosticEventMock).toHaveBeenCalled();
+  });
+
+  it("returns a controlled response when Cloudinary verification is not configured", async () => {
+    verifyAssetMock.mockRejectedValue(new CloudinaryCertificateStorageConfigError());
+
+    const response = await POST(buildRequest() as never);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Certificate upload is not configured yet.",
+    });
+    expect(persistCertificateMock).not.toHaveBeenCalled();
+    expect(logDiagnosticEventMock).toHaveBeenCalled();
+  });
+
+  it("returns a safe validation response when confirmed metadata violates the 10MB contract", async () => {
+    persistCertificateMock.mockRejectedValue(
+      new CertificateStorageServiceError(
+        "Certificate files must be 10MB or smaller.",
+        "THERAPIST_CERTIFICATE_FILE_TOO_LARGE",
+      ),
+    );
+
+    const response = await POST(buildRequest() as never);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: "Certificate files must be 10MB or smaller.",
+    });
+    expect(createAuditLogMock).not.toHaveBeenCalled();
   });
 
   it("rate-limits repeated confirmation attempts", async () => {
