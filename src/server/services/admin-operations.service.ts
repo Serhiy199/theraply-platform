@@ -5,6 +5,7 @@
   SessionStatus,
   TherapistApprovalStatus,
   UserRole,
+  WixSyncStatus,
 } from "@prisma/client";
 import {
   adminBookingRowSelect,
@@ -52,6 +53,10 @@ export type AdminTherapistListItem = {
   specialization: string | null;
   approvalStatus: string;
   isApproved: boolean;
+  wixSubmissionId: string | null;
+  wixSyncStatus: WixSyncStatus;
+  wixSyncedAt: Date | null;
+  wixSyncError: string | null;
   googleCalendarEmail: string | null;
   payoutVerified: boolean;
   payoutCountry: string | null;
@@ -216,6 +221,10 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
       specialization: true,
       approvalStatus: true,
       isApproved: true,
+      wixSubmissionId: true,
+      wixSyncStatus: true,
+      wixSyncedAt: true,
+      wixSyncError: true,
       googleCalendarEmail: true,
       createdAt: true,
       updatedAt: true,
@@ -245,6 +254,10 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     specialization: therapist.specialization,
     approvalStatus: therapist.approvalStatus,
     isApproved: therapist.isApproved,
+    wixSubmissionId: therapist.wixSubmissionId,
+    wixSyncStatus: therapist.wixSyncStatus,
+    wixSyncedAt: therapist.wixSyncedAt,
+    wixSyncError: therapist.wixSyncError,
     googleCalendarEmail: therapist.googleCalendarEmail,
     payoutVerified: therapist.payoutDetails?.isVerified ?? false,
     payoutCountry: therapist.payoutDetails?.country ?? null,

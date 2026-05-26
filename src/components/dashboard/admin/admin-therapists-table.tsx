@@ -1,4 +1,6 @@
+import { TherapistApprovalStatus, WixSyncStatus } from "@prisma/client";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { AdminTherapistWixSyncAction } from "@/components/dashboard/admin/admin-therapist-wix-sync-action";
 import type {
   AdminTherapistListItem,
   AdminTherapistReviewItem,
@@ -18,6 +20,57 @@ function getTherapistDisplayName(therapist: AdminTherapistListItem) {
     therapist.displayName ||
     [therapist.firstName, therapist.lastName].filter(Boolean).join(" ") ||
     therapist.email
+  );
+}
+
+function getShortWixSyncError(error: string | null) {
+  if (!error) {
+    return "Синхронізація не вдалася.";
+  }
+
+  const normalized = error.trim();
+  return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
+}
+
+function canRetryWixSync(therapist: AdminTherapistListItem) {
+  return (
+    therapist.approvalStatus === TherapistApprovalStatus.APPROVED &&
+    (therapist.wixSyncStatus === WixSyncStatus.FAILED ||
+      therapist.wixSyncStatus === WixSyncStatus.NOT_SYNCED)
+  );
+}
+
+function WixSyncCell({ therapist }: { therapist: AdminTherapistListItem }) {
+  return (
+    <div className="flex min-w-56 flex-col gap-2">
+      {therapist.wixSyncStatus === WixSyncStatus.SYNCED ? (
+        <>
+          <Badge variant="success" className="w-fit">
+            Synced with Wix
+          </Badge>
+          <span className="text-xs text-slate-600">
+            {therapist.wixSyncedAt ? formatDate(therapist.wixSyncedAt) : "Date unavailable"}
+          </span>
+        </>
+      ) : therapist.wixSyncStatus === WixSyncStatus.FAILED ? (
+        <>
+          <Badge variant="danger" className="w-fit">
+            Sync failed
+          </Badge>
+          <span className="max-w-64 text-xs leading-5 text-rose-700">
+            {getShortWixSyncError(therapist.wixSyncError)}
+          </span>
+        </>
+      ) : (
+        <Badge variant="neutral" className="w-fit">
+          Not synced
+        </Badge>
+      )}
+
+      {canRetryWixSync(therapist) ? (
+        <AdminTherapistWixSyncAction therapistProfileId={therapist.id} />
+      ) : null}
+    </div>
   );
 }
 
@@ -69,6 +122,7 @@ export function AdminTherapistsTable({
                 <th className="px-5 py-4">Specialization</th>
                 <th className="px-5 py-4">Calendar</th>
                 <th className="px-5 py-4">Payout</th>
+                <th className="px-5 py-4">Wix Sync</th>
                 <th className="px-5 py-4">Created</th>
               </tr>
             </thead>
@@ -108,6 +162,9 @@ export function AdminTherapistsTable({
                       </Badge>
                       <span>{therapist.payoutCountry ?? "No country yet"}</span>
                     </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <WixSyncCell therapist={therapist} />
                   </td>
                   <td className="px-5 py-4 text-slate-600">{formatDate(therapist.createdAt)}</td>
                 </tr>
