@@ -165,7 +165,8 @@ Expected:
 
 - Unsupported type shows a friendly validation error.
 - Oversized file shows a friendly validation error.
-- Valid file uploads to configured storage and appears in the certificates list.
+- Valid file is uploaded directly from the browser to Cloudinary, confirmed through Theraply, and appears in the certificates list.
+- Uploading a valid file larger than 1MB and no larger than 10MB does not fail with a Server Action request-body limit error.
 - Admin review can see the uploaded certificate metadata/link.
 
 Evidence:

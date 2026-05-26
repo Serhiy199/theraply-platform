@@ -4,16 +4,9 @@ import { TherapistApprovalStatus } from "@prisma/client";
 import {
   CERTIFICATE_FILE_TOO_LARGE_MESSAGE,
   CERTIFICATE_MAX_FILE_SIZE_BYTES,
-  CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE,
-  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES,
 } from "@/lib/constants/certificate-upload";
 import { prisma } from "@/lib/prisma";
 import { canEditTherapistOnboardingDraft } from "@/lib/therapist-lifecycle";
-import {
-  isCloudinaryCertificateStorageConfigured,
-  uploadCertificateToCloudinary,
-  type CloudinaryCertificateUploadResult,
-} from "@/server/services/cloudinary-certificate-storage.provider";
 
 const CERTIFICATE_ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -36,12 +29,6 @@ const CERTIFICATE_ALLOWED_EXTENSIONS = new Set([
   "txt",
 ]);
 
-export type CertificateStorageUploadResult = CloudinaryCertificateUploadResult;
-
-export type CertificateStorageProvider = {
-  upload(input: { file: File }): Promise<CertificateStorageUploadResult>;
-};
-
 export type TherapistCertificateCloudinaryUploadMetadata = {
   fileName: string;
   fileUrl: string;
@@ -59,54 +46,12 @@ export class CertificateStorageServiceError extends Error {
       | "THERAPIST_CERTIFICATE_UPLOAD_LOCKED"
       | "THERAPIST_CERTIFICATE_FILE_REQUIRED"
       | "THERAPIST_CERTIFICATE_FILE_TOO_LARGE"
-      | "THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE"
       | "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED"
-      | "THERAPIST_CERTIFICATE_METADATA_INVALID"
-      | "THERAPIST_CERTIFICATE_STORAGE_NOT_CONFIGURED"
-      | "THERAPIST_CERTIFICATE_UPLOAD_FAILED",
+      | "THERAPIST_CERTIFICATE_METADATA_INVALID",
   ) {
     super(message);
     this.name = "CertificateStorageServiceError";
   }
-}
-
-function normalizeEnvValue(value: string | undefined) {
-  const normalized = value?.trim();
-
-  if (!normalized) {
-    return null;
-  }
-
-  if (
-    (normalized.startsWith("\"") && normalized.endsWith("\"")) ||
-    (normalized.startsWith("'") && normalized.endsWith("'"))
-  ) {
-    return normalized.slice(1, -1).trim();
-  }
-
-  return normalized;
-}
-
-function getStorageProvider(): CertificateStorageProvider {
-  const provider = normalizeEnvValue(process.env.CERTIFICATE_STORAGE_PROVIDER) ?? "cloudinary";
-
-  if (provider !== "cloudinary") {
-    throw new CertificateStorageServiceError(
-      "Certificate storage provider is not supported.",
-      "THERAPIST_CERTIFICATE_STORAGE_NOT_CONFIGURED",
-    );
-  }
-
-  if (!isCloudinaryCertificateStorageConfigured()) {
-    throw new CertificateStorageServiceError(
-      "Cloudinary certificate storage is not configured.",
-      "THERAPIST_CERTIFICATE_STORAGE_NOT_CONFIGURED",
-    );
-  }
-
-  return {
-    upload: uploadCertificateToCloudinary,
-  };
 }
 
 function getFileExtension(fileName: string) {
@@ -164,24 +109,6 @@ function validateCertificateMetadata(
     throw new CertificateStorageServiceError(
       "Certificate files must be JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT.",
       "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED",
-    );
-  }
-}
-
-function validateServerActionCertificateFile(file: File) {
-  validateCertificateMetadata({
-    fileName: file.name,
-    fileUrl: "https://legacy-upload.local/pending",
-    publicId: "legacy-upload-pending",
-    storageProvider: "cloudinary",
-    mimeType: file.type,
-    size: file.size,
-  });
-
-  if (file.size > CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES) {
-    throw new CertificateStorageServiceError(
-      CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE,
-      "THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE",
     );
   }
 }
@@ -254,49 +181,4 @@ export async function createTherapistCertificateFromCloudinaryUpload(
   const profile = await assertTherapistCanUploadCertificate(userId);
 
   return createTherapistCertificateRecord(profile.id, input);
-}
-
-export async function uploadTherapistCertificates(userId: string, files: File[]) {
-  if (!files.length) {
-    throw new CertificateStorageServiceError(
-      "Choose at least one certificate file to upload.",
-      "THERAPIST_CERTIFICATE_FILE_REQUIRED",
-    );
-  }
-
-  const profile = await assertTherapistCanUploadCertificate(userId);
-  const provider = getStorageProvider();
-  const uploadedCertificates = [];
-
-  for (const file of files) {
-    validateServerActionCertificateFile(file);
-
-    let uploadResult: CertificateStorageUploadResult;
-
-    try {
-      uploadResult = await provider.upload({ file });
-    } catch (error) {
-      if (error instanceof CertificateStorageServiceError) {
-        throw error;
-      }
-
-      throw new CertificateStorageServiceError(
-        "Certificate upload failed. Please try again.",
-        "THERAPIST_CERTIFICATE_UPLOAD_FAILED",
-      );
-    }
-
-    const certificate = await createTherapistCertificateRecord(profile.id, {
-      fileName: uploadResult.fileName,
-      fileUrl: uploadResult.fileUrl,
-      publicId: uploadResult.publicId,
-      storageProvider: uploadResult.storageProvider,
-      mimeType: uploadResult.mimeType,
-      size: uploadResult.size,
-    });
-
-    uploadedCertificates.push(certificate);
-  }
-
-  return uploadedCertificates;
 }

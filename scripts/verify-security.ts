@@ -32,7 +32,6 @@ const requiredEnvKeys = [
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
   "CLOUDINARY_CERTIFICATES_FOLDER",
-  "CERTIFICATE_STORAGE_PROVIDER",
   "ERROR_MONITORING_PROVIDER",
   "SENTRY_DSN",
 ] as const;
@@ -532,8 +531,20 @@ function checkCertificateDirectUploadUi(): CheckResult {
     details.push(`${file}: file input must not be included in onboarding FormData`);
   }
 
+  for (const [legacyFile, legacyPattern] of [
+    ["src/app/therapist/onboarding/actions.ts", "uploadTherapistCertificatesAction"],
+    ["src/server/services/certificate-storage.service.ts", "uploadTherapistCertificates("],
+    ["src/server/services/cloudinary-certificate-storage.provider.ts", "uploadCertificateToCloudinary"],
+    ["src/lib/constants/certificate-upload.ts", "CERTIFICATE_SERVER_ACTION"],
+    ["next.config.ts", "bodySizeLimit"],
+  ] as const) {
+    if (fileExists(legacyFile) && readText(legacyFile).includes(legacyPattern)) {
+      details.push(`${legacyFile}: legacy binary upload remains (${legacyPattern})`);
+    }
+  }
+
   return {
-    name: "Certificate UI uploads directly to Cloudinary",
+    name: "Certificate UI uses direct Cloudinary upload without legacy binary flow",
     status: details.length ? "fail" : "pass",
     details,
   };

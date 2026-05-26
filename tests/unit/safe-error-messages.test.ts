@@ -24,10 +24,8 @@ describe("safe error messages", () => {
     expect(getSafeCertificateStorageErrorMessage("THERAPIST_CERTIFICATE_FILE_TOO_LARGE")).toBe(
       "Certificate files must be 10MB or smaller.",
     );
-    expect(
-      getSafeCertificateStorageErrorMessage("THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE"),
-    ).toBe(
-      "Certificate files uploaded through this form must be 4MB or smaller.",
+    expect(getSafeCertificateStorageErrorMessage("THERAPIST_CERTIFICATE_ASSET_VERIFICATION_FAILED")).toBe(
+      "Could not verify the uploaded certificate. Please try again.",
     );
   });
 });

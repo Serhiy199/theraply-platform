@@ -1,20 +1,14 @@
 import { TherapistApprovalStatus } from "@prisma/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CERTIFICATE_MAX_FILE_SIZE_BYTES,
-  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES,
-} from "@/lib/constants/certificate-upload";
+import { CERTIFICATE_MAX_FILE_SIZE_BYTES } from "@/lib/constants/certificate-upload";
 import {
   assertTherapistCanUploadCertificate,
   createTherapistCertificateFromCloudinaryUpload,
-  uploadTherapistCertificates,
 } from "@/server/services/certificate-storage.service";
 
 const findUniqueMock = vi.hoisted(() => vi.fn());
 const createMock = vi.hoisted(() => vi.fn());
-const isConfiguredMock = vi.hoisted(() => vi.fn());
-const providerUploadMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -25,11 +19,6 @@ vi.mock("@/lib/prisma", () => ({
       create: createMock,
     },
   },
-}));
-
-vi.mock("@/server/services/cloudinary-certificate-storage.provider", () => ({
-  isCloudinaryCertificateStorageConfigured: isConfiguredMock,
-  uploadCertificateToCloudinary: providerUploadMock,
 }));
 
 const editableProfile = {
@@ -113,20 +102,19 @@ describe("certificate storage service direct upload foundation", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("keeps the legacy Server Action upload below the temporary Vercel-safe limit", async () => {
+  it("rejects confirmed Cloudinary metadata with unsupported file types", async () => {
     findUniqueMock.mockResolvedValue(editableProfile);
-    isConfiguredMock.mockReturnValue(true);
-    const file = new File(
-      [new Uint8Array(CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES + 1)],
-      "legacy.pdf",
-      { type: "application/pdf" },
-    );
 
-    await expect(uploadTherapistCertificates("therapist-user-id", [file])).rejects.toMatchObject({
-      code: "THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE",
+    await expect(
+      createTherapistCertificateFromCloudinaryUpload("therapist-user-id", {
+        ...buildMetadata(1_024),
+        fileName: "malware.exe",
+        mimeType: "application/x-msdownload",
+      }),
+    ).rejects.toMatchObject({
+      code: "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED",
     });
 
-    expect(providerUploadMock).not.toHaveBeenCalled();
     expect(createMock).not.toHaveBeenCalled();
   });
 });
