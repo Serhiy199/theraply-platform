@@ -61,8 +61,15 @@ export type WixTherapistApplicationInput = {
   yearsOfExperience: string;
   educationAndCertifications: string;
   certificates?: string | null;
+  certificateAssets?: WixTherapistCertificateAsset[];
   specialisation: string;
   pricePerHour: string;
+};
+
+export type WixTherapistCertificateAsset = {
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
 };
 
 export type WixTherapistApplicationSubmissionResult = {
@@ -77,6 +84,7 @@ export class WixFormsServiceError extends Error {
     public readonly code:
       | "WIX_FORM_SUMMARY_INVALID_RESPONSE"
       | "WIX_FORM_STRUCTURE_MISMATCH"
+      | "WIX_CERTIFICATE_UPLOAD_FAILED"
       | "WIX_SUBMISSION_CREATE_FAILED"
       | "WIX_SUBMISSION_INVALID_RESPONSE",
     public readonly details?: unknown,
@@ -311,7 +319,7 @@ export function buildWixTherapistApplicationSubmissionValues(
   input: WixTherapistApplicationInput,
   options: { includeCertificates?: boolean } = {},
 ) {
-  const values: Record<string, string> = {
+  const values: Record<string, string | string[]> = {
     [WIX_THERAPIST_FORM_FIELD_KEYS.nameAndSurname]: input.nameAndSurname,
     [WIX_THERAPIST_FORM_FIELD_KEYS.gender]: input.gender,
     [WIX_THERAPIST_FORM_FIELD_KEYS.email]: input.email,
@@ -330,6 +338,61 @@ export function buildWixTherapistApplicationSubmissionValues(
   }
 
   return values;
+}
+
+async function uploadCertificateAssetForWixSubmission(
+  asset: WixTherapistCertificateAsset,
+) {
+  const { therapistApplicationFormId } = getWixConfig();
+  const mediaUploadResponse = await wixRequest<unknown>(
+    "/form-submission-service/v4/submissions/media-upload-url",
+    {
+      method: "POST",
+      body: {
+        formId: therapistApplicationFormId,
+        filename: asset.fileName,
+        mimeType: asset.mimeType,
+      },
+    },
+  );
+  const uploadUrl = isRecord(mediaUploadResponse)
+    ? readOptionalString(mediaUploadResponse.uploadUrl)
+    : null;
+
+  if (!uploadUrl) {
+    throw new WixFormsServiceError(
+      "Wix Forms не повернув URL для завантаження сертифіката.",
+      "WIX_CERTIFICATE_UPLOAD_FAILED",
+    );
+  }
+
+  const storedAssetResponse = await fetch(asset.fileUrl);
+
+  if (!storedAssetResponse.ok) {
+    throw new WixFormsServiceError(
+      "Не вдалося отримати збережений файл сертифіката для Wix.",
+      "WIX_CERTIFICATE_UPLOAD_FAILED",
+      { status: storedAssetResponse.status },
+    );
+  }
+
+  const wixUploadResponse = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": asset.mimeType,
+    },
+    body: await storedAssetResponse.arrayBuffer(),
+  });
+
+  if (!wixUploadResponse.ok) {
+    throw new WixFormsServiceError(
+      "Не вдалося завантажити файл сертифіката у Wix Forms.",
+      "WIX_CERTIFICATE_UPLOAD_FAILED",
+      { status: wixUploadResponse.status },
+    );
+  }
+
+  return uploadUrl;
 }
 
 function parseCreatedSubmissionResponse(response: unknown) {
@@ -356,8 +419,14 @@ export async function createWixTherapistApplicationSubmission(
   input: WixTherapistApplicationInput,
 ): Promise<WixTherapistApplicationSubmissionResult> {
   const preflight = await runWixTherapistApplicationFormPreflight();
+  const hasCertificateAssets = Boolean(input.certificateAssets?.length);
+  const canCreateWithRequiredCertificateUpload =
+    preflight.fieldKeysValid &&
+    preflight.unexpectedRequiredFieldTargets.length === 0 &&
+    preflight.certificateUploadRequired &&
+    hasCertificateAssets;
 
-  if (!preflight.canCreateTestSubmission) {
+  if (!preflight.canCreateTestSubmission && !canCreateWithRequiredCertificateUpload) {
     throw new WixFormsServiceError(
       WIX_THERAPIST_FORM_STRUCTURE_MISMATCH_MESSAGE,
       "WIX_FORM_STRUCTURE_MISMATCH",
@@ -366,11 +435,27 @@ export async function createWixTherapistApplicationSubmission(
   }
 
   const { therapistApplicationFormId } = getWixConfig();
-  const submissions = buildWixTherapistApplicationSubmissionValues(input, {
-    includeCertificates: preflight.certificateTextValueSupported,
-  });
 
   try {
+    const submissions = buildWixTherapistApplicationSubmissionValues(input, {
+      includeCertificates: preflight.certificateTextValueSupported,
+    });
+
+    if (!preflight.certificateTextValueSupported && input.certificateAssets?.length) {
+      const certificateUploadUrls: string[] = [];
+
+      for (const certificateAsset of input.certificateAssets) {
+        certificateUploadUrls.push(
+          await uploadCertificateAssetForWixSubmission(certificateAsset),
+        );
+      }
+
+      submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] =
+        certificateUploadUrls.length === 1
+          ? certificateUploadUrls[0]
+          : certificateUploadUrls;
+    }
+
     const response = await wixRequest<unknown>(
       "/form-submission-service/v4/submissions",
       {
@@ -397,7 +482,12 @@ export async function createWixTherapistApplicationSubmission(
 
     logDiagnosticEvent("wix-forms", "Unable to create Wix therapist submission.", {
       formId: therapistApplicationFormId,
-      fieldTargets: Object.keys(submissions),
+      fieldTargets: Object.keys(
+        buildWixTherapistApplicationSubmissionValues(input, {
+          includeCertificates: preflight.certificateTextValueSupported,
+        }),
+      ),
+      certificateAssetCount: input.certificateAssets?.length ?? 0,
       wixStatus: error instanceof WixApiRequestError ? error.status : null,
       wixError: error instanceof WixApiRequestError ? error.details : null,
       error,

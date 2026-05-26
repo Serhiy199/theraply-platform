@@ -94,6 +94,13 @@ describe("syncApprovedTherapistToWix", () => {
       specialisation: "Anxiety",
       pricePerHour: "50",
       certificates: null,
+      certificateAssets: [
+        {
+          fileName: "certificate.pdf",
+          fileUrl: "https://files.example.com/certificate.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
     });
     expect(result).toMatchObject({
       success: true,
@@ -152,6 +159,13 @@ describe("syncApprovedTherapistToWix", () => {
       specialisation: "Profile specialization",
       pricePerHour: "",
       certificates: null,
+      certificateAssets: [
+        {
+          fileName: "certificate.pdf",
+          fileUrl: "https://files.example.com/certificate.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
     });
   });
 

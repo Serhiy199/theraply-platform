@@ -74,6 +74,46 @@ function WixSyncCell({ therapist }: { therapist: AdminTherapistListItem }) {
   );
 }
 
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CertificatesCell({ therapist }: { therapist: AdminTherapistListItem }) {
+  if (!therapist.certificates.length) {
+    return <span className="text-slate-500">No files</span>;
+  }
+
+  return (
+    <details className="min-w-48">
+      <summary className="cursor-pointer font-medium text-blue-700">
+        View files ({therapist.certificates.length})
+      </summary>
+      <ul className="mt-2 flex flex-col gap-2">
+        {therapist.certificates.map((certificate) => (
+          <li key={certificate.id}>
+            <a
+              href={certificate.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block max-w-64 truncate text-sm text-blue-700 underline underline-offset-2"
+              title={certificate.fileName}
+            >
+              {certificate.fileName}
+            </a>
+            <span className="text-xs text-slate-500">
+              {formatFileSize(certificate.size)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 type AdminTherapistsTableProps = {
   therapists: AdminTherapistListItem[];
   pendingReviews: AdminTherapistReviewItem[];
@@ -120,6 +160,7 @@ export function AdminTherapistsTable({
                 <th className="px-5 py-4">Therapist</th>
                 <th className="px-5 py-4">Approval</th>
                 <th className="px-5 py-4">Specialization</th>
+                <th className="px-5 py-4">Certificates</th>
                 <th className="px-5 py-4">Calendar</th>
                 <th className="px-5 py-4">Payout</th>
                 <th className="px-5 py-4">Wix Sync</th>
@@ -149,6 +190,9 @@ export function AdminTherapistsTable({
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {therapist.specialization ?? "Not set"}
+                  </td>
+                  <td className="px-5 py-4">
+                    <CertificatesCell therapist={therapist} />
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {therapist.googleCalendarEmail ?? "Not connected"}

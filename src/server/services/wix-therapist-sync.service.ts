@@ -95,8 +95,12 @@ export function buildApprovedTherapistWixInput(
     educationAndCertifications: profile.educationAndCertifications ?? "",
     specialisation: profile.specialisation ?? profile.specialization ?? "",
     pricePerHour: profile.pricePerHour ?? "",
-    // Certificate uploads are optional WIX_FILE values and require a future media upload flow.
     certificates: null,
+    certificateAssets: profile.certificates.map((certificate) => ({
+      fileName: certificate.fileName,
+      fileUrl: certificate.fileUrl,
+      mimeType: certificate.mimeType,
+    })),
   };
 }
 

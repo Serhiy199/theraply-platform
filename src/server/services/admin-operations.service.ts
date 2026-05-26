@@ -60,6 +60,14 @@ export type AdminTherapistListItem = {
   googleCalendarEmail: string | null;
   payoutVerified: boolean;
   payoutCountry: string | null;
+  certificates: Array<{
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -241,6 +249,19 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
           country: true,
         },
       },
+      certificates: {
+        orderBy: {
+          uploadedAt: "desc",
+        },
+        select: {
+          id: true,
+          fileName: true,
+          fileUrl: true,
+          mimeType: true,
+          size: true,
+          uploadedAt: true,
+        },
+      },
     },
   });
 
@@ -261,6 +282,7 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     googleCalendarEmail: therapist.googleCalendarEmail,
     payoutVerified: therapist.payoutDetails?.isVerified ?? false,
     payoutCountry: therapist.payoutDetails?.country ?? null,
+    certificates: therapist.certificates,
     createdAt: therapist.createdAt,
     updatedAt: therapist.updatedAt,
   }));

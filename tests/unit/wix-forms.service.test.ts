@@ -63,6 +63,7 @@ function buildSummary(overrides: Partial<WixFormSummary> = {}): WixFormSummary {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Wix therapist application form preflight", () => {
@@ -232,6 +233,112 @@ describe("Wix therapist application submission", () => {
     const submissionValues = createCallOptions.body.submission.submissions;
 
     expect(submissionValues).not.toHaveProperty(WIX_THERAPIST_FORM_FIELD_KEYS.certificates);
+  });
+
+  it("uploads stored certificate assets and submits Wix file upload URLs", async () => {
+    const optionalFileSummary = buildSummary();
+    optionalFileSummary.fields = optionalFileSummary.fields.map((field) =>
+      field.target === WIX_THERAPIST_FORM_FIELD_KEYS.certificates
+        ? { ...field, type: "FILE_UPLOAD", required: false }
+        : field,
+    );
+    const inputWithAsset: WixTherapistApplicationInput = {
+      ...applicationInput,
+      certificates: null,
+      certificateAssets: [
+        {
+          fileName: "qualification.png",
+          fileUrl: "https://res.cloudinary.com/test/image/upload/qualification.png",
+          mimeType: "image/png",
+        },
+      ],
+    };
+    const wixUploadUrl = "https://upload.wixmp.com/upload/signed-upload-token";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    vi.stubGlobal("fetch", fetchMock);
+    getWixConfigMock.mockReturnValue({
+      therapistApplicationFormId: "test-form-id",
+    });
+    wixRequestMock
+      .mockResolvedValueOnce({ formSummary: optionalFileSummary })
+      .mockResolvedValueOnce({ uploadUrl: wixUploadUrl })
+      .mockResolvedValueOnce({ submission: { id: "file-submission-id" } });
+
+    await createWixTherapistApplicationSubmission(inputWithAsset);
+
+    expect(wixRequestMock).toHaveBeenNthCalledWith(
+      2,
+      "/form-submission-service/v4/submissions/media-upload-url",
+      {
+        method: "POST",
+        body: {
+          formId: "test-form-id",
+          filename: "qualification.png",
+          mimeType: "image/png",
+        },
+      },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://res.cloudinary.com/test/image/upload/qualification.png",
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      wixUploadUrl,
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+
+    const [, createCallOptions] = wixRequestMock.mock.calls[2];
+    expect(createCallOptions.body.submission.submissions).toHaveProperty(
+      WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
+      wixUploadUrl,
+    );
+  });
+
+  it("accepts a required file field when a stored certificate asset is available", async () => {
+    const requiredFileSummary = buildSummary();
+    requiredFileSummary.fields = requiredFileSummary.fields.map((field) =>
+      field.target === WIX_THERAPIST_FORM_FIELD_KEYS.certificates
+        ? { ...field, type: "FILE_UPLOAD", required: true }
+        : field,
+    );
+    const wixUploadUrl = "https://upload.wixmp.com/upload/required-file-token";
+
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(new Uint8Array([1]), { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 200 })),
+    );
+    getWixConfigMock.mockReturnValue({
+      therapistApplicationFormId: "test-form-id",
+    });
+    wixRequestMock
+      .mockResolvedValueOnce({ formSummary: requiredFileSummary })
+      .mockResolvedValueOnce({ uploadUrl: wixUploadUrl })
+      .mockResolvedValueOnce({ submission: { id: "required-file-submission-id" } });
+
+    await expect(
+      createWixTherapistApplicationSubmission({
+        ...applicationInput,
+        certificates: null,
+        certificateAssets: [
+          {
+            fileName: "required.pdf",
+            fileUrl: "https://res.cloudinary.com/test/raw/upload/required.pdf",
+            mimeType: "application/pdf",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({ wixSubmissionId: "required-file-submission-id" });
   });
 
   it("reads full form requirements when summary omits optional file metadata", async () => {
