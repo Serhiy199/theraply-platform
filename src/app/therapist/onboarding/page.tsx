@@ -47,6 +47,13 @@ const statusMeta: Record<
     description:
       "Your therapist profile has been submitted. You can access this status page while the active therapist workspace remains locked.",
   },
+  CHANGES_REQUESTED: {
+    label: "Changes requested",
+    badge: "warning",
+    title: "Your profile needs updates",
+    description:
+      "An administrator has requested changes to your therapist profile before it can be approved.",
+  },
   APPROVED: {
     label: "Approved",
     badge: "success",

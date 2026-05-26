@@ -17,9 +17,16 @@ enum TherapistApprovalStatus {
   EMAIL_NOT_VERIFIED
   PROFILE_INCOMPLETE
   PENDING_REVIEW
+  CHANGES_REQUESTED
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum TherapistReviewNoteType {
+  CHANGES_REQUESTED
+  REJECTED
+  INTERNAL_NOTE
 }
 
 enum WixSyncStatus {
@@ -88,6 +95,7 @@ model User {
   cancelledBookings        Booking[]                 @relation("CancelledBookings")
   emailLogs                EmailLog[]
   auditLogs                AuditLog[]                @relation("ActorAuditLogs")
+  therapistReviewNotes     TherapistReviewNote[]     @relation("TherapistReviewNotesByAdmin")
   passwordResetTokens      PasswordResetToken[]
   emailVerificationTokens  EmailVerificationToken[]
   createdAt                DateTime                  @default(now())
@@ -144,6 +152,7 @@ model TherapistProfile {
   isGoogleCalendarConnected  Boolean                 @default(false)
   payoutDetails              TherapistPayoutDetails?
   certificates               TherapistCertificate[]
+  reviewNotes                TherapistReviewNote[]
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 
@@ -181,6 +190,21 @@ model TherapistCertificate {
   @@index([storageProvider])
   @@index([uploadedAt])
   @@index([therapistProfileId, uploadedAt])
+}
+
+model TherapistReviewNote {
+  id                 String                  @id @default(cuid())
+  therapistProfileId String
+  therapistProfile   TherapistProfile        @relation(fields: [therapistProfileId], references: [id], onDelete: Cascade)
+  adminId            String
+  admin              User                    @relation("TherapistReviewNotesByAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  type               TherapistReviewNoteType
+  message            String
+  createdAt          DateTime                @default(now())
+
+  @@index([therapistProfileId, createdAt])
+  @@index([adminId])
+  @@index([type])
 }
 
 model Booking {
