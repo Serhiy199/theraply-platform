@@ -22,6 +22,12 @@ enum TherapistApprovalStatus {
   SUSPENDED
 }
 
+enum WixSyncStatus {
+  NOT_SYNCED
+  SYNCED
+  FAILED
+}
+
 enum BookingStatus {
   PENDING_THERAPIST
   CONFIRMED
@@ -125,6 +131,10 @@ model TherapistProfile {
   rejectedAt                 DateTime?
   rejectionReason            String?
   profileDraft               Json?
+  wixSubmissionId            String?
+  wixSyncStatus              WixSyncStatus           @default(NOT_SYNCED)
+  wixSyncedAt                DateTime?
+  wixSyncError               String?
   googleCalendarId           String?                 @unique
   googleCalendarEmail        String?                 @unique
   googleAccessToken          String?
@@ -150,6 +160,8 @@ model TherapistProfile {
   @@index([approvalStatus, onboardingCompleted])
   @@index([approvalStatus, submittedForReviewAt])
   @@index([isApproved, isGoogleCalendarConnected])
+  @@index([wixSyncStatus])
+  @@index([wixSyncedAt])
 }
 
 model TherapistCertificate {

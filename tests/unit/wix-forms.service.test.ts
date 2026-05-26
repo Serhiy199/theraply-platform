@@ -234,6 +234,49 @@ describe("Wix therapist application submission", () => {
     expect(submissionValues).not.toHaveProperty(WIX_THERAPIST_FORM_FIELD_KEYS.certificates);
   });
 
+  it("reads full form requirements when summary omits optional file metadata", async () => {
+    const summaryWithoutRequiredValues = buildSummary();
+    summaryWithoutRequiredValues.fields = summaryWithoutRequiredValues.fields.map((field) => ({
+      ...field,
+      type:
+        field.target === WIX_THERAPIST_FORM_FIELD_KEYS.certificates
+          ? "WIX_FILE"
+          : field.type,
+      required: null,
+    }));
+    getWixConfigMock.mockReturnValue({
+      therapistApplicationFormId: "test-form-id",
+    });
+    wixRequestMock
+      .mockResolvedValueOnce({ formSummary: summaryWithoutRequiredValues })
+      .mockResolvedValueOnce({
+        form: {
+          formFields: summaryWithoutRequiredValues.fields.map((field) => ({
+            fieldType: "INPUT",
+            inputOptions: {
+              target: field.target,
+              required: field.target !== WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
+            },
+          })),
+        },
+      })
+      .mockResolvedValueOnce({
+        submission: { id: "enriched-summary-submission-id" },
+      });
+
+    await createWixTherapistApplicationSubmission(applicationInput);
+
+    expect(wixRequestMock).toHaveBeenNthCalledWith(
+      2,
+      "/form-schema-service/v4/forms/test-form-id",
+      { method: "GET" },
+    );
+    const [, createCallOptions] = wixRequestMock.mock.calls[2];
+    expect(createCallOptions.body.submission.submissions).not.toHaveProperty(
+      WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
+    );
+  });
+
   it("does not call create submission when preflight blocks the schema", async () => {
     const requiredFileSummary = buildSummary();
     requiredFileSummary.fields = requiredFileSummary.fields.map((field) =>

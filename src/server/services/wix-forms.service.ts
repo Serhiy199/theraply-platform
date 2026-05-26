@@ -152,6 +152,44 @@ function parseFormSummaryResponse(response: unknown): WixFormSummary {
   };
 }
 
+function mergeFormRequiredValues(
+  formSummary: WixFormSummary,
+  response: unknown,
+): WixFormSummary {
+  const form = isRecord(response) && isRecord(response.form) ? response.form : null;
+  const formFields = form && Array.isArray(form.formFields) ? form.formFields : null;
+
+  if (!formFields) {
+    throw new WixFormsServiceError(
+      WIX_THERAPIST_FORM_STRUCTURE_MISMATCH_MESSAGE,
+      "WIX_FORM_SUMMARY_INVALID_RESPONSE",
+    );
+  }
+
+  const requiredValuesByTarget = new Map<string, boolean>();
+
+  for (const field of formFields) {
+    if (!isRecord(field) || !isRecord(field.inputOptions)) {
+      continue;
+    }
+
+    const target = readOptionalString(field.inputOptions.target);
+    const required = readRequiredValue(field.inputOptions);
+
+    if (target && required !== null) {
+      requiredValuesByTarget.set(target, required);
+    }
+  }
+
+  return {
+    ...formSummary,
+    fields: formSummary.fields.map((field) => ({
+      ...field,
+      required: field.required ?? requiredValuesByTarget.get(field.target) ?? null,
+    })),
+  };
+}
+
 export async function getWixTherapistApplicationFormSummary(): Promise<WixFormSummary> {
   const { therapistApplicationFormId } = getWixConfig();
   const response = await wixRequest<unknown>(
@@ -162,6 +200,19 @@ export async function getWixTherapistApplicationFormSummary(): Promise<WixFormSu
   );
 
   return parseFormSummaryResponse(response);
+}
+
+async function enrichWixTherapistApplicationFormSummaryRequiredValues(
+  formSummary: WixFormSummary,
+): Promise<WixFormSummary> {
+  const response = await wixRequest<unknown>(
+    `/form-schema-service/v4/forms/${encodeURIComponent(formSummary.id)}`,
+    {
+      method: "GET",
+    },
+  );
+
+  return mergeFormRequiredValues(formSummary, response);
 }
 
 export function validateWixTherapistApplicationFieldKeys(
@@ -227,7 +278,12 @@ export const validateWixTherapistApplicationFieldTargets =
   validateWixTherapistApplicationFieldKeys;
 
 export async function runWixTherapistApplicationFormPreflight() {
-  const formSummary = await getWixTherapistApplicationFormSummary();
+  let formSummary = await getWixTherapistApplicationFormSummary();
+
+  if (formSummary.fields.some((field) => field.required === null)) {
+    formSummary = await enrichWixTherapistApplicationFormSummaryRequiredValues(formSummary);
+  }
+
   const preflight = validateWixTherapistApplicationFieldKeys(formSummary);
 
   if (!preflight.canCreateTestSubmission) {
