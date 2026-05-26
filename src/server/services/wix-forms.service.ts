@@ -1,5 +1,5 @@
 import "server-only";
-import { getWixConfig, wixRequest } from "@/lib/wix/wix-client";
+import { getWixConfig, WixApiRequestError, wixRequest } from "@/lib/wix/wix-client";
 import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 
 export const WIX_THERAPIST_FORM_FIELD_KEYS = {
@@ -342,12 +342,20 @@ export async function createWixTherapistApplicationSubmission(
     logDiagnosticEvent("wix-forms", "Unable to create Wix therapist submission.", {
       formId: therapistApplicationFormId,
       fieldTargets: Object.keys(submissions),
+      wixStatus: error instanceof WixApiRequestError ? error.status : null,
+      wixError: error instanceof WixApiRequestError ? error.details : null,
       error,
     });
 
     throw new WixFormsServiceError(
       "Не вдалося створити запис у Wix Forms.",
       "WIX_SUBMISSION_CREATE_FAILED",
+      error instanceof WixApiRequestError
+        ? {
+            status: error.status,
+            response: error.details,
+          }
+        : undefined,
     );
   }
 }

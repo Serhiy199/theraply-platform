@@ -94,6 +94,16 @@ const criticalFiles: Array<{
     ],
   },
   {
+    file: "src/app/api/admin/dev/test-wix-therapist-submission/route.ts",
+    patterns: [
+      'process.env.NODE_ENV !== "development"',
+      "requireCurrentActionRole",
+      "UserRole.ADMIN",
+      "createWixTherapistApplicationSubmission",
+      "logDiagnosticEvent",
+    ],
+  },
+  {
     file: "src/lib/permissions.ts",
     patterns: [
       "requireActionRole",

@@ -18,6 +18,15 @@ const logDiagnosticEventMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/wix/wix-client", () => ({
   getWixConfig: getWixConfigMock,
   wixRequest: wixRequestMock,
+  WixApiRequestError: class WixApiRequestError extends Error {
+    constructor(
+      message: string,
+      public readonly status: number,
+      public readonly details: unknown,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 vi.mock("@/server/services/audit-log.service", () => ({
