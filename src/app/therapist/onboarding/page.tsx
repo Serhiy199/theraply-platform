@@ -52,7 +52,7 @@ const statusMeta: Record<
     badge: "warning",
     title: "Your profile needs updates",
     description:
-      "An administrator has requested changes to your therapist profile before it can be approved.",
+      "An administrator has requested changes to your therapist profile. Update the required information and submit it for review again.",
   },
   APPROVED: {
     label: "Approved",
@@ -64,9 +64,9 @@ const statusMeta: Record<
   REJECTED: {
     label: "Rejected",
     badge: "danger",
-    title: "Your therapist profile needs changes",
+    title: "Your therapist application was not approved",
     description:
-      "Your application was not approved. Review the rejection reason and update the profile before submitting again.",
+      "Your application has been declined and can no longer be edited or resubmitted through onboarding.",
   },
   SUSPENDED: {
     label: "Suspended",
@@ -264,7 +264,7 @@ export default async function TherapistOnboardingPage() {
       ) : null}
 
       {approvalStatus === TherapistApprovalStatus.PROFILE_INCOMPLETE ||
-      approvalStatus === TherapistApprovalStatus.REJECTED ? (
+      approvalStatus === TherapistApprovalStatus.CHANGES_REQUESTED ? (
         <InsetCard tone="plain" className="mt-6">
           <SectionEyebrow>Profile form</SectionEyebrow>
           <TherapistOnboardingForm
@@ -306,12 +306,14 @@ export default async function TherapistOnboardingPage() {
           </p>
           <p className="mt-4 text-sm leading-6 text-slate-600">
             {approvalStatus === TherapistApprovalStatus.PROFILE_INCOMPLETE ||
-            approvalStatus === TherapistApprovalStatus.REJECTED
+            approvalStatus === TherapistApprovalStatus.CHANGES_REQUESTED
               ? "Complete the profile fields, save your draft when needed, and submit the profile for admin review when it is ready."
               : approvalStatus === TherapistApprovalStatus.PENDING_REVIEW
                 ? "Your profile is read-only while it waits for admin review."
                 : approvalStatus === TherapistApprovalStatus.APPROVED
                   ? "Your profile is approved and your therapist workspace is available."
+                  : approvalStatus === TherapistApprovalStatus.REJECTED
+                    ? "Your therapist application was not approved and cannot be resubmitted from this account."
                   : approvalStatus === TherapistApprovalStatus.SUSPENDED
                     ? "Your profile is locked while this account is suspended."
                     : "Verify your email before continuing with therapist onboarding."}

@@ -51,7 +51,16 @@ describe("certificate storage service direct upload foundation", () => {
 
     findUniqueMock.mockResolvedValue({
       ...editableProfile,
-      approvalStatus: TherapistApprovalStatus.APPROVED,
+      approvalStatus: TherapistApprovalStatus.CHANGES_REQUESTED,
+    });
+
+    await expect(assertTherapistCanUploadCertificate("therapist-user-id")).resolves.toMatchObject({
+      approvalStatus: TherapistApprovalStatus.CHANGES_REQUESTED,
+    });
+
+    findUniqueMock.mockResolvedValue({
+      ...editableProfile,
+      approvalStatus: TherapistApprovalStatus.REJECTED,
     });
 
     await expect(assertTherapistCanUploadCertificate("therapist-user-id")).rejects.toMatchObject({

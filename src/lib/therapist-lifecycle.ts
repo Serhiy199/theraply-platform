@@ -13,13 +13,14 @@ export type TherapistLifecycleAccount = {
 
 export const therapistDraftEditableStatuses = [
   TherapistApprovalStatus.PROFILE_INCOMPLETE,
-  TherapistApprovalStatus.REJECTED,
+  TherapistApprovalStatus.CHANGES_REQUESTED,
 ] as const;
 
 export const therapistDraftLockedStatuses = [
   TherapistApprovalStatus.EMAIL_NOT_VERIFIED,
   TherapistApprovalStatus.PENDING_REVIEW,
   TherapistApprovalStatus.APPROVED,
+  TherapistApprovalStatus.REJECTED,
   TherapistApprovalStatus.SUSPENDED,
 ] as const;
 
