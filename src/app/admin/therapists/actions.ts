@@ -17,11 +17,20 @@ import {
   approveTherapistReview,
   rejectTherapistReview,
 } from "@/server/services/admin-operations.service";
+import {
+  syncApprovedTherapistToWix,
+  WixTherapistSyncServiceError,
+} from "@/server/services/wix-therapist-sync.service";
 
 export type AdminTherapistReviewActionState = {
   status: "idle" | "success" | "error";
   message?: string;
   wixSyncStatus?: "synced" | "failed";
+};
+
+export type RetryWixTherapistSyncActionState = {
+  status: "idle" | "success" | "error";
+  message?: string;
 };
 
 function getErrorState(
@@ -133,5 +142,58 @@ export async function rejectTherapistAction(
       error,
       "Something went wrong while rejecting the therapist profile.",
     );
+  }
+}
+
+export async function retryWixTherapistSyncAction(
+  _prevState: RetryWixTherapistSyncActionState,
+  formData: FormData,
+): Promise<RetryWixTherapistSyncActionState> {
+  const parsed = therapistReviewPayloadSchema.safeParse({
+    therapistProfileId: formData.get("therapistProfileId"),
+  });
+
+  try {
+    await requireActionRole(
+      [UserRole.ADMIN],
+      "Only admin accounts can retry Wix therapist synchronization.",
+    );
+
+    if (!parsed.success) {
+      return {
+        status: "error",
+        message: "Не вказано профіль терапевта для синхронізації.",
+      };
+    }
+
+    await syncApprovedTherapistToWix(parsed.data.therapistProfileId);
+    revalidatePath("/admin/therapists");
+    revalidatePath("/admin/dashboard");
+
+    return {
+      status: "success",
+      message: "Терапевта успішно синхронізовано з Wix.",
+    };
+  } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
+      };
+    }
+
+    if (error instanceof WixTherapistSyncServiceError) {
+      return {
+        status: "error",
+        message:
+          "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
+      };
+    }
+
+    return {
+      status: "error",
+      message:
+        "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
+    };
   }
 }
