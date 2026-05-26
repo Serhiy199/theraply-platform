@@ -5,6 +5,7 @@ import {
   syncApprovedTherapistToWix,
   WixTherapistSyncServiceError,
 } from "@/server/services/wix-therapist-sync.service";
+import { WixFormsServiceError } from "@/server/services/wix-forms.service";
 
 const findUniqueMock = vi.hoisted(() => vi.fn());
 const updateMock = vi.hoisted(() => vi.fn());
@@ -203,5 +204,34 @@ describe("syncApprovedTherapistToWix", () => {
     expect(createAuditLogEntryBestEffortMock).toHaveBeenCalledWith(
       expect.objectContaining({ action: "WIX_THERAPIST_SYNC_FAILED" }),
     );
+  });
+
+  it("stores the controlled Wix Forms message without persisting provider details", async () => {
+    findUniqueMock.mockResolvedValue(buildApprovedProfile());
+    createSubmissionMock.mockRejectedValue(
+      new WixFormsServiceError(
+        "Не вдалося створити запис у Wix Forms.",
+        "WIX_SUBMISSION_CREATE_FAILED",
+        { status: 403, response: { message: "Provider permission denied." } },
+      ),
+    );
+    updateMock.mockResolvedValue({});
+
+    await expect(
+      syncApprovedTherapistToWix("therapist-profile-id"),
+    ).rejects.toMatchObject({
+      code: "WIX_THERAPIST_SYNC_FAILED",
+      message: "Не вдалося створити запис у Wix Forms.",
+    } satisfies Partial<WixTherapistSyncServiceError>);
+
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "therapist-profile-id" },
+      data: {
+        wixSyncStatus: WixSyncStatus.FAILED,
+        wixSyncedAt: null,
+        wixSyncError: "Не вдалося створити запис у Wix Forms.",
+      },
+    });
+    expect(JSON.stringify(updateMock.mock.calls)).not.toContain("Provider permission denied.");
   });
 });
