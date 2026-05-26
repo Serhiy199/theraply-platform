@@ -39,6 +39,7 @@ const SENSITIVE_VALUE_PATTERNS = [
   /\bwhsec_[A-Za-z0-9_]+\b/g,
   /\bGOCSPX-[A-Za-z0-9_-]+\b/g,
   /\bya29\.[A-Za-z0-9_-]+\b/g,
+  /\bIST\.[A-Za-z0-9._-]{30,}\b/g,
   /\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi,
   /\bBasic\s+[A-Za-z0-9._~+/=-]+\b/gi,
 ];

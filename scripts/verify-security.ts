@@ -38,6 +38,12 @@ const requiredEnvKeys = [
 ] as const;
 
 const exampleEnvFiles = [".env.example", ".env.production.local.example"] as const;
+const wixEnvKeys = [
+  "WIX_API_TOKEN",
+  "WIX_SITE_ID",
+  "WIX_THERAPIST_APPLICATION_FORM_ID",
+  "WIX_ACCOUNT_ID",
+] as const;
 
 const criticalFiles: Array<{
   file: string;
@@ -151,6 +157,7 @@ const hardcodedSecretPatterns: Array<{
   { label: "Stripe webhook secret", pattern: /\bwhsec_[A-Za-z0-9_]{12,}\b/ },
   { label: "Google OAuth secret", pattern: /\bGOCSPX-[A-Za-z0-9_-]{8,}\b/ },
   { label: "Google access token", pattern: /\bya29\.[A-Za-z0-9_-]{20,}\b/ },
+  { label: "Wix API token", pattern: /\bIST\.[A-Za-z0-9._-]{30,}\b/ },
   { label: "Bearer token literal", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b/i },
   { label: "Long hex secret assignment", pattern: /\b(?:AUTH_SECRET|CRON_SECRET)\s*[:=]\s*["'][a-f0-9]{48,}["']/i },
 ];
@@ -294,6 +301,75 @@ function checkHardcodedSecrets(): CheckResult {
   };
 }
 
+function checkWixIntegrationSecrets(): CheckResult {
+  const details: string[] = [];
+  const envExampleFile = ".env.example";
+  const wixClientFile = "src/lib/wix/wix-client.ts";
+  const gitignoreFile = ".gitignore";
+
+  if (!fileExists(envExampleFile)) {
+    details.push(`${envExampleFile}: missing`);
+  } else {
+    const content = readText(envExampleFile);
+    const keys = parseEnvKeys(content);
+    const missing = wixEnvKeys.filter((key) => !keys.has(key));
+
+    if (missing.length) {
+      details.push(`${envExampleFile}: missing ${missing.join(", ")}`);
+    }
+
+    if (keys.has("WIX_API_TOKEN") && !hasPlaceholderValue(content, "WIX_API_TOKEN")) {
+      details.push(`${envExampleFile}: WIX_API_TOKEN should be empty or a placeholder`);
+    }
+
+    if (keys.has("NEXT_PUBLIC_WIX_API_TOKEN")) {
+      details.push(`${envExampleFile}: NEXT_PUBLIC_WIX_API_TOKEN must not be defined`);
+    }
+  }
+
+  if (!fileExists(gitignoreFile) || !/^\s*\.env\*\s*$/m.test(readText(gitignoreFile))) {
+    details.push(`${gitignoreFile}: .env* ignore rule is missing`);
+  }
+
+  if (!fileExists(wixClientFile)) {
+    details.push(`${wixClientFile}: missing`);
+  } else {
+    const content = readText(wixClientFile);
+
+    for (const pattern of [
+      'import "server-only"',
+      'readRequiredEnv("WIX_API_TOKEN"',
+      'headers.set("Authorization", config.apiToken)',
+    ]) {
+      if (!content.includes(pattern)) {
+        details.push(`${wixClientFile}: missing ${pattern}`);
+      }
+    }
+
+    if (/console\.(?:log|info|warn|error)\s*\(/.test(content)) {
+      details.push(`${wixClientFile}: must not log Wix request data`);
+    }
+  }
+
+  const sourceFiles = sourceScanRoots
+    .flatMap(listFiles)
+    .filter((file) => file !== "scripts/verify-security.ts");
+
+  for (const file of sourceFiles) {
+    const content = readText(file);
+
+    if (content.includes("NEXT_PUBLIC_WIX_API_TOKEN")) {
+      details.push(`${file}: NEXT_PUBLIC_WIX_API_TOKEN must not be used`);
+    }
+  }
+
+  return {
+    name: "Wix API token stays server-only and out of templates/logs",
+    status: details.length ? "fail" : "pass",
+    details,
+  };
+}
+
 function checkCriticalFiles(): CheckResult {
   const details: string[] = [];
 
@@ -405,6 +481,7 @@ function main() {
   const results = [
     checkEnvExamples(),
     checkHardcodedSecrets(),
+    checkWixIntegrationSecrets(),
     checkCriticalFiles(),
     checkDangerousPatterns(),
     checkValidationCoverage(),
