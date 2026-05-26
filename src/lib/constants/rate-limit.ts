@@ -6,6 +6,7 @@ export const RATE_LIMIT_SCOPES = {
   authResendVerification: "auth:resend-verification",
   stripeCheckout: "stripe:checkout",
   therapistCertificateUpload: "therapist:certificate-upload",
+  therapistCertificateConfirmUpload: "therapist:certificate-confirm-upload",
   googleCalendarConnect: "google-calendar:connect",
   cronBookingRules: "cron:booking-rules",
 } as const;
@@ -55,6 +56,11 @@ export const RATE_LIMIT_PRESETS = {
   },
   therapistCertificateUpload: {
     scope: RATE_LIMIT_SCOPES.therapistCertificateUpload,
+    limit: 10,
+    windowMs: HOUR,
+  },
+  therapistCertificateConfirmUpload: {
+    scope: RATE_LIMIT_SCOPES.therapistCertificateConfirmUpload,
     limit: 10,
     windowMs: HOUR,
   },

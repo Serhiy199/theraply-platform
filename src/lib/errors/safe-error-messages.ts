@@ -179,6 +179,10 @@ export function getSafeCertificateStorageErrorMessage(code: string) {
       return CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE;
     case "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED":
       return "Certificate files must be JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT.";
+    case "THERAPIST_CERTIFICATE_METADATA_INVALID":
+      return "Certificate upload details are invalid.";
+    case "THERAPIST_CERTIFICATE_ASSET_VERIFICATION_FAILED":
+      return "Could not verify the uploaded certificate. Please try again.";
     case "THERAPIST_CERTIFICATE_STORAGE_NOT_CONFIGURED":
       return "Certificate upload is not configured yet.";
     case "THERAPIST_CERTIFICATE_UPLOAD_FAILED":

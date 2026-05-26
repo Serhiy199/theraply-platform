@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
 export type CloudinaryCertificateUploadInput = {
   file: File;
@@ -23,10 +23,27 @@ type CloudinaryUploadResponse = {
   bytes?: number;
 };
 
+type CloudinaryResourceResponse = {
+  public_id?: string;
+  secure_url?: string;
+  bytes?: number;
+  version?: number;
+  resource_type?: string;
+  type?: string;
+  format?: string;
+};
+
 export class CloudinaryCertificateStorageConfigError extends Error {
   constructor(message = "Cloudinary certificate storage is not configured.") {
     super(message);
     this.name = "CloudinaryCertificateStorageConfigError";
+  }
+}
+
+export class CloudinaryCertificateAssetVerificationError extends Error {
+  constructor(message = "Cloudinary certificate asset could not be verified.") {
+    super(message);
+    this.name = "CloudinaryCertificateAssetVerificationError";
   }
 }
 
@@ -35,8 +52,23 @@ export type CloudinarySignedCertificateUploadParameters = {
   apiKey: string;
   timestamp: number;
   signature: string;
-  folder: string;
+  publicId: string;
   uploadUrl: string;
+};
+
+export type CloudinaryCertificateUploadConfirmationInput = {
+  publicId: string;
+  version: number;
+  signature: string;
+  resourceType: "image" | "raw";
+};
+
+export type CloudinaryVerifiedCertificateAsset = {
+  fileUrl: string;
+  publicId: string;
+  size: number;
+  resourceType: "image" | "raw";
+  format: string | null;
 };
 
 function normalizeEnvValue(value: string | undefined) {
@@ -99,15 +131,19 @@ function signCloudinaryParams(
     .digest("hex");
 }
 
+function getTherapistCertificateFolder(baseFolder: string, therapistProfileId: string) {
+  return `${baseFolder}/${therapistProfileId}`;
+}
+
 export function createSignedCertificateUploadParameters(
   therapistProfileId: string,
 ): CloudinarySignedCertificateUploadParameters {
   const config = getCloudinaryConfig();
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = `${config.folder}/${therapistProfileId}`;
+  const publicId = `${getTherapistCertificateFolder(config.folder, therapistProfileId)}/${randomUUID()}`;
   const signature = signCloudinaryParams(
     {
-      folder,
+      public_id: publicId,
       timestamp: String(timestamp),
     },
     config.apiSecret,
@@ -118,8 +154,98 @@ export function createSignedCertificateUploadParameters(
     apiKey: config.apiKey,
     timestamp,
     signature,
-    folder,
+    publicId,
     uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/auto/upload`,
+  };
+}
+
+function hasExpectedSignature(actual: string, expected: string) {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+function assertVerifiedResourceResponse(
+  response: CloudinaryResourceResponse,
+  input: CloudinaryCertificateUploadConfirmationInput,
+): asserts response is CloudinaryResourceResponse & {
+  public_id: string;
+  secure_url: string;
+  bytes: number;
+  version: number;
+} {
+  if (
+    response.public_id !== input.publicId ||
+    response.version !== input.version ||
+    response.resource_type !== input.resourceType ||
+    response.type !== "upload" ||
+    typeof response.secure_url !== "string" ||
+    typeof response.bytes !== "number" ||
+    !Number.isSafeInteger(response.bytes) ||
+    response.bytes <= 0
+  ) {
+    throw new CloudinaryCertificateAssetVerificationError();
+  }
+}
+
+export async function verifyUploadedCertificateAsset(
+  therapistProfileId: string,
+  input: CloudinaryCertificateUploadConfirmationInput,
+): Promise<CloudinaryVerifiedCertificateAsset> {
+  const config = getCloudinaryConfig();
+  const folderPrefix = `${getTherapistCertificateFolder(config.folder, therapistProfileId)}/`;
+
+  if (!input.publicId.startsWith(folderPrefix)) {
+    throw new CloudinaryCertificateAssetVerificationError(
+      "Cloudinary certificate asset does not belong to this therapist.",
+    );
+  }
+
+  const expectedSignature = signCloudinaryParams(
+    {
+      public_id: input.publicId,
+      version: String(input.version),
+    },
+    config.apiSecret,
+  );
+
+  if (!hasExpectedSignature(input.signature, expectedSignature)) {
+    throw new CloudinaryCertificateAssetVerificationError(
+      "Cloudinary upload response signature is invalid.",
+    );
+  }
+
+  const authorization = Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString("base64");
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${config.cloudName}/resources/${input.resourceType}/upload/${encodeURIComponent(input.publicId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${authorization}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new CloudinaryCertificateAssetVerificationError(
+      "Cloudinary certificate asset lookup failed.",
+    );
+  }
+
+  const resource = (await response.json()) as CloudinaryResourceResponse;
+  assertVerifiedResourceResponse(resource, input);
+
+  return {
+    fileUrl: resource.secure_url,
+    publicId: resource.public_id,
+    size: resource.bytes,
+    resourceType: input.resourceType,
+    format: resource.format ?? null,
   };
 }
 

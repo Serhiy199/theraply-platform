@@ -84,7 +84,7 @@ beforeEach(() => {
     apiKey: "public-api-key",
     timestamp: 1779832800,
     signature: "signed-value",
-    folder: "theraply/therapist-certificates/therapist-profile-id",
+    publicId: "theraply/therapist-certificates/therapist-profile-id/signed-asset-id",
     uploadUrl: "https://api.cloudinary.com/v1_1/cloud-name/auto/upload",
   });
 });
@@ -126,7 +126,7 @@ describe("POST /api/therapist/certificates/upload-signature", () => {
         cloudName: "cloud-name",
         apiKey: "public-api-key",
         signature: "signed-value",
-        folder: "theraply/therapist-certificates/therapist-profile-id",
+        publicId: "theraply/therapist-certificates/therapist-profile-id/signed-asset-id",
         maxFileSize: 10 * 1024 * 1024,
         allowedFormats: ["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "txt"],
       },
