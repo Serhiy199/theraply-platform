@@ -29,6 +29,7 @@ import {
   sendTherapistOnboardingRejectedEmail,
 } from "@/server/services/therapist-onboarding-email.service";
 import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
+import { syncApprovedTherapistToWix } from "@/server/services/wix-therapist-sync.service";
 
 export type AdminUserListItem = {
   id: string;
@@ -149,6 +150,14 @@ export class AdminOperationsServiceError extends Error {
 export type AdminBookingCancellationResult = {
   booking: BookingDetailsItem;
   refund: RefundExecutionResult;
+};
+
+export type AdminTherapistApprovalResult = {
+  therapistProfile: AdminTherapistReviewItem;
+  wixSync: {
+    status: "synced" | "failed";
+    message: string;
+  };
 };
 
 function getNow() {
@@ -300,7 +309,7 @@ async function getPendingTherapistReviewOrThrow(therapistProfileId: string) {
 export async function approveTherapistReview(
   adminUserId: string,
   therapistProfileId: string,
-): Promise<AdminTherapistReviewItem> {
+): Promise<AdminTherapistApprovalResult> {
   await assertAdminExists(adminUserId);
   const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
   const now = getNow();
@@ -354,7 +363,26 @@ export async function approveTherapistReview(
     displayName: updatedProfile.displayName,
   });
 
-  return updatedProfile;
+  try {
+    await syncApprovedTherapistToWix(updatedProfile.id);
+
+    return {
+      therapistProfile: updatedProfile,
+      wixSync: {
+        status: "synced",
+        message: "Терапевта погоджено та синхронізовано з Wix.",
+      },
+    };
+  } catch {
+    return {
+      therapistProfile: updatedProfile,
+      wixSync: {
+        status: "failed",
+        message:
+          "Терапевта погоджено, але не вдалося синхронізувати з Wix. Спробуйте повторити синхронізацію.",
+      },
+    };
+  }
 }
 
 export async function rejectTherapistReview(

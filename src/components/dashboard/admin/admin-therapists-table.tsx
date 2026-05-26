@@ -5,6 +5,7 @@ import type {
 } from "@/server/services/admin-operations.service";
 import { formatAppDate } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 import { AdminTherapistReviewQueue } from "@/components/dashboard/admin/admin-therapist-review-queue";
 
@@ -23,11 +24,13 @@ function getTherapistDisplayName(therapist: AdminTherapistListItem) {
 type AdminTherapistsTableProps = {
   therapists: AdminTherapistListItem[];
   pendingReviews: AdminTherapistReviewItem[];
+  wixSyncStatus?: "synced" | "failed" | null;
 };
 
 export function AdminTherapistsTable({
   therapists,
   pendingReviews,
+  wixSyncStatus,
 }: AdminTherapistsTableProps) {
   return (
     <SurfaceCard as="section">
@@ -45,6 +48,14 @@ export function AdminTherapistsTable({
           therapist profile{therapists.length === 1 ? "" : "s"}
         </InsetCard>
       </div>
+
+      {wixSyncStatus ? (
+        <Alert tone={wixSyncStatus === "synced" ? "success" : "warning"} className="mt-6">
+          {wixSyncStatus === "synced"
+            ? "Терапевта погоджено та синхронізовано з Wix."
+            : "Терапевта погоджено, але не вдалося синхронізувати з Wix. Спробуйте повторити синхронізацію."}
+        </Alert>
+      ) : null}
 
       <AdminTherapistReviewQueue pendingReviews={pendingReviews} />
 

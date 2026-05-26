@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import {
   SAFE_ERROR_MESSAGES,
@@ -20,6 +21,7 @@ import {
 export type AdminTherapistReviewActionState = {
   status: "idle" | "success" | "error";
   message?: string;
+  wixSyncStatus?: "synced" | "failed";
 };
 
 function getErrorState(
@@ -54,6 +56,8 @@ export async function approveTherapistAction(
     therapistProfileId: formData.get("therapistProfileId"),
   });
 
+  let wixSyncStatus: "synced" | "failed";
+
   try {
     const user = await requireActionRole(
       [UserRole.ADMIN],
@@ -70,22 +74,21 @@ export async function approveTherapistAction(
     }
 
     const { therapistProfileId } = parsed.data;
-    await approveTherapistReview(user.id, therapistProfileId);
+    const result = await approveTherapistReview(user.id, therapistProfileId);
+    wixSyncStatus = result.wixSync.status;
     revalidatePath("/admin/therapists");
     revalidatePath("/admin/dashboard");
     revalidatePath("/therapist/onboarding");
     revalidatePath("/therapist/dashboard");
 
-    return {
-      status: "success",
-      message: "Therapist profile approved successfully.",
-    };
   } catch (error) {
     return getErrorState(
       error,
       "Something went wrong while approving the therapist profile.",
     );
   }
+
+  redirect(`/admin/therapists?wixSync=${wixSyncStatus}`);
 }
 
 export async function rejectTherapistAction(

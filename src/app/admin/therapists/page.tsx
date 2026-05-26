@@ -6,12 +6,27 @@ import {
   getAdminTherapists,
 } from "@/server/services/admin-operations.service";
 
-export default async function AdminTherapistsPage() {
+type AdminTherapistsPageProps = {
+  searchParams: Promise<{
+    wixSync?: string | string[];
+  }>;
+};
+
+export default async function AdminTherapistsPage({
+  searchParams,
+}: AdminTherapistsPageProps) {
   await requireRole([UserRole.ADMIN]);
+  const { wixSync } = await searchParams;
   const [therapists, pendingReviews] = await Promise.all([
     getAdminTherapists(),
     getAdminPendingTherapistReviews(),
   ]);
 
-  return <AdminTherapistsTable therapists={therapists} pendingReviews={pendingReviews} />;
+  return (
+    <AdminTherapistsTable
+      therapists={therapists}
+      pendingReviews={pendingReviews}
+      wixSyncStatus={wixSync === "synced" || wixSync === "failed" ? wixSync : null}
+    />
+  );
 }

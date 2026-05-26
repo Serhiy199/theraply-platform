@@ -23,7 +23,15 @@ function ActionStateAlert({ state }: { state: AdminTherapistReviewActionState })
   }
 
   return (
-    <Alert tone={state.status === "success" ? "success" : "error"}>
+    <Alert
+      tone={
+        state.status === "error"
+          ? "error"
+          : state.wixSyncStatus === "failed"
+            ? "warning"
+            : "success"
+      }
+    >
       {state.message}
     </Alert>
   );
