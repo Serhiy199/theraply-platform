@@ -25,7 +25,8 @@
 | Admin UI показує поточний Wix sync стан | PASS | Read-only admin login: сторінка `/admin/therapists` містить колонку `Wix Sync`, badge `Not synced` і кнопку `Retry sync to Wix`. |
 | Successful approve sync | BLOCKED ON TEST PROFILE | У поточній БД немає `PENDING_REVIEW` profile; live run потребує створення/підготовки тестового therapist і створить Wix response. |
 | Failed Wix sync після approve | BLOCKED ON TEST PROFILE | Потребує `PENDING_REVIEW` profile і тимчасового invalid token або контрольованої provider failure. |
-| Retry після виправлення configuration | BLOCKED ON FAILED PROFILE | Потребує profile зі статусом `FAILED`; retry створить Wix response. |
+| Manual sync через retry для approved profile | PASS | Після `Retry sync to Wix` UI показав `Synced with Wix` / `26 May 2026`, а у Wix Responses з'явився новий response для `David Brown`. |
+| Retry після failed configuration | BLOCKED ON FAILED PROFILE | Повний recovery path потребує profile зі статусом `FAILED` після контрольованої помилки; retry створить Wix response. |
 
 ## Read-only DB preflight
 
@@ -137,6 +138,11 @@ wixSyncError = null
 
 4. Перевірити response у Wix Dashboard.
 5. Перевірити badge `Synced with Wix` у UI.
+
+Частковий live result від 26 травня 2026: manual sync для approved profile зі
+статусом `NOT_SYNCED` підтверджений через кнопку `Retry sync to Wix`. Окремий
+recovery path саме зі статусу `FAILED` ще потрібно виконати після контрольованої
+помилки Wix.
 
 ## Критерій завершення
 

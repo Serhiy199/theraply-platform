@@ -104,6 +104,16 @@ const criticalFiles: Array<{
     ],
   },
   {
+    file: "src/app/api/therapist/certificates/upload-signature/route.ts",
+    patterns: [
+      "requireCurrentActionRole",
+      "UserRole.THERAPIST",
+      "checkRateLimitPreset",
+      "assertTherapistCanUploadCertificate",
+      "createSignedCertificateUploadParameters",
+    ],
+  },
+  {
     file: "src/lib/permissions.ts",
     patterns: [
       "requireActionRole",

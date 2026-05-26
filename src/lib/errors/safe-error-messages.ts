@@ -1,5 +1,9 @@
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
+import {
+  CERTIFICATE_FILE_TOO_LARGE_MESSAGE,
+  CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE,
+} from "@/lib/constants/certificate-upload";
 
 export const SAFE_ERROR_MESSAGES = {
   permissionDenied: "You do not have permission to perform this action.",
@@ -170,7 +174,9 @@ export function getSafeCertificateStorageErrorMessage(code: string) {
     case "THERAPIST_CERTIFICATE_FILE_REQUIRED":
       return "Choose at least one certificate file to upload.";
     case "THERAPIST_CERTIFICATE_FILE_TOO_LARGE":
-      return "Certificate files must be 10MB or smaller.";
+      return CERTIFICATE_FILE_TOO_LARGE_MESSAGE;
+    case "THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE":
+      return CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE;
     case "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED":
       return "Certificate files must be JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT.";
     case "THERAPIST_CERTIFICATE_STORAGE_NOT_CONFIGURED":

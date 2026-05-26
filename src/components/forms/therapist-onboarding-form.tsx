@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import {
   saveTherapistOnboardingDraftAction,
   submitTherapistOnboardingForReviewAction,
@@ -13,6 +13,11 @@ import type {
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE,
+  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES,
+  CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_LABEL,
+} from "@/lib/constants/certificate-upload";
 
 const genderOptions = ["Female", "Male", "Other", "Prefer not to say"] as const;
 
@@ -122,6 +127,22 @@ function CertificatesBlock({
   uploadAction: (formData: FormData) => void;
   uploadPending: boolean;
 }) {
+  const [clientFileError, setClientFileError] = useState<string | null>(null);
+
+  function handleUploadAction(formData: FormData) {
+    const file = formData.get("certificates");
+
+    if (file instanceof File && file.size > CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_BYTES) {
+      setClientFileError(CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE_MESSAGE);
+      return;
+    }
+
+    setClientFileError(null);
+    startTransition(() => {
+      uploadAction(formData);
+    });
+  }
+
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -130,25 +151,26 @@ function CertificatesBlock({
             Add your certificates here
           </p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Upload JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT files up to 10MB each.
+            Upload one JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, or TXT file up to{" "}
+            {CERTIFICATE_SERVER_ACTION_MAX_FILE_SIZE_LABEL}. Add more files one at a time.
           </p>
           <input
             id="certificates"
             name="certificates"
             type="file"
-            multiple
             accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.txt,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             disabled={pending}
+            onChange={() => setClientFileError(null)}
             className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-900 file:ring-1 file:ring-slate-300 hover:file:bg-slate-50"
           />
-          <FieldError messages={fieldErrors} />
+          <FieldError messages={clientFileError ? [clientFileError] : fieldErrors} />
         </div>
         <Button
           type="submit"
           variant="secondary"
           loading={uploadPending}
           disabled={pending}
-          formAction={uploadAction}
+          formAction={handleUploadAction}
         >
           Upload file
         </Button>

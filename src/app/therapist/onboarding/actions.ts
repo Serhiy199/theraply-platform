@@ -104,6 +104,7 @@ function getCertificateUploadErrorState(
       fieldErrors:
         error.code === "THERAPIST_CERTIFICATE_FILE_REQUIRED" ||
         error.code === "THERAPIST_CERTIFICATE_FILE_TOO_LARGE" ||
+        error.code === "THERAPIST_CERTIFICATE_SERVER_ACTION_FILE_TOO_LARGE" ||
         error.code === "THERAPIST_CERTIFICATE_FILE_TYPE_UNSUPPORTED"
           ? {
               certificates: [safeMessage],

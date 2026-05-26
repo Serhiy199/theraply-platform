@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createHash } from "node:crypto";
 
 export type CloudinaryCertificateUploadInput = {
@@ -21,6 +23,22 @@ type CloudinaryUploadResponse = {
   bytes?: number;
 };
 
+export class CloudinaryCertificateStorageConfigError extends Error {
+  constructor(message = "Cloudinary certificate storage is not configured.") {
+    super(message);
+    this.name = "CloudinaryCertificateStorageConfigError";
+  }
+}
+
+export type CloudinarySignedCertificateUploadParameters = {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  uploadUrl: string;
+};
+
 function normalizeEnvValue(value: string | undefined) {
   const normalized = value?.trim();
 
@@ -42,12 +60,13 @@ function getCloudinaryConfig() {
   const cloudName = normalizeEnvValue(process.env.CLOUDINARY_CLOUD_NAME);
   const apiKey = normalizeEnvValue(process.env.CLOUDINARY_API_KEY);
   const apiSecret = normalizeEnvValue(process.env.CLOUDINARY_API_SECRET);
-  const folder =
+  const folder = (
     normalizeEnvValue(process.env.CLOUDINARY_CERTIFICATES_FOLDER) ??
-    "theraply/therapist-certificates";
+    "theraply/therapist-certificates"
+  ).replace(/\/+$/, "");
 
   if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error("Cloudinary certificate storage is not configured.");
+    throw new CloudinaryCertificateStorageConfigError();
   }
 
   return {
@@ -78,6 +97,30 @@ function signCloudinaryParams(
   return createHash("sha1")
     .update(`${payload}${apiSecret}`)
     .digest("hex");
+}
+
+export function createSignedCertificateUploadParameters(
+  therapistProfileId: string,
+): CloudinarySignedCertificateUploadParameters {
+  const config = getCloudinaryConfig();
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = `${config.folder}/${therapistProfileId}`;
+  const signature = signCloudinaryParams(
+    {
+      folder,
+      timestamp: String(timestamp),
+    },
+    config.apiSecret,
+  );
+
+  return {
+    cloudName: config.cloudName,
+    apiKey: config.apiKey,
+    timestamp,
+    signature,
+    folder,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/auto/upload`,
+  };
 }
 
 function assertUploadResponse(
