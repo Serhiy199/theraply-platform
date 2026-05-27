@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { WixApiRequestError } from "@/lib/wix/wix-client";
 import {
   WIX_THERAPIST_FORM_FIELD_KEYS,
   WIX_THERAPIST_FORM_STRUCTURE_MISMATCH_MESSAGE,
@@ -279,7 +280,7 @@ describe("Wix therapist application submission", () => {
     const [, createCallOptions] = wixRequestMock.mock.calls[2];
     expect(createCallOptions.body.submission.submissions).toHaveProperty(
       WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
-      wixUploadUrl,
+      [wixUploadUrl],
     );
   });
 
@@ -393,6 +394,46 @@ describe("Wix therapist application submission", () => {
       "wix-forms",
       "Unable to create Wix therapist submission.",
       expect.objectContaining({ formId: "test-form-id" }),
+    );
+  });
+
+  it("logs readable Wix field validation issues without logging request secrets", async () => {
+    getWixConfigMock.mockReturnValue({
+      therapistApplicationFormId: "test-form-id",
+    });
+    wixRequestMock
+      .mockResolvedValueOnce({ formSummary: buildSummary() })
+      .mockRejectedValueOnce(
+        new WixApiRequestError("The Wix API request failed.", 400, {
+          details: {
+            validationError: {
+              fieldViolations: [
+                {
+                  data: {
+                    errors: [
+                      {
+                        errorPath: WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
+                        errorType: "TYPE_ERROR",
+                        errorMessage: "must be array",
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      );
+
+    await expect(createWixTherapistApplicationSubmission(applicationInput)).rejects.toMatchObject({
+      code: "WIX_SUBMISSION_CREATE_FAILED",
+    } satisfies Partial<WixFormsServiceError>);
+    expect(logDiagnosticEventMock).toHaveBeenCalledWith(
+      "wix-forms",
+      "Unable to create Wix therapist submission.",
+      expect.objectContaining({
+        wixValidationIssuesJson: expect.stringContaining("must be array"),
+      }),
     );
   });
 

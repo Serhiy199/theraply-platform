@@ -102,6 +102,32 @@ function readOptionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function readWixSubmissionValidationIssues(details: unknown) {
+  if (!isRecord(details) || !isRecord(details.details)) {
+    return [];
+  }
+
+  const validationError = details.details.validationError;
+
+  if (!isRecord(validationError) || !Array.isArray(validationError.fieldViolations)) {
+    return [];
+  }
+
+  return validationError.fieldViolations.flatMap((violation) => {
+    if (!isRecord(violation) || !isRecord(violation.data) || !Array.isArray(violation.data.errors)) {
+      return [];
+    }
+
+    return violation.data.errors
+      .filter((issue): issue is Record<string, unknown> => isRecord(issue))
+      .map((issue) => ({
+        errorPath: readOptionalString(issue.errorPath),
+        errorType: readOptionalString(issue.errorType),
+        errorMessage: readOptionalString(issue.errorMessage),
+      }));
+  });
+}
+
 function readRequiredValue(value: Record<string, unknown>) {
   if (typeof value.required === "boolean") {
     return value.required;
@@ -429,10 +455,7 @@ export async function createWixTherapistApplicationSubmission(
         );
       }
 
-      submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] =
-        certificateUploadUrls.length === 1
-          ? certificateUploadUrls[0]
-          : certificateUploadUrls;
+      submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] = certificateUploadUrls;
     }
 
     const response = await wixRequest<unknown>(
@@ -469,6 +492,10 @@ export async function createWixTherapistApplicationSubmission(
       certificateAssetCount: input.certificateAssets?.length ?? 0,
       wixStatus: error instanceof WixApiRequestError ? error.status : null,
       wixError: error instanceof WixApiRequestError ? error.details : null,
+      wixValidationIssuesJson:
+        error instanceof WixApiRequestError
+          ? JSON.stringify(readWixSubmissionValidationIssues(error.details))
+          : "[]",
       error,
     });
 
