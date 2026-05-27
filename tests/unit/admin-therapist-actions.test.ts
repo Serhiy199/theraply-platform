@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   approveTherapistAction,
+  requestTherapistChangesAction,
   retryWixTherapistSyncAction,
 } from "@/app/admin/therapists/actions";
 
@@ -9,6 +10,7 @@ const revalidatePathMock = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 const requireActionRoleMock = vi.hoisted(() => vi.fn());
 const approveTherapistReviewMock = vi.hoisted(() => vi.fn());
+const requestTherapistReviewChangesMock = vi.hoisted(() => vi.fn());
 const syncApprovedTherapistToWixMock = vi.hoisted(() => vi.fn());
 const errorClasses = vi.hoisted(() => ({
   ActionPermissionError: class ActionPermissionError extends Error {},
@@ -31,6 +33,7 @@ vi.mock("@/lib/permissions", () => ({
 vi.mock("@/server/services/admin-operations.service", () => ({
   AdminOperationsServiceError: class AdminOperationsServiceError extends Error {},
   approveTherapistReview: approveTherapistReviewMock,
+  requestTherapistReviewChanges: requestTherapistReviewChangesMock,
   rejectTherapistReview: vi.fn(),
 }));
 
@@ -146,5 +149,66 @@ describe("retryWixTherapistSyncAction", () => {
       message:
         "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
     });
+  });
+});
+
+describe("requestTherapistChangesAction", () => {
+  it("sends an update request for an authenticated admin and revalidates both surfaces", async () => {
+    requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
+    requestTherapistReviewChangesMock.mockResolvedValue({
+      id: "therapist-profile-id",
+    });
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    formData.set("message", "Please upload a clearer certificate photo.");
+
+    await expect(
+      requestTherapistChangesAction({ status: "idle" }, formData),
+    ).resolves.toEqual({
+      status: "success",
+      message: "Update request sent to the therapist.",
+    });
+
+    expect(requestTherapistReviewChangesMock).toHaveBeenCalledWith(
+      "admin-id",
+      "therapist-profile-id",
+      "Please upload a clearer certificate photo.",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/admin/therapists");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/admin/dashboard");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/therapist/onboarding");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/therapist/dashboard");
+  });
+
+  it("validates update request length before calling the service", async () => {
+    requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    formData.set("message", "Short");
+
+    await expect(
+      requestTherapistChangesAction({ status: "idle" }, formData),
+    ).resolves.toEqual({
+      status: "error",
+      message: "Update request must be at least 10 characters long.",
+    });
+
+    expect(requestTherapistReviewChangesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a permission error for non-admin update requests", async () => {
+    requireActionRoleMock.mockRejectedValue(new errorClasses.ActionPermissionError());
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    formData.set("message", "Please upload a clearer certificate photo.");
+
+    await expect(
+      requestTherapistChangesAction({ status: "idle" }, formData),
+    ).resolves.toEqual({
+      status: "error",
+      message: "You do not have permission to perform this action.",
+    });
+
+    expect(requestTherapistReviewChangesMock).not.toHaveBeenCalled();
   });
 });

@@ -35,6 +35,14 @@ export const therapistRejectReviewPayloadSchema = therapistReviewPayloadSchema.e
     .max(2000, "Rejection reason must be 2000 characters or fewer."),
 });
 
+export const therapistRequestChangesPayloadSchema = therapistReviewPayloadSchema.extend({
+  message: z
+    .string()
+    .trim()
+    .min(10, "Update request must be at least 10 characters long.")
+    .max(2000, "Update request must be 2000 characters or fewer."),
+});
+
 export const googleCalendarSelectionPayloadSchema = z.object({
   googleCalendarId: z.string().trim().min(1, "Choose a Google Calendar first."),
 });

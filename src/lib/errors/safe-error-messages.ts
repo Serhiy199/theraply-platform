@@ -87,6 +87,10 @@ export function getSafeAdminOperationErrorMessage(code: string) {
       return "Therapist profile could not be found.";
     case "THERAPIST_PROFILE_NOT_PENDING_REVIEW":
       return "This therapist profile is no longer pending review.";
+    case "THERAPIST_REVIEW_MESSAGE_REQUIRED":
+      return "Please describe the changes required before sending this request.";
+    case "THERAPIST_REVIEW_MESSAGE_INVALID":
+      return "The update request must be between 10 and 2000 characters.";
     case "THERAPIST_REJECTION_REASON_REQUIRED":
       return "Add a rejection reason before rejecting this profile.";
     case "GOOGLE_CALENDAR_SYNC_FAILED":

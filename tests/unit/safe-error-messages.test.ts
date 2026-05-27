@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SAFE_ERROR_MESSAGES,
+  getSafeAdminOperationErrorMessage,
   getSafeBookingFlowErrorMessage,
   getSafeCertificateStorageErrorMessage,
   getSafePaymentFlowErrorMessage,
@@ -26,6 +27,15 @@ describe("safe error messages", () => {
     );
     expect(getSafeCertificateStorageErrorMessage("THERAPIST_CERTIFICATE_ASSET_VERIFICATION_FAILED")).toBe(
       "Could not verify the uploaded certificate. Please try again.",
+    );
+  });
+
+  it("returns safe English messages for therapist review change requests", () => {
+    expect(getSafeAdminOperationErrorMessage("THERAPIST_REVIEW_MESSAGE_REQUIRED")).toBe(
+      "Please describe the changes required before sending this request.",
+    );
+    expect(getSafeAdminOperationErrorMessage("THERAPIST_REVIEW_MESSAGE_INVALID")).toBe(
+      "The update request must be between 10 and 2000 characters.",
     );
   });
 });

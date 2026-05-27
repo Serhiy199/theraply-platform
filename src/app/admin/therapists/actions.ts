@@ -10,11 +10,13 @@ import {
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import {
   therapistRejectReviewPayloadSchema,
+  therapistRequestChangesPayloadSchema,
   therapistReviewPayloadSchema,
 } from "@/lib/validations/action-payloads";
 import {
   AdminOperationsServiceError,
   approveTherapistReview,
+  requestTherapistReviewChanges,
   rejectTherapistReview,
 } from "@/server/services/admin-operations.service";
 import {
@@ -141,6 +143,55 @@ export async function rejectTherapistAction(
     return getErrorState(
       error,
       "Something went wrong while rejecting the therapist profile.",
+    );
+  }
+}
+
+export async function requestTherapistChangesAction(
+  _prevState: AdminTherapistReviewActionState,
+  formData: FormData,
+): Promise<AdminTherapistReviewActionState> {
+  const parsed = therapistRequestChangesPayloadSchema.safeParse({
+    therapistProfileId: formData.get("therapistProfileId"),
+    message: formData.get("message"),
+  });
+
+  try {
+    const user = await requireActionRole(
+      [UserRole.ADMIN],
+      "Only admin accounts can request therapist profile changes.",
+    );
+
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+
+      return {
+        status: "error",
+        message:
+          fieldErrors.therapistProfileId?.[0] ??
+          fieldErrors.message?.[0] ??
+          "Therapist review payload is incomplete.",
+      };
+    }
+
+    await requestTherapistReviewChanges(
+      user.id,
+      parsed.data.therapistProfileId,
+      parsed.data.message,
+    );
+    revalidatePath("/admin/therapists");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/therapist/onboarding");
+    revalidatePath("/therapist/dashboard");
+
+    return {
+      status: "success",
+      message: "Update request sent to the therapist.",
+    };
+  } catch (error) {
+    return getErrorState(
+      error,
+      "Something went wrong while requesting therapist profile changes.",
     );
   }
 }
