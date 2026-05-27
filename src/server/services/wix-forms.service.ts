@@ -72,6 +72,12 @@ export type WixTherapistCertificateAsset = {
   mimeType: string;
 };
 
+type WixFileSubmissionValue = {
+  fileId: string;
+  displayName: string;
+  fileType: string;
+};
+
 export type WixTherapistApplicationSubmissionResult = {
   success: true;
   wixSubmissionId: string;
@@ -345,7 +351,7 @@ export function buildWixTherapistApplicationSubmissionValues(
   input: WixTherapistApplicationInput,
   options: { includeCertificates?: boolean } = {},
 ) {
-  const values: Record<string, string | string[]> = {
+  const values: Record<string, string | string[] | WixFileSubmissionValue[]> = {
     [WIX_THERAPIST_FORM_FIELD_KEYS.nameAndSurname]: input.nameAndSurname,
     [WIX_THERAPIST_FORM_FIELD_KEYS.gender]: input.gender,
     [WIX_THERAPIST_FORM_FIELD_KEYS.email]: input.email,
@@ -447,15 +453,17 @@ export async function createWixTherapistApplicationSubmission(
     });
 
     if (!preflight.certificateTextValueSupported && input.certificateAssets?.length) {
-      const certificateUploadUrls: string[] = [];
+      const certificateFiles: WixFileSubmissionValue[] = [];
 
       for (const certificateAsset of input.certificateAssets) {
-        certificateUploadUrls.push(
-          await getCertificateMediaUploadUrlForWixSubmission(certificateAsset),
-        );
+        certificateFiles.push({
+          fileId: await getCertificateMediaUploadUrlForWixSubmission(certificateAsset),
+          displayName: certificateAsset.fileName,
+          fileType: certificateAsset.mimeType,
+        });
       }
 
-      submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] = certificateUploadUrls;
+      submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] = certificateFiles;
     }
 
     const response = await wixRequest<unknown>(

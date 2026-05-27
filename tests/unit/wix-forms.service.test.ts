@@ -280,7 +280,13 @@ describe("Wix therapist application submission", () => {
     const [, createCallOptions] = wixRequestMock.mock.calls[2];
     expect(createCallOptions.body.submission.submissions).toHaveProperty(
       WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
-      [wixUploadUrl],
+      [
+        {
+          fileId: wixUploadUrl,
+          displayName: "qualification.png",
+          fileType: "image/png",
+        },
+      ],
     );
   });
 
@@ -314,6 +320,18 @@ describe("Wix therapist application submission", () => {
         ],
       }),
     ).resolves.toMatchObject({ wixSubmissionId: "required-file-submission-id" });
+
+    const [, createCallOptions] = wixRequestMock.mock.calls[2];
+    expect(createCallOptions.body.submission.submissions).toHaveProperty(
+      WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
+      [
+        {
+          fileId: wixUploadUrl,
+          displayName: "required.pdf",
+          fileType: "application/pdf",
+        },
+      ],
+    );
   });
 
   it("reads full form requirements when summary omits optional file metadata", async () => {
