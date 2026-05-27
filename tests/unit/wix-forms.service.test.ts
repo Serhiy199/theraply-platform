@@ -236,7 +236,7 @@ describe("Wix therapist application submission", () => {
     expect(submissionValues).not.toHaveProperty(WIX_THERAPIST_FORM_FIELD_KEYS.certificates);
   });
 
-  it("generates Wix media URLs and submits them as file upload field values", async () => {
+  it("uploads stored certificates to Wix Media and submits Wix file objects", async () => {
     const optionalFileSummary = buildSummary();
     optionalFileSummary.fields = optionalFileSummary.fields.map((field) =>
       field.target === WIX_THERAPIST_FORM_FIELD_KEYS.certificates
@@ -255,6 +255,21 @@ describe("Wix therapist application submission", () => {
       ],
     };
     const wixUploadUrl = "https://upload.wixmp.com/upload/signed-upload-token";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("certificate-bytes", { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            file: {
+              id: "wix-file-id.png",
+              displayName: "qualification.png",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
     getWixConfigMock.mockReturnValue({
       therapistApplicationFormId: "test-form-id",
     });
@@ -277,12 +292,24 @@ describe("Wix therapist application submission", () => {
         },
       },
     );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://res.cloudinary.com/test/image/upload/qualification.png",
+      { cache: "no-store" },
+    );
+    expect(fetchMock.mock.calls[1][0].toString()).toBe(
+      `${wixUploadUrl}?filename=qualification.png`,
+    );
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      method: "PUT",
+      headers: { "Content-Type": "image/png" },
+    });
     const [, createCallOptions] = wixRequestMock.mock.calls[2];
     expect(createCallOptions.body.submission.submissions).toHaveProperty(
       WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
       [
         {
-          fileId: wixUploadUrl,
+          fileId: "wix-file-id.png",
           displayName: "qualification.png",
           fileType: "image/png",
         },
@@ -298,6 +325,23 @@ describe("Wix therapist application submission", () => {
         : field,
     );
     const wixUploadUrl = "https://upload.wixmp.com/upload/required-file-token";
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response("certificate-bytes", { status: 200 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              file: {
+                id: "required-wix-file-id.pdf",
+                displayName: "required.pdf",
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
 
     getWixConfigMock.mockReturnValue({
       therapistApplicationFormId: "test-form-id",
@@ -326,7 +370,7 @@ describe("Wix therapist application submission", () => {
       WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
       [
         {
-          fileId: wixUploadUrl,
+          fileId: "required-wix-file-id.pdf",
           displayName: "required.pdf",
           fileType: "application/pdf",
         },

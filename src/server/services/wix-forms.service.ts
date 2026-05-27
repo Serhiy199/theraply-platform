@@ -406,6 +406,61 @@ async function getCertificateMediaUploadUrlForWixSubmission(
   return uploadUrl;
 }
 
+async function uploadCertificateAssetToWix(
+  asset: WixTherapistCertificateAsset,
+): Promise<WixFileSubmissionValue> {
+  const uploadUrl = await getCertificateMediaUploadUrlForWixSubmission(asset);
+  const sourceResponse = await fetch(asset.fileUrl, {
+    cache: "no-store",
+  });
+
+  if (!sourceResponse.ok) {
+    logDiagnosticEvent("wix-forms", "Unable to read stored certificate for Wix upload.", {
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      sourceStatus: sourceResponse.status,
+    });
+    throw new WixFormsServiceError(
+      "Could not upload the certificate file to Wix Forms.",
+      "WIX_CERTIFICATE_UPLOAD_FAILED",
+    );
+  }
+
+  const wixUploadUrl = new URL(uploadUrl);
+  wixUploadUrl.searchParams.set("filename", asset.fileName);
+  const uploadResponse = await fetch(wixUploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": asset.mimeType,
+    },
+    body: await sourceResponse.arrayBuffer(),
+  });
+  const uploadedMediaResponse = await uploadResponse.json().catch(() => null) as unknown;
+  const uploadedFile =
+    isRecord(uploadedMediaResponse) && isRecord(uploadedMediaResponse.file)
+      ? uploadedMediaResponse.file
+      : null;
+  const fileId = uploadedFile ? readOptionalString(uploadedFile.id) : null;
+
+  if (!uploadResponse.ok || !fileId) {
+    logDiagnosticEvent("wix-forms", "Unable to upload certificate media to Wix.", {
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      wixUploadStatus: uploadResponse.status,
+    });
+    throw new WixFormsServiceError(
+      "Could not upload the certificate file to Wix Forms.",
+      "WIX_CERTIFICATE_UPLOAD_FAILED",
+    );
+  }
+
+  return {
+    fileId,
+    displayName: readOptionalString(uploadedFile?.displayName) ?? asset.fileName,
+    fileType: asset.mimeType,
+  };
+}
+
 function parseCreatedSubmissionResponse(response: unknown) {
   const submission = isRecord(response) && isRecord(response.submission)
     ? response.submission
@@ -456,11 +511,7 @@ export async function createWixTherapistApplicationSubmission(
       const certificateFiles: WixFileSubmissionValue[] = [];
 
       for (const certificateAsset of input.certificateAssets) {
-        certificateFiles.push({
-          fileId: await getCertificateMediaUploadUrlForWixSubmission(certificateAsset),
-          displayName: certificateAsset.fileName,
-          fileType: certificateAsset.mimeType,
-        });
+        certificateFiles.push(await uploadCertificateAssetToWix(certificateAsset));
       }
 
       submissions[WIX_THERAPIST_FORM_FIELD_KEYS.certificates] = certificateFiles;
