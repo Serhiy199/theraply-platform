@@ -13,6 +13,10 @@ type TherapistOnboardingRejectedEmailInput = TherapistOnboardingEmailRecipient &
   rejectionReason: string;
 };
 
+type TherapistOnboardingChangesRequestedEmailInput = TherapistOnboardingEmailRecipient & {
+  changesRequestedMessage: string;
+};
+
 function getAppBaseUrl() {
   return process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 }
@@ -76,6 +80,24 @@ function buildRejectedText(input: TherapistOnboardingRejectedEmailInput) {
   ].join("\n");
 }
 
+function buildChangesRequestedText(input: TherapistOnboardingChangesRequestedEmailInput) {
+  return [
+    getTherapistGreeting(input),
+    "",
+    "Thank you for submitting your therapist profile.",
+    "",
+    "Before we can approve it, please update the following information:",
+    "",
+    input.changesRequestedMessage,
+    "",
+    "Please log in to your account, make the required changes, and submit your profile for review again.",
+    "",
+    `Update your profile here: ${getTherapistOnboardingUrl()}`,
+    "",
+    "Theraply Support",
+  ].join("\n");
+}
+
 async function sendTherapistOnboardingEmailBestEffort(input: {
   recipient: TherapistOnboardingEmailRecipient;
   template: string;
@@ -123,6 +145,18 @@ export async function sendTherapistOnboardingApprovedEmail(
     subject: "Your Theraply therapist profile has been approved",
     text: buildApprovedText(recipient),
     actionUrl: getTherapistDashboardUrl(),
+  });
+}
+
+export async function sendTherapistOnboardingChangesRequestedEmail(
+  input: TherapistOnboardingChangesRequestedEmailInput,
+) {
+  await sendTherapistOnboardingEmailBestEffort({
+    recipient: input,
+    template: EMAIL_TEMPLATES.therapistOnboardingChangesRequested,
+    subject: "Your therapist profile needs updates",
+    text: buildChangesRequestedText(input),
+    actionUrl: getTherapistOnboardingUrl(),
   });
 }
 

@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/server/services/therapist-onboarding-email.service", () => ({
   sendTherapistOnboardingApprovedEmail: sendApprovedEmailMock,
+  sendTherapistOnboardingChangesRequestedEmail: vi.fn(),
   sendTherapistOnboardingRejectedEmail: vi.fn(),
 }));
 

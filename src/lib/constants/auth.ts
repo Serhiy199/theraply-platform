@@ -35,6 +35,7 @@ export const EMAIL_TEMPLATES = {
   verification: "EMAIL_VERIFICATION",
   therapistOnboardingPendingReview: "THERAPIST_ONBOARDING_PENDING_REVIEW",
   therapistOnboardingApproved: "THERAPIST_ONBOARDING_APPROVED",
+  therapistOnboardingChangesRequested: "THERAPIST_ONBOARDING_CHANGES_REQUESTED",
   therapistOnboardingRejected: "THERAPIST_ONBOARDING_REJECTED",
   bookingRequestCreated: "BOOKING_REQUEST_CREATED",
   bookingConfirmed: "BOOKING_CONFIRMED",

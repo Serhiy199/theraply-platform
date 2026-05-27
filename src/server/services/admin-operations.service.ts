@@ -4,6 +4,7 @@
   Prisma,
   SessionStatus,
   TherapistApprovalStatus,
+  TherapistReviewNoteType,
   UserRole,
   WixSyncStatus,
 } from "@prisma/client";
@@ -27,6 +28,7 @@ import {
 } from "@/server/services/refund.service";
 import {
   sendTherapistOnboardingApprovedEmail,
+  sendTherapistOnboardingChangesRequestedEmail,
   sendTherapistOnboardingRejectedEmail,
 } from "@/server/services/therapist-onboarding-email.service";
 import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
@@ -151,6 +153,8 @@ export class AdminOperationsServiceError extends Error {
       | "ADMIN_NOT_FOUND"
       | "THERAPIST_PROFILE_NOT_FOUND"
       | "THERAPIST_PROFILE_NOT_PENDING_REVIEW"
+      | "THERAPIST_REVIEW_MESSAGE_REQUIRED"
+      | "THERAPIST_REVIEW_MESSAGE_INVALID"
       | "THERAPIST_REJECTION_REASON_REQUIRED"
       | "GOOGLE_CALENDAR_SYNC_FAILED"
       | "REFUND_FAILED",
@@ -485,6 +489,86 @@ export async function rejectTherapistReview(
     firstName: updatedProfile.user.firstName,
     displayName: updatedProfile.displayName,
     rejectionReason: normalizedReason,
+  });
+
+  return updatedProfile;
+}
+
+export async function requestTherapistReviewChanges(
+  adminUserId: string,
+  therapistProfileId: string,
+  message: string,
+): Promise<AdminTherapistReviewItem> {
+  await assertAdminExists(adminUserId);
+  const normalizedMessage = message.trim();
+
+  if (!normalizedMessage) {
+    throw new AdminOperationsServiceError(
+      "A message describing the required changes is required.",
+      "THERAPIST_REVIEW_MESSAGE_REQUIRED",
+    );
+  }
+
+  if (normalizedMessage.length < 10 || normalizedMessage.length > 2000) {
+    throw new AdminOperationsServiceError(
+      "The update request must be between 10 and 2000 characters.",
+      "THERAPIST_REVIEW_MESSAGE_INVALID",
+    );
+  }
+
+  const therapistProfile = await getPendingTherapistReviewOrThrow(therapistProfileId);
+
+  const updatedProfile = await prisma.$transaction(async (tx) => {
+    const updatedProfile = await tx.therapistProfile.update({
+      where: {
+        id: therapistProfile.id,
+      },
+      data: {
+        approvalStatus: TherapistApprovalStatus.CHANGES_REQUESTED,
+        isApproved: false,
+        approvedAt: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+      select: adminTherapistReviewSelect,
+    });
+
+    await tx.therapistReviewNote.create({
+      data: {
+        therapistProfileId: therapistProfile.id,
+        adminId: adminUserId,
+        type: TherapistReviewNoteType.CHANGES_REQUESTED,
+        message: normalizedMessage,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: adminUserId,
+        entityType: "TherapistProfile",
+        entityId: therapistProfile.id,
+        action: "ADMIN_REQUEST_THERAPIST_CHANGES",
+        before: {
+          approvalStatus: therapistProfile.approvalStatus,
+          isApproved: therapistProfile.isApproved,
+        },
+        after: {
+          approvalStatus: updatedProfile.approvalStatus,
+          isApproved: updatedProfile.isApproved,
+          reviewNoteType: TherapistReviewNoteType.CHANGES_REQUESTED,
+        },
+      },
+    });
+
+    return updatedProfile;
+  });
+
+  await sendTherapistOnboardingChangesRequestedEmail({
+    userId: updatedProfile.userId,
+    email: updatedProfile.user.email,
+    firstName: updatedProfile.user.firstName,
+    displayName: updatedProfile.displayName,
+    changesRequestedMessage: normalizedMessage,
   });
 
   return updatedProfile;
