@@ -62,29 +62,45 @@ export function AdminTherapistReviewActions({
       <ActionStateAlert state={approveState} />
       <ActionStateAlert state={rejectState} />
 
-      <form action={approveAction}>
-        <input type="hidden" name="therapistProfileId" value={therapistProfileId} />
-        <Button
-          type="submit"
-          variant="success"
-          size="sm"
-          loading={approvePending}
-          loadingText="Approving..."
-          disabled={pending}
-        >
-          Approve
-        </Button>
-      </form>
+      <div className="flex flex-wrap gap-3">
+        <form action={approveAction}>
+          <input type="hidden" name="therapistProfileId" value={therapistProfileId} />
+          <Button
+            type="submit"
+            variant="success"
+            size="sm"
+            loading={approvePending}
+            loadingText="Approving..."
+            disabled={pending}
+          >
+            Approve
+          </Button>
+        </form>
 
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        disabled={pending}
-        onClick={() => requestChangesDialogRef.current?.showModal()}
-      >
-        Request changes
-      </Button>
+        <Button
+          type="button"
+          variant="warning"
+          size="sm"
+          disabled={pending}
+          onClick={() => requestChangesDialogRef.current?.showModal()}
+        >
+          Request changes
+        </Button>
+
+        <form action={rejectAction}>
+          <input type="hidden" name="therapistProfileId" value={therapistProfileId} />
+          <Button
+            type="submit"
+            variant="danger"
+            size="sm"
+            loading={rejectPending}
+            loadingText="Rejecting..."
+            disabled={pending}
+          >
+            Reject
+          </Button>
+        </form>
+      </div>
 
       <dialog
         ref={requestChangesDialogRef}
@@ -160,40 +176,6 @@ export function AdminTherapistReviewActions({
         </form>
       </dialog>
 
-      <form action={rejectAction} className="space-y-3">
-        <input type="hidden" name="therapistProfileId" value={therapistProfileId} />
-        <div>
-          <label
-            htmlFor={`rejectionReason-${therapistProfileId}`}
-            className="text-sm font-semibold text-slate-900"
-          >
-            Rejection reason
-          </label>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            Required before rejecting. This reason is shown to the therapist as part of the final
-            decision on their application.
-          </p>
-          <textarea
-            id={`rejectionReason-${therapistProfileId}`}
-            name="rejectionReason"
-            rows={3}
-            required
-            minLength={3}
-            disabled={pending}
-            className="mt-2 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </div>
-        <Button
-          type="submit"
-          variant="danger"
-          size="sm"
-          loading={rejectPending}
-          loadingText="Rejecting..."
-          disabled={pending}
-        >
-          Reject
-        </Button>
-      </form>
     </div>
   );
 }

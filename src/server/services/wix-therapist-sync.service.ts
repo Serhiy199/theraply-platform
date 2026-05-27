@@ -11,10 +11,10 @@ import {
   WixFormsServiceError,
 } from "@/server/services/wix-forms.service";
 
-const THERAPIST_PROFILE_NOT_FOUND_MESSAGE = "Профіль терапевта не знайдено.";
+const THERAPIST_PROFILE_NOT_FOUND_MESSAGE = "Therapist profile not found.";
 const THERAPIST_NOT_APPROVED_MESSAGE =
-  "До Wix можна синхронізувати лише погодженого терапевта.";
-const WIX_SYNC_FAILED_MESSAGE = "Не вдалося синхронізувати терапевта з Wix.";
+  "Only an approved therapist can be synchronized with Wix.";
+const WIX_SYNC_FAILED_MESSAGE = "Could not synchronize the therapist with Wix.";
 
 const wixTherapistSyncProfileSelect = {
   id: true,

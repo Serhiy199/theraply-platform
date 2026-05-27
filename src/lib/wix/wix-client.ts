@@ -43,11 +43,11 @@ function readRequiredEnv(name: string, missingMessage: string) {
 
 export function getWixConfig(): WixConfig {
   return {
-    apiToken: readRequiredEnv("WIX_API_TOKEN", "Не налаштовано WIX_API_TOKEN."),
-    siteId: readRequiredEnv("WIX_SITE_ID", "Не налаштовано WIX_SITE_ID."),
+    apiToken: readRequiredEnv("WIX_API_TOKEN", "WIX_API_TOKEN is not configured."),
+    siteId: readRequiredEnv("WIX_SITE_ID", "WIX_SITE_ID is not configured."),
     therapistApplicationFormId: readRequiredEnv(
       "WIX_THERAPIST_APPLICATION_FORM_ID",
-      "Не налаштовано WIX_THERAPIST_APPLICATION_FORM_ID.",
+      "WIX_THERAPIST_APPLICATION_FORM_ID is not configured.",
     ),
     accountId: readOptionalEnv("WIX_ACCOUNT_ID"),
   };
@@ -104,7 +104,7 @@ export async function wixRequest<TResponse>(
 
   if (!response.ok) {
     throw new WixApiRequestError(
-      "Не вдалося виконати запит до Wix API.",
+      "The Wix API request failed.",
       response.status,
       responseBody,
     );

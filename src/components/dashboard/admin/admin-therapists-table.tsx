@@ -25,7 +25,7 @@ function getTherapistDisplayName(therapist: AdminTherapistListItem) {
 
 function getShortWixSyncError(error: string | null) {
   if (!error) {
-    return "Синхронізація не вдалася.";
+    return "Synchronization failed.";
   }
 
   const normalized = error.trim();
@@ -145,8 +145,8 @@ export function AdminTherapistsTable({
       {wixSyncStatus ? (
         <Alert tone={wixSyncStatus === "synced" ? "success" : "warning"} className="mt-6">
           {wixSyncStatus === "synced"
-            ? "Терапевта погоджено та синхронізовано з Wix."
-            : "Терапевта погоджено, але не вдалося синхронізувати з Wix. Спробуйте повторити синхронізацію."}
+            ? "Therapist approved and synchronized with Wix."
+            : "Therapist approved, but synchronization with Wix failed. Please retry the synchronization."}
         </Alert>
       ) : null}
 

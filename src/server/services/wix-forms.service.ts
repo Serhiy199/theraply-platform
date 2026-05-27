@@ -20,7 +20,7 @@ export const WIX_THERAPIST_FORM_FIELD_KEYS = {
 export const WIX_THERAPIST_APPLICATION_FIELD_TARGETS = WIX_THERAPIST_FORM_FIELD_KEYS;
 
 export const WIX_THERAPIST_FORM_STRUCTURE_MISMATCH_MESSAGE =
-  "Структура Wix Form не відповідає очікуваній. Перевірте поля форми перед тестовою синхронізацією.";
+  "The Wix form structure does not match the expected fields. Review the form fields before synchronizing.";
 
 export type WixFormSummaryField = {
   id: string | null;
@@ -147,7 +147,7 @@ function parseFormSummaryResponse(response: unknown): WixFormSummary {
 
   if (!id || !Array.isArray(formSummary?.fields)) {
     throw new WixFormsServiceError(
-      "Wix Forms повернув неочікувану структуру форми.",
+      "Wix Forms returned an unexpected form structure.",
       "WIX_FORM_SUMMARY_INVALID_RESPONSE",
     );
   }
@@ -360,8 +360,13 @@ async function uploadCertificateAssetForWixSubmission(
     : null;
 
   if (!uploadUrl) {
+    logDiagnosticEvent("wix-forms", "Wix did not return a certificate media upload URL.", {
+      formId: therapistApplicationFormId,
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+    });
     throw new WixFormsServiceError(
-      "Wix Forms не повернув URL для завантаження сертифіката.",
+      "Wix Forms did not return a certificate upload URL.",
       "WIX_CERTIFICATE_UPLOAD_FAILED",
     );
   }
@@ -369,15 +374,21 @@ async function uploadCertificateAssetForWixSubmission(
   const storedAssetResponse = await fetch(asset.fileUrl);
 
   if (!storedAssetResponse.ok) {
+    logDiagnosticEvent("wix-forms", "Unable to download a stored certificate for Wix upload.", {
+      formId: therapistApplicationFormId,
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      status: storedAssetResponse.status,
+    });
     throw new WixFormsServiceError(
-      "Не вдалося отримати збережений файл сертифіката для Wix.",
+      "Could not retrieve the stored certificate file for Wix.",
       "WIX_CERTIFICATE_UPLOAD_FAILED",
       { status: storedAssetResponse.status },
     );
   }
 
   const wixUploadResponse = await fetch(uploadUrl, {
-    method: "POST",
+    method: "PUT",
     headers: {
       "Content-Type": asset.mimeType,
     },
@@ -385,8 +396,15 @@ async function uploadCertificateAssetForWixSubmission(
   });
 
   if (!wixUploadResponse.ok) {
+    logDiagnosticEvent("wix-forms", "Unable to upload a certificate file to Wix Forms.", {
+      formId: therapistApplicationFormId,
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      method: "PUT",
+      status: wixUploadResponse.status,
+    });
     throw new WixFormsServiceError(
-      "Не вдалося завантажити файл сертифіката у Wix Forms.",
+      "Could not upload the certificate file to Wix Forms.",
       "WIX_CERTIFICATE_UPLOAD_FAILED",
       { status: wixUploadResponse.status },
     );
@@ -403,7 +421,7 @@ function parseCreatedSubmissionResponse(response: unknown) {
 
   if (!submissionId) {
     throw new WixFormsServiceError(
-      "Wix Forms не повернув ідентифікатор створеного запису.",
+      "Wix Forms did not return an identifier for the created submission.",
       "WIX_SUBMISSION_INVALID_RESPONSE",
       response,
     );
@@ -494,7 +512,7 @@ export async function createWixTherapistApplicationSubmission(
     });
 
     throw new WixFormsServiceError(
-      "Не вдалося створити запис у Wix Forms.",
+      "Could not create a record in Wix Forms.",
       "WIX_SUBMISSION_CREATE_FAILED",
       error instanceof WixApiRequestError
         ? {

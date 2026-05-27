@@ -179,7 +179,7 @@ describe("syncApprovedTherapistToWix", () => {
       syncApprovedTherapistToWix("therapist-profile-id"),
     ).rejects.toMatchObject({
       code: "THERAPIST_NOT_APPROVED",
-      message: "До Wix можна синхронізувати лише погодженого терапевта.",
+      message: "Only an approved therapist can be synchronized with Wix.",
     } satisfies Partial<WixTherapistSyncServiceError>);
 
     expect(createSubmissionMock).not.toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe("syncApprovedTherapistToWix", () => {
       syncApprovedTherapistToWix("therapist-profile-id"),
     ).rejects.toMatchObject({
       code: "WIX_THERAPIST_SYNC_FAILED",
-      message: "Не вдалося синхронізувати терапевта з Wix.",
+      message: "Could not synchronize the therapist with Wix.",
     } satisfies Partial<WixTherapistSyncServiceError>);
 
     expect(updateMock).toHaveBeenCalledWith({
@@ -203,7 +203,7 @@ describe("syncApprovedTherapistToWix", () => {
       data: {
         wixSyncStatus: WixSyncStatus.FAILED,
         wixSyncedAt: null,
-        wixSyncError: "Не вдалося синхронізувати терапевта з Wix.",
+        wixSyncError: "Could not synchronize the therapist with Wix.",
       },
     });
     expect(logDiagnosticEventMock).toHaveBeenCalledWith(
@@ -224,7 +224,7 @@ describe("syncApprovedTherapistToWix", () => {
     findUniqueMock.mockResolvedValue(buildApprovedProfile());
     createSubmissionMock.mockRejectedValue(
       new WixFormsServiceError(
-        "Не вдалося створити запис у Wix Forms.",
+        "Could not create a record in Wix Forms.",
         "WIX_SUBMISSION_CREATE_FAILED",
         { status: 403, response: { message: "Provider permission denied." } },
       ),
@@ -235,7 +235,7 @@ describe("syncApprovedTherapistToWix", () => {
       syncApprovedTherapistToWix("therapist-profile-id"),
     ).rejects.toMatchObject({
       code: "WIX_THERAPIST_SYNC_FAILED",
-      message: "Не вдалося створити запис у Wix Forms.",
+      message: "Could not create a record in Wix Forms.",
     } satisfies Partial<WixTherapistSyncServiceError>);
 
     expect(updateMock).toHaveBeenCalledWith({
@@ -243,7 +243,7 @@ describe("syncApprovedTherapistToWix", () => {
       data: {
         wixSyncStatus: WixSyncStatus.FAILED,
         wixSyncedAt: null,
-        wixSyncError: "Не вдалося створити запис у Wix Forms.",
+        wixSyncError: "Could not create a record in Wix Forms.",
       },
     });
     expect(JSON.stringify(updateMock.mock.calls)).not.toContain("Provider permission denied.");

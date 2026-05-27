@@ -35,6 +35,9 @@ export type RetryWixTherapistSyncActionState = {
   message?: string;
 };
 
+const DEFAULT_REJECTION_REASON =
+  "Your therapist application was not approved following review.";
+
 function getErrorState(
   error: unknown,
   fallbackMessage: string,
@@ -108,7 +111,6 @@ export async function rejectTherapistAction(
 ): Promise<AdminTherapistReviewActionState> {
   const parsed = therapistRejectReviewPayloadSchema.safeParse({
     therapistProfileId: formData.get("therapistProfileId"),
-    rejectionReason: formData.get("rejectionReason"),
   });
 
   try {
@@ -118,18 +120,16 @@ export async function rejectTherapistAction(
     );
 
     if (!parsed.success) {
-      const fieldErrors = parsed.error.flatten().fieldErrors;
       return {
         status: "error",
         message:
-          fieldErrors.therapistProfileId?.[0] ??
-          fieldErrors.rejectionReason?.[0] ??
+          parsed.error.flatten().fieldErrors.therapistProfileId?.[0] ??
           "Therapist review payload is incomplete.",
       };
     }
 
-    const { therapistProfileId, rejectionReason } = parsed.data;
-    await rejectTherapistReview(user.id, therapistProfileId, rejectionReason);
+    const { therapistProfileId } = parsed.data;
+    await rejectTherapistReview(user.id, therapistProfileId, DEFAULT_REJECTION_REASON);
     revalidatePath("/admin/therapists");
     revalidatePath("/admin/dashboard");
     revalidatePath("/therapist/onboarding");
@@ -213,7 +213,7 @@ export async function retryWixTherapistSyncAction(
     if (!parsed.success) {
       return {
         status: "error",
-        message: "Не вказано профіль терапевта для синхронізації.",
+        message: "Therapist profile identifier is missing.",
       };
     }
 
@@ -223,7 +223,7 @@ export async function retryWixTherapistSyncAction(
 
     return {
       status: "success",
-      message: "Терапевта успішно синхронізовано з Wix.",
+      message: "Therapist synchronized with Wix successfully.",
     };
   } catch (error) {
     if (error instanceof ActionPermissionError) {
@@ -237,14 +237,14 @@ export async function retryWixTherapistSyncAction(
       return {
         status: "error",
         message:
-          "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
+          "Could not synchronize the therapist with Wix. Review the error and try again.",
       };
     }
 
     return {
       status: "error",
       message:
-        "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
+        "Could not synchronize the therapist with Wix. Review the error and try again.",
     };
   }
 }

@@ -253,7 +253,7 @@ export function AdminTherapistReviewQueue({
       </div>
 
       {pendingReviews.length ? (
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <div className="mt-5 grid gap-4">
           {pendingReviews.map((review) => {
             const hasDraftDifferences = getDraftDifferences(review).length > 0;
 

@@ -27,13 +27,7 @@ export const therapistReviewPayloadSchema = z.object({
     .min(1, "Therapist profile identifier is missing."),
 });
 
-export const therapistRejectReviewPayloadSchema = therapistReviewPayloadSchema.extend({
-  rejectionReason: z
-    .string()
-    .trim()
-    .min(1, "Rejection reason is required.")
-    .max(2000, "Rejection reason must be 2000 characters or fewer."),
-});
+export const therapistRejectReviewPayloadSchema = therapistReviewPayloadSchema;
 
 export const therapistRequestChangesPayloadSchema = therapistReviewPayloadSchema.extend({
   message: z

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import type { UrlObject } from "url";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "warning" | "danger" | "success" | "ghost";
 type ButtonSize = "sm" | "md";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -39,6 +39,10 @@ function getVariantClasses(variant: ButtonVariant, disabled: boolean) {
       return disabled
         ? "border border-slate-200 bg-slate-100 text-slate-400"
         : "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100";
+    case "warning":
+      return disabled
+        ? "border border-slate-200 bg-slate-100 text-slate-400"
+        : "border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100";
     case "success":
       return disabled
         ? "border border-slate-200 bg-slate-100 text-slate-400"
@@ -65,6 +69,8 @@ function getVariantColor(variant: ButtonVariant, disabled: boolean) {
       return "#0f172a";
     case "danger":
       return "#9f1239";
+    case "warning":
+      return "#78350f";
     case "success":
       return "#14532d";
     case "ghost":

@@ -79,7 +79,7 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     expect(response.status).toBe(401);
     expect(await readJson(response)).toMatchObject({
       success: false,
-      error: "Потрібна авторизація адміністратора.",
+      error: "Administrator authentication is required.",
     });
   });
 
@@ -93,7 +93,7 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     expect(response.status).toBe(403);
     expect(await readJson(response)).toMatchObject({
       success: false,
-      error: "Доступ дозволено лише адміністратору.",
+      error: "Only administrators can access this endpoint.",
     });
   });
 
@@ -121,7 +121,7 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     });
     expect(await readJson(response)).toEqual({
       success: true,
-      message: "Тестовий запис успішно створено у Wix Forms.",
+      message: "Test record created in Wix Forms successfully.",
       wixSubmissionId: "submission-id",
     });
   });
@@ -141,7 +141,7 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     expect(response.status).toBe(409);
     expect(body).toEqual({
       success: false,
-      message: "Не вдалося створити тестовий запис у Wix Forms.",
+      message: "Could not create a test record in Wix Forms.",
       error: WIX_THERAPIST_FORM_STRUCTURE_MISMATCH_MESSAGE,
     });
     expect(JSON.stringify(body)).not.toContain("missingFieldTargets");
@@ -150,7 +150,7 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
 
   it("returns a controlled configuration message for missing Wix env", async () => {
     createSubmissionMock.mockRejectedValue(
-      new WixConfigError("Не налаштовано WIX_API_TOKEN."),
+      new WixConfigError("WIX_API_TOKEN is not configured."),
     );
 
     const response = await POST();
@@ -158,14 +158,14 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     expect(response.status).toBe(503);
     expect(await readJson(response)).toMatchObject({
       success: false,
-      error: "Не налаштовано WIX_API_TOKEN.",
+      error: "WIX_API_TOKEN is not configured.",
     });
   });
 
   it("returns the agreed generic failure response when Wix creation fails", async () => {
     createSubmissionMock.mockRejectedValue(
       new WixFormsServiceError(
-        "Не вдалося створити запис у Wix Forms.",
+        "Could not create a record in Wix Forms.",
         "WIX_SUBMISSION_CREATE_FAILED",
         { status: 403, response: { message: "Permission denied" } },
       ),
@@ -176,8 +176,8 @@ describe("POST /api/admin/dev/test-wix-therapist-submission", () => {
     expect(response.status).toBe(502);
     expect(await readJson(response)).toEqual({
       success: false,
-      message: "Не вдалося створити тестовий запис у Wix Forms.",
-      error: "Перевірте налаштування Wix API або структуру форми.",
+      message: "Could not create a test record in Wix Forms.",
+      error: "Review the Wix API configuration or form structure.",
     });
     expect(logDiagnosticEventMock).toHaveBeenCalled();
   });

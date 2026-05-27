@@ -105,7 +105,7 @@ describe("approveTherapistReview Wix integration", () => {
 
     expect(result.wixSync).toEqual({
       status: "synced",
-      message: "Терапевта погоджено та синхронізовано з Wix.",
+      message: "Therapist approved and synchronized with Wix.",
     });
     expect(updateTherapistMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -133,7 +133,7 @@ describe("approveTherapistReview Wix integration", () => {
     expect(result.wixSync).toEqual({
       status: "failed",
       message:
-        "Терапевта погоджено, але не вдалося синхронізувати з Wix. Спробуйте повторити синхронізацію.",
+        "Therapist approved, but synchronization with Wix failed. Please retry the synchronization.",
     });
     expect(transactionMock).toHaveBeenCalledTimes(1);
   });

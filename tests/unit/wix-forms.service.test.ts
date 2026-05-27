@@ -290,7 +290,7 @@ describe("Wix therapist application submission", () => {
       2,
       wixUploadUrl,
       expect.objectContaining({
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "image/png" },
       }),
     );
@@ -413,7 +413,7 @@ describe("Wix therapist application submission", () => {
 
     await expect(createWixTherapistApplicationSubmission(applicationInput)).rejects.toMatchObject({
       code: "WIX_SUBMISSION_CREATE_FAILED",
-      message: "Не вдалося створити запис у Wix Forms.",
+      message: "Could not create a record in Wix Forms.",
     } satisfies Partial<WixFormsServiceError>);
     expect(logDiagnosticEventMock).toHaveBeenCalledWith(
       "wix-forms",

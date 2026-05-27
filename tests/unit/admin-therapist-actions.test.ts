@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   approveTherapistAction,
+  rejectTherapistAction,
   requestTherapistChangesAction,
   retryWixTherapistSyncAction,
 } from "@/app/admin/therapists/actions";
@@ -10,6 +11,7 @@ const revalidatePathMock = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 const requireActionRoleMock = vi.hoisted(() => vi.fn());
 const approveTherapistReviewMock = vi.hoisted(() => vi.fn());
+const rejectTherapistReviewMock = vi.hoisted(() => vi.fn());
 const requestTherapistReviewChangesMock = vi.hoisted(() => vi.fn());
 const syncApprovedTherapistToWixMock = vi.hoisted(() => vi.fn());
 const errorClasses = vi.hoisted(() => ({
@@ -34,7 +36,7 @@ vi.mock("@/server/services/admin-operations.service", () => ({
   AdminOperationsServiceError: class AdminOperationsServiceError extends Error {},
   approveTherapistReview: approveTherapistReviewMock,
   requestTherapistReviewChanges: requestTherapistReviewChangesMock,
-  rejectTherapistReview: vi.fn(),
+  rejectTherapistReview: rejectTherapistReviewMock,
 }));
 
 vi.mock("@/server/services/wix-therapist-sync.service", () => ({
@@ -53,7 +55,7 @@ describe("approveTherapistAction Wix message", () => {
       therapistProfile: { id: "therapist-profile-id" },
       wixSync: {
         status: "synced",
-        message: "Терапевта погоджено та синхронізовано з Wix.",
+        message: "Therapist approved and synchronized with Wix.",
       },
     });
     const formData = new FormData();
@@ -71,7 +73,7 @@ describe("approveTherapistAction Wix message", () => {
       wixSync: {
         status: "failed",
         message:
-          "Терапевта погоджено, але не вдалося синхронізувати з Wix. Спробуйте повторити синхронізацію.",
+          "Therapist approved, but synchronization with Wix failed. Please retry the synchronization.",
       },
     });
     const formData = new FormData();
@@ -98,7 +100,7 @@ describe("retryWixTherapistSyncAction", () => {
       retryWixTherapistSyncAction({ status: "idle" }, formData),
     ).resolves.toEqual({
       status: "success",
-      message: "Терапевта успішно синхронізовано з Wix.",
+      message: "Therapist synchronized with Wix successfully.",
     });
 
     expect(syncApprovedTherapistToWixMock).toHaveBeenCalledWith("therapist-profile-id");
@@ -113,7 +115,7 @@ describe("retryWixTherapistSyncAction", () => {
       retryWixTherapistSyncAction({ status: "idle" }, new FormData()),
     ).resolves.toEqual({
       status: "error",
-      message: "Не вказано профіль терапевта для синхронізації.",
+      message: "Therapist profile identifier is missing.",
     });
 
     expect(syncApprovedTherapistToWixMock).not.toHaveBeenCalled();
@@ -134,7 +136,7 @@ describe("retryWixTherapistSyncAction", () => {
     expect(syncApprovedTherapistToWixMock).not.toHaveBeenCalled();
   });
 
-  it("returns the Ukrainian retry failure message when approved sync fails", async () => {
+  it("returns an English retry failure message when approved sync fails", async () => {
     requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
     syncApprovedTherapistToWixMock.mockRejectedValue(
       new errorClasses.WixTherapistSyncServiceError(),
@@ -147,7 +149,7 @@ describe("retryWixTherapistSyncAction", () => {
     ).resolves.toEqual({
       status: "error",
       message:
-        "Не вдалося синхронізувати терапевта з Wix. Перевірте помилку та повторіть спробу.",
+        "Could not synchronize the therapist with Wix. Review the error and try again.",
     });
   });
 });
@@ -210,5 +212,27 @@ describe("requestTherapistChangesAction", () => {
     });
 
     expect(requestTherapistReviewChangesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("rejectTherapistAction", () => {
+  it("rejects directly with the standard final-decision reason", async () => {
+    requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
+    rejectTherapistReviewMock.mockResolvedValue({ id: "therapist-profile-id" });
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+
+    await expect(
+      rejectTherapistAction({ status: "idle" }, formData),
+    ).resolves.toEqual({
+      status: "success",
+      message: "Therapist profile rejected successfully.",
+    });
+
+    expect(rejectTherapistReviewMock).toHaveBeenCalledWith(
+      "admin-id",
+      "therapist-profile-id",
+      "Your therapist application was not approved following review.",
+    );
   });
 });

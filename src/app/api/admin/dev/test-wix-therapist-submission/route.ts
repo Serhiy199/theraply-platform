@@ -29,13 +29,13 @@ const TEST_WIX_THERAPIST_SUBMISSION: WixTherapistApplicationInput = {
 };
 
 const GENERIC_WIX_TEST_ERROR =
-  "Перевірте налаштування Wix API або структуру форми.";
+  "Review the Wix API configuration or form structure.";
 
 function testSubmissionErrorResponse(error: string, status: number) {
   return NextResponse.json(
     {
       success: false,
-      message: "Не вдалося створити тестовий запис у Wix Forms.",
+      message: "Could not create a test record in Wix Forms.",
       error,
     },
     { status },
@@ -50,7 +50,7 @@ export async function POST() {
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return testSubmissionErrorResponse("Потрібна авторизація адміністратора.", 401);
+    return testSubmissionErrorResponse("Administrator authentication is required.", 401);
   }
 
   let adminUser: Awaited<ReturnType<typeof requireCurrentActionRole>>;
@@ -63,7 +63,7 @@ export async function POST() {
     );
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return testSubmissionErrorResponse("Доступ дозволено лише адміністратору.", 403);
+      return testSubmissionErrorResponse("Only administrators can access this endpoint.", 403);
     }
 
     throw error;
@@ -77,7 +77,7 @@ export async function POST() {
     return NextResponse.json(
       {
         success: true,
-        message: "Тестовий запис успішно створено у Wix Forms.",
+        message: "Test record created in Wix Forms successfully.",
         wixSubmissionId: result.wixSubmissionId,
       },
       { status: 200 },

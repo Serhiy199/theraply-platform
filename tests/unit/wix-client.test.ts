@@ -38,11 +38,11 @@ describe("Wix API client configuration", () => {
   });
 
   it.each([
-    ["WIX_API_TOKEN", "Не налаштовано WIX_API_TOKEN."],
-    ["WIX_SITE_ID", "Не налаштовано WIX_SITE_ID."],
+    ["WIX_API_TOKEN", "WIX_API_TOKEN is not configured."],
+    ["WIX_SITE_ID", "WIX_SITE_ID is not configured."],
     [
       "WIX_THERAPIST_APPLICATION_FORM_ID",
-      "Не налаштовано WIX_THERAPIST_APPLICATION_FORM_ID.",
+      "WIX_THERAPIST_APPLICATION_FORM_ID is not configured.",
     ],
   ])("returns a controlled error when %s is absent", (name, expectedMessage) => {
     setRequiredWixEnv();
