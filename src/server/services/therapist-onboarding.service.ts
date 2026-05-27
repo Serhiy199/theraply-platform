@@ -120,13 +120,17 @@ export async function saveTherapistOnboardingDraft(
   }
 
   const draft = withTrustedUserSnapshot(parseTherapistOnboardingDraft(input), profile.user);
+  const draftStatus =
+    profile.approvalStatus === TherapistApprovalStatus.CHANGES_REQUESTED
+      ? TherapistApprovalStatus.CHANGES_REQUESTED
+      : TherapistApprovalStatus.PROFILE_INCOMPLETE;
 
   const updatedProfile = await prisma.therapistProfile.update({
     where: {
       id: profile.id,
     },
     data: {
-      approvalStatus: TherapistApprovalStatus.PROFILE_INCOMPLETE,
+      approvalStatus: draftStatus,
       profileDraft: toPrismaJson(draft),
     },
     select: {

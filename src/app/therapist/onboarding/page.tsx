@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TherapistApprovalStatus, UserRole } from "@prisma/client";
+import { TherapistApprovalStatus, TherapistReviewNoteType, UserRole } from "@prisma/client";
 import { ResendEmailVerificationForm } from "@/components/forms/resend-email-verification-form";
 import {
   TherapistOnboardingForm,
@@ -203,6 +203,19 @@ export default async function TherapistOnboardingPage() {
           specialisation: true,
           pricePerHour: true,
           profileDraft: true,
+          reviewNotes: {
+            where: {
+              type: TherapistReviewNoteType.CHANGES_REQUESTED,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 1,
+            select: {
+              message: true,
+              createdAt: true,
+            },
+          },
           certificates: {
             orderBy: {
               uploadedAt: "desc",
@@ -229,6 +242,7 @@ export default async function TherapistOnboardingPage() {
       : account?.therapistProfile?.approvalStatus ?? TherapistApprovalStatus.EMAIL_NOT_VERIFIED;
   const meta = statusMeta[approvalStatus];
   const isApproved = approvalStatus === TherapistApprovalStatus.APPROVED;
+  const latestChangesRequest = account?.therapistProfile?.reviewNotes[0] ?? null;
 
   return (
     <SurfaceCard as="section">
@@ -260,6 +274,22 @@ export default async function TherapistOnboardingPage() {
       account?.therapistProfile?.rejectionReason ? (
         <Alert tone="error" title="Rejection reason" className="mt-6">
           {account.therapistProfile.rejectionReason}
+        </Alert>
+      ) : null}
+
+      {approvalStatus === TherapistApprovalStatus.CHANGES_REQUESTED &&
+      latestChangesRequest ? (
+        <Alert tone="warning" title="Updates requested by your reviewer" className="mt-6">
+          <p className="whitespace-pre-wrap leading-6">{latestChangesRequest.message}</p>
+          <p className="mt-3 text-xs">
+            Requested on{" "}
+            {latestChangesRequest.createdAt.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+            .
+          </p>
         </Alert>
       ) : null}
 
