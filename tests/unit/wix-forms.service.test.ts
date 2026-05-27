@@ -235,7 +235,7 @@ describe("Wix therapist application submission", () => {
     expect(submissionValues).not.toHaveProperty(WIX_THERAPIST_FORM_FIELD_KEYS.certificates);
   });
 
-  it("uploads stored certificate assets and submits Wix file upload URLs", async () => {
+  it("generates Wix media URLs and submits them as file upload field values", async () => {
     const optionalFileSummary = buildSummary();
     optionalFileSummary.fields = optionalFileSummary.fields.map((field) =>
       field.target === WIX_THERAPIST_FORM_FIELD_KEYS.certificates
@@ -254,12 +254,6 @@ describe("Wix therapist application submission", () => {
       ],
     };
     const wixUploadUrl = "https://upload.wixmp.com/upload/signed-upload-token";
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 200 }));
-
-    vi.stubGlobal("fetch", fetchMock);
     getWixConfigMock.mockReturnValue({
       therapistApplicationFormId: "test-form-id",
     });
@@ -282,19 +276,6 @@ describe("Wix therapist application submission", () => {
         },
       },
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "https://res.cloudinary.com/test/image/upload/qualification.png",
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      wixUploadUrl,
-      expect.objectContaining({
-        method: "PUT",
-        headers: { "Content-Type": "image/png" },
-      }),
-    );
-
     const [, createCallOptions] = wixRequestMock.mock.calls[2];
     expect(createCallOptions.body.submission.submissions).toHaveProperty(
       WIX_THERAPIST_FORM_FIELD_KEYS.certificates,
@@ -311,13 +292,6 @@ describe("Wix therapist application submission", () => {
     );
     const wixUploadUrl = "https://upload.wixmp.com/upload/required-file-token";
 
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response(new Uint8Array([1]), { status: 200 }))
-        .mockResolvedValueOnce(new Response(null, { status: 200 })),
-    );
     getWixConfigMock.mockReturnValue({
       therapistApplicationFormId: "test-form-id",
     });

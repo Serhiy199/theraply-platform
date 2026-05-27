@@ -340,7 +340,7 @@ export function buildWixTherapistApplicationSubmissionValues(
   return values;
 }
 
-async function uploadCertificateAssetForWixSubmission(
+async function getCertificateMediaUploadUrlForWixSubmission(
   asset: WixTherapistCertificateAsset,
 ) {
   const { therapistApplicationFormId } = getWixConfig();
@@ -368,45 +368,6 @@ async function uploadCertificateAssetForWixSubmission(
     throw new WixFormsServiceError(
       "Wix Forms did not return a certificate upload URL.",
       "WIX_CERTIFICATE_UPLOAD_FAILED",
-    );
-  }
-
-  const storedAssetResponse = await fetch(asset.fileUrl);
-
-  if (!storedAssetResponse.ok) {
-    logDiagnosticEvent("wix-forms", "Unable to download a stored certificate for Wix upload.", {
-      formId: therapistApplicationFormId,
-      fileName: asset.fileName,
-      mimeType: asset.mimeType,
-      status: storedAssetResponse.status,
-    });
-    throw new WixFormsServiceError(
-      "Could not retrieve the stored certificate file for Wix.",
-      "WIX_CERTIFICATE_UPLOAD_FAILED",
-      { status: storedAssetResponse.status },
-    );
-  }
-
-  const wixUploadResponse = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": asset.mimeType,
-    },
-    body: await storedAssetResponse.arrayBuffer(),
-  });
-
-  if (!wixUploadResponse.ok) {
-    logDiagnosticEvent("wix-forms", "Unable to upload a certificate file to Wix Forms.", {
-      formId: therapistApplicationFormId,
-      fileName: asset.fileName,
-      mimeType: asset.mimeType,
-      method: "PUT",
-      status: wixUploadResponse.status,
-    });
-    throw new WixFormsServiceError(
-      "Could not upload the certificate file to Wix Forms.",
-      "WIX_CERTIFICATE_UPLOAD_FAILED",
-      { status: wixUploadResponse.status },
     );
   }
 
@@ -464,7 +425,7 @@ export async function createWixTherapistApplicationSubmission(
 
       for (const certificateAsset of input.certificateAssets) {
         certificateUploadUrls.push(
-          await uploadCertificateAssetForWixSubmission(certificateAsset),
+          await getCertificateMediaUploadUrlForWixSubmission(certificateAsset),
         );
       }
 
