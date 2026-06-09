@@ -46,6 +46,14 @@ export const therapistPayoutDetailsPayloadSchema = z.object({
   sessionPriceGbp: sessionPriceGbpSchema,
 });
 
+export const therapistSessionPricePayloadSchema = z.object({
+  sessionPriceGbp: sessionPriceGbpSchema,
+});
+
 export type TherapistPayoutDetailsPayload = z.infer<
   typeof therapistPayoutDetailsPayloadSchema
+>;
+
+export type TherapistSessionPricePayload = z.infer<
+  typeof therapistSessionPricePayloadSchema
 >;

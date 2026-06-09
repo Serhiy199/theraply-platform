@@ -1,10 +1,13 @@
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
+import { retryTherapistTransferAction } from "@/app/admin/payments/actions";
 import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,
   formatPaymentStatus,
+  formatPaymentTransferStatus,
   getBookingStatusBadgeClass,
   getPaymentStatusBadgeClass,
+  getPaymentTransferStatusBadgeClass,
 } from "@/lib/utils/format-booking";
 import { formatAppDateTime } from "@/lib/utils/date-time";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +93,8 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                 <th className="px-5 py-4">Therapist</th>
                 <th className="px-5 py-4">Amount</th>
                 <th className="px-5 py-4">Payment</th>
+                <th className="px-5 py-4">Split</th>
+                <th className="px-5 py-4">Transfer</th>
                 <th className="px-5 py-4">Booking state</th>
                 <th className="px-5 py-4">Paid</th>
                 <th className="px-5 py-4">Refunded</th>
@@ -122,6 +127,29 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                         ? `Expires ${formatDateTime(payment.checkoutExpiresAt)}`
                         : "\u00A0"}
                     </p>
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    <p>Platform {formatAmount(payment.platformFeeAmount ?? 0, payment.currency)}</p>
+                    <p className="mt-1">Therapist {formatAmount(payment.therapistAmount ?? 0, payment.currency)}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge className={getPaymentTransferStatusBadgeClass(payment.transferStatus)}>
+                      {formatPaymentTransferStatus(payment.transferStatus)}
+                    </Badge>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {payment.transferFailureReason || (payment.transferredAt ? `Transferred ${formatDateTime(payment.transferredAt)}` : "\u00A0")}
+                    </p>
+                    {payment.transferStatus === "FAILED" ? (
+                      <form action={retryTherapistTransferAction} className="mt-3">
+                        <input type="hidden" name="paymentId" value={payment.id} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                        >
+                          Retry transfer
+                        </button>
+                      </form>
+                    ) : null}
                   </td>
                   <td className="px-5 py-4">
                     <Badge className={getBookingStatusBadgeClass(payment.booking.bookingStatus)}>

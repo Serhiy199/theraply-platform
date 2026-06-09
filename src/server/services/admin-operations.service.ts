@@ -238,6 +238,10 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
       wixSyncedAt: true,
       wixSyncError: true,
       googleCalendarEmail: true,
+      stripeAccountId: true,
+      stripeOnboardingStatus: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
       createdAt: true,
       updatedAt: true,
       user: {
@@ -284,7 +288,11 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     wixSyncedAt: therapist.wixSyncedAt,
     wixSyncError: therapist.wixSyncError,
     googleCalendarEmail: therapist.googleCalendarEmail,
-    payoutVerified: therapist.payoutDetails?.isVerified ?? false,
+    payoutVerified:
+      Boolean(therapist.stripeAccountId) &&
+      therapist.stripeOnboardingStatus === "READY" &&
+      therapist.stripeChargesEnabled &&
+      therapist.stripePayoutsEnabled,
     payoutCountry: therapist.payoutDetails?.country ?? null,
     certificates: therapist.certificates,
     createdAt: therapist.createdAt,

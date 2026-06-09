@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,
@@ -13,8 +12,10 @@ import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
   requestDecisionAction,
   therapistCancelSessionAction,
+  therapistSettleSessionAction,
   type RequestDecisionActionState,
   type TherapistCancelSessionActionState,
+  type TherapistSettleSessionActionState,
 } from "@/app/therapist/requests/actions";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
@@ -102,7 +103,7 @@ function CancelConfirmedSessionForm({ bookingId, hasPaidSession }: { bookingId: 
       ) : null}
       <DashboardStatusAlert tone={hasPaidSession ? "warning" : "info"}>
         {hasPaidSession
-          ? "If you cancel this confirmed and paid session, the client will be able to choose either a full refund or platform credit from their booking page."
+          ? "If you cancel this confirmed and paid session, the client payment will be refunded automatically."
           : "Cancelling this confirmed session will remove it from the schedule and stop the booking flow for the client."}
       </DashboardStatusAlert>
       <Button
@@ -117,6 +118,45 @@ function CancelConfirmedSessionForm({ bookingId, hasPaidSession }: { bookingId: 
   );
 }
 
+function SettleSessionForm({
+  bookingId,
+  intent,
+  label,
+}: {
+  bookingId: string;
+  intent: "complete" | "no_show";
+  label: string;
+}) {
+  const initialTherapistSettleSessionActionState: TherapistSettleSessionActionState = {
+    status: "idle",
+  };
+  const [state, formAction, pending] = useActionState<TherapistSettleSessionActionState, FormData>(
+    therapistSettleSessionAction,
+    initialTherapistSettleSessionActionState,
+  );
+
+  return (
+    <form action={formAction} className="grid gap-3">
+      <input type="hidden" name="bookingId" value={bookingId} />
+      <input type="hidden" name="intent" value={intent} />
+      {state.message ? (
+        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
+          {state.message}
+        </DashboardStatusAlert>
+      ) : null}
+      <Button
+        type="submit"
+        loading={pending}
+        loadingText={`${label}...`}
+        fullWidth
+        variant={intent === "complete" ? "success" : "secondary"}
+      >
+        {label}
+      </Button>
+    </form>
+  );
+}
+
 type TherapistBookingDetailsProps = {
   booking: BookingDetailsItem;
 };
@@ -125,6 +165,10 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canDecide = booking.bookingStatus === "PENDING_THERAPIST";
   const canCancelConfirmed = booking.bookingStatus === "CONFIRMED" && booking.startsAt > new Date();
+  const canSettle =
+    booking.bookingStatus === "CONFIRMED" &&
+    booking.endsAt <= new Date() &&
+    booking.payment?.paymentStatus === "PAID";
   const clientName = getClientName(booking);
   const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
@@ -207,6 +251,10 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
                   {formatAppDateTime(booking.payment?.checkoutExpiresAt ?? null)}
                 </dd>
               </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="font-medium text-slate-700">Transfer status</dt>
+                <dd className="text-right">{booking.payment?.transferStatus?.replaceAll("_", " ").toLowerCase() ?? "Not available"}</dd>
+              </div>
             </dl>
             <div className="mt-4 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-6 text-slate-600">
               {paymentOutcomeMessage}
@@ -240,6 +288,8 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
               ? "Confirm the request to schedule the session, or reject it if the time or case is not a fit."
               : canCancelConfirmed
                 ? "This session is already confirmed. If circumstances change, you can cancel it here and the client will be notified."
+                : canSettle
+                  ? "This paid session has ended. Mark it completed or client no-show to start the therapist transfer."
                 : "This request is already in a final state, so no further therapist action is needed from this page."}
           </p>
           {canDecide ? (
@@ -253,6 +303,11 @@ export function TherapistBookingDetails({ booking }: TherapistBookingDetailsProp
                 bookingId={booking.id}
                 hasPaidSession={paymentStatus === "PAID"}
               />
+            </div>
+          ) : canSettle ? (
+            <div className="mt-5 grid gap-4">
+              <SettleSessionForm bookingId={booking.id} intent="complete" label="Mark completed" />
+              <SettleSessionForm bookingId={booking.id} intent="no_show" label="Mark client no-show" />
             </div>
           ) : (
             <div className="mt-5">

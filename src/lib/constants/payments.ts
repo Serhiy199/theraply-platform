@@ -2,6 +2,8 @@ import { PaymentStatus } from "@prisma/client";
 
 export const PAYMENT_CURRENCY = "gbp" as const;
 export const PAYMENT_POLICY_HOURS_BEFORE_SESSION = 24;
+export const PLATFORM_FEE_PERCENT = 10;
+export const THERAPIST_SHARE_PERCENT = 90;
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   UNPAID: "Unpaid",
@@ -32,6 +34,8 @@ export const PAYMENT_ELIGIBILITY_MESSAGES = {
     "This booking is no longer payable because it has already reached a final state.",
   missingPrice:
     "Payment is temporarily unavailable because the therapist has not configured a session price yet.",
+  therapistStripeNotReady:
+    "Payment is temporarily unavailable because the therapist has not completed Stripe payout onboarding yet.",
   alreadyPaid: "This session has already been paid.",
   paymentPending:
     "A payment attempt is already in progress for this session. Please finish it or wait for it to expire.",

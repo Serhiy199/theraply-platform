@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import type { PaymentEligibility } from "@/server/services/payment-flow.service";
 import {
@@ -16,9 +15,7 @@ import {
 import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
   cancelBookingAction,
-  resolveCompensationAction,
   type CancelBookingActionState,
-  type ResolveCompensationActionState,
 } from "@/app/client/bookings/actions";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
@@ -84,7 +81,6 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
     booking.startsAt,
     hasCapturedPayment,
   );
-  const disabled = pending || (lateCancellation && !lateAcknowledged);
 
   return (
     <form action={formAction} className="mt-5 grid gap-4">
@@ -127,54 +123,6 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
   );
 }
 
-function CompensationChoiceForm({ bookingId }: { bookingId: string }) {
-  const initialResolveCompensationActionState: ResolveCompensationActionState = {
-    status: "idle",
-  };
-  const [state, formAction, pending] = useActionState<
-    ResolveCompensationActionState,
-    FormData
-  >(resolveCompensationAction, initialResolveCompensationActionState);
-
-  return (
-    <form action={formAction} className="mt-5 grid gap-4">
-      <input type="hidden" name="bookingId" value={bookingId} />
-      {state.message ? (
-        <DashboardStatusAlert tone={state.status === "success" ? "success" : "error"}>
-          {state.message}
-        </DashboardStatusAlert>
-      ) : null}
-      <DashboardStatusAlert tone="warning" title="Therapist cancelled this paid session">
-        Choose whether you want the money returned to your card or kept as platform credit for a future booking.
-      </DashboardStatusAlert>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Button
-          type="submit"
-          name="resolution"
-          value="refund"
-          loading={pending}
-          loadingText="Processing..."
-        >
-          Choose refund
-        </Button>
-        <Button
-          type="submit"
-          name="resolution"
-          value="credit"
-          loading={pending}
-          loadingText="Processing..."
-          variant="success"
-        >
-          Keep as credit
-        </Button>
-      </div>
-      <p className="text-xs leading-5 text-slate-500">
-        Refund returns the paid amount through Stripe. Credit keeps the full session value on your Theraply balance for your next booking.
-      </p>
-    </form>
-  );
-}
-
 type PaymentCheckoutButtonProps = {
   bookingId: string;
   paymentEligibility: PaymentEligibility;
@@ -186,8 +134,6 @@ function PaymentCheckoutButton({
 }: PaymentCheckoutButtonProps) {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const disabled = !paymentEligibility.canPay || isPending;
 
   function handleCheckout() {
     setCheckoutError(null);
@@ -263,11 +209,6 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canCancel = ["PENDING_THERAPIST", "CONFIRMED"].includes(booking.bookingStatus) && booking.startsAt > new Date();
   const lateCancellation = isLateCancellation(booking.startsAt);
-  const compensationChoiceAvailable =
-    booking.bookingStatus === "CANCELLED" &&
-    booking.cancelledByUserId === booking.therapist.id &&
-    paymentStatus === "PAID" &&
-    !booking.compensationResolutionType;
   const therapistName = getTherapistName(booking);
   const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
 
@@ -420,12 +361,9 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
 
         <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">
-            {compensationChoiceAvailable ? "Compensation options" : "Payment readiness"}
+            Payment readiness
           </h3>
-          {compensationChoiceAvailable ? (
-            <CompensationChoiceForm bookingId={booking.id} />
-          ) : (
-            <>
+          <>
               <div className="mt-5">
                 <DashboardStatusAlert
                   tone={
@@ -453,8 +391,7 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                 bookingId={booking.id}
                 paymentEligibility={paymentEligibility}
               />
-            </>
-          )}
+          </>
         </SurfaceCard>
 
         <SurfaceCard as="article" className="p-6">

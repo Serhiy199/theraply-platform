@@ -190,6 +190,10 @@ export async function getTherapistDashboardData(userId: string) {
           googleCalendarId: true,
           googleCalendarEmail: true,
           isGoogleCalendarConnected: true,
+          stripeAccountId: true,
+          stripeOnboardingStatus: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
           payoutDetails: {
             select: {
               isVerified: true,
@@ -258,8 +262,14 @@ export async function getTherapistDashboardData(userId: string) {
     },
     {
       label: "Payout verified",
-      value: therapistProfile?.payoutDetails?.isVerified ? "Yes" : "No",
-      hint: "Whether payout details have been verified for operational use.",
+      value:
+        therapistProfile?.stripeAccountId &&
+        therapistProfile.stripeOnboardingStatus === "READY" &&
+        therapistProfile.stripeChargesEnabled &&
+        therapistProfile.stripePayoutsEnabled
+          ? "Yes"
+          : "No",
+      hint: "Whether Stripe Connect is ready for therapist transfers.",
     },
   ];
 
@@ -272,7 +282,7 @@ export async function getTherapistDashboardData(userId: string) {
       calendarId: therapistProfile?.googleCalendarId ?? null,
       calendarEmail: therapistProfile?.googleCalendarEmail ?? null,
       isGoogleCalendarConnected: therapistProfile?.isGoogleCalendarConnected ?? false,
-      payoutCountry: therapistProfile?.payoutDetails?.country ?? null,
+      payoutCountry: therapistProfile?.stripeOnboardingStatus ?? null,
     },
     recentRequests: recentRequests.map((booking) => ({
       id: booking.id,
@@ -322,7 +332,16 @@ export async function getAdminDashboardData() {
         paymentStatus: { in: [PaymentStatus.UNPAID, PaymentStatus.PENDING, PaymentStatus.FAILED] },
       },
     }),
-    prisma.therapistPayoutDetails.count({ where: { isVerified: true } }),
+    prisma.therapistProfile.count({
+      where: {
+        stripeAccountId: {
+          not: null,
+        },
+        stripeOnboardingStatus: "READY",
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+      },
+    }),
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -399,7 +418,7 @@ export async function getAdminDashboardData() {
     {
       label: "Verified payouts",
       value: verifiedPayouts,
-      hint: "Therapist payout profiles that are already verified.",
+      hint: "Therapist Stripe accounts that are ready for transfers.",
     },
   ];
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { SessionOutcome } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   SAFE_ERROR_MESSAGES,
@@ -16,6 +17,8 @@ import {
   cancelConfirmedBookingByTherapist,
   confirmBookingRequest,
   rejectBookingRequest,
+  settleConfirmedSessionByTherapist,
+  type TherapistSessionSettlementResult,
 } from "@/server/services/booking-flow.service";
 
 export type RequestDecisionActionState = {
@@ -24,6 +27,11 @@ export type RequestDecisionActionState = {
 };
 
 export type TherapistCancelSessionActionState = {
+  status: "idle" | "success" | "error";
+  message?: string;
+};
+
+export type TherapistSettleSessionActionState = {
   status: "idle" | "success" | "error";
   message?: string;
 };
@@ -134,8 +142,8 @@ export async function therapistCancelSessionAction(
     return {
       status: "success",
       message:
-        booking.payment?.paymentStatus === "PAID"
-          ? "Session cancelled successfully. The client can now choose refund or platform credit from their booking page."
+        booking.payment?.paymentStatus === "REFUNDED"
+          ? "Session cancelled successfully and the client's payment was refunded."
           : "Session cancelled successfully.",
     };
   } catch (error) {
@@ -158,4 +166,71 @@ export async function therapistCancelSessionAction(
       message: "Something went wrong while cancelling the confirmed session.",
     };
   }
+}
+
+export async function therapistSettleSessionAction(
+  _prevState: TherapistSettleSessionActionState,
+  formData: FormData,
+): Promise<TherapistSettleSessionActionState> {
+  const bookingId = String(formData.get("bookingId") ?? "").trim();
+  const intent = String(formData.get("intent") ?? "").trim();
+  const user = await getCurrentUser();
+
+  try {
+    const activeTherapist = await requireActionActiveTherapistFeatures(
+      user,
+      "Only therapist accounts can complete or mark no-show for confirmed sessions.",
+    );
+
+    if (!bookingId || (intent !== "complete" && intent !== "no_show")) {
+      return {
+        status: "error",
+        message: "Session settlement action payload is incomplete.",
+      };
+    }
+
+    const result = await settleConfirmedSessionByTherapist(
+      activeTherapist.id,
+      bookingId,
+      intent === "no_show" ? SessionOutcome.CLIENT_NO_SHOW : SessionOutcome.COMPLETED,
+    );
+
+    revalidateTherapistBookingPaths(bookingId);
+
+    return {
+      status: "success",
+      message: getSettlementSuccessMessage(result),
+    };
+  } catch (error) {
+    if (error instanceof ActionPermissionError) {
+      return {
+        status: "error",
+        message: SAFE_ERROR_MESSAGES.permissionDenied,
+      };
+    }
+
+    if (error instanceof BookingFlowServiceError) {
+      return {
+        status: "error",
+        message: getSafeBookingFlowErrorMessage(error.code),
+      };
+    }
+
+    return {
+      status: "error",
+      message: "Something went wrong while settling this session.",
+    };
+  }
+}
+
+function getSettlementSuccessMessage(result: TherapistSessionSettlementResult) {
+  if (result.transfer.status === "transferred") {
+    return "Session settled successfully and the therapist transfer was created.";
+  }
+
+  if (result.transfer.status === "failed") {
+    return "Session settled successfully, but the therapist transfer failed and is queued for retry.";
+  }
+
+  return "Session settled successfully. The therapist transfer is waiting for the next retry check.";
 }

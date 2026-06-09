@@ -5,10 +5,12 @@ export const RATE_LIMIT_SCOPES = {
   authResetPassword: "auth:reset-password",
   authResendVerification: "auth:resend-verification",
   stripeCheckout: "stripe:checkout",
+  stripeConnect: "stripe:connect",
   therapistCertificateUpload: "therapist:certificate-upload",
   therapistCertificateConfirmUpload: "therapist:certificate-confirm-upload",
   googleCalendarConnect: "google-calendar:connect",
   cronBookingRules: "cron:booking-rules",
+  cronTherapistTransfers: "cron:therapist-transfers",
 } as const;
 
 export type RateLimitScope = (typeof RATE_LIMIT_SCOPES)[keyof typeof RATE_LIMIT_SCOPES];
@@ -54,6 +56,11 @@ export const RATE_LIMIT_PRESETS = {
     limit: 10,
     windowMs: 5 * MINUTE,
   },
+  stripeConnect: {
+    scope: RATE_LIMIT_SCOPES.stripeConnect,
+    limit: 10,
+    windowMs: 15 * MINUTE,
+  },
   therapistCertificateUpload: {
     scope: RATE_LIMIT_SCOPES.therapistCertificateUpload,
     limit: 10,
@@ -71,6 +78,11 @@ export const RATE_LIMIT_PRESETS = {
   },
   cronBookingRules: {
     scope: RATE_LIMIT_SCOPES.cronBookingRules,
+    limit: 30,
+    windowMs: 15 * MINUTE,
+  },
+  cronTherapistTransfers: {
+    scope: RATE_LIMIT_SCOPES.cronTherapistTransfers,
     limit: 30,
     windowMs: 15 * MINUTE,
   },

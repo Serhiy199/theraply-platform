@@ -1,4 +1,4 @@
-﻿import { BookingStatus, PaymentStatus } from "@prisma/client";
+import { BookingStatus, PaymentStatus, PaymentTransferStatus } from "@prisma/client";
 import {
   BOOKING_STATUS_BADGE_STYLES,
   BOOKING_STATUS_LABELS,
@@ -21,6 +21,34 @@ export function formatPaymentStatus(status: PaymentStatus) {
 
 export function getPaymentStatusBadgeClass(status: PaymentStatus) {
   return PAYMENT_STATUS_BADGE_STYLES[status];
+}
+
+export function formatPaymentTransferStatus(status: PaymentTransferStatus) {
+  switch (status) {
+    case "NOT_ELIGIBLE":
+      return "Not eligible";
+    case "PENDING":
+      return "Transfer pending";
+    case "TRANSFERRED":
+      return "Transferred";
+    case "FAILED":
+      return "Transfer failed";
+    default:
+      return status;
+  }
+}
+
+export function getPaymentTransferStatusBadgeClass(status: PaymentTransferStatus) {
+  switch (status) {
+    case "TRANSFERRED":
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "PENDING":
+      return "bg-sky-100 text-sky-800 border-sky-200";
+    case "FAILED":
+      return "bg-rose-100 text-rose-800 border-rose-200";
+    default:
+      return "bg-slate-100 text-slate-700 border-slate-200";
+  }
 }
 
 export function isLateCancellation(startsAt: Date, now = new Date()) {

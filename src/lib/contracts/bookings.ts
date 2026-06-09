@@ -11,6 +11,9 @@ const therapistProfileMiniSelect = {
   displayName: true,
   specialization: true,
   sessionPricePence: true,
+  stripeOnboardingStatus: true,
+  stripeChargesEnabled: true,
+  stripePayoutsEnabled: true,
 } satisfies Prisma.TherapistProfileSelect;
 
 const clientProfileMiniSelect = {
@@ -20,6 +23,7 @@ const clientProfileMiniSelect = {
 const sessionMiniSelect = {
   id: true,
   sessionStatus: true,
+  outcome: true,
   meetingUrl: true,
   googleCalendarEventId: true,
   googleCalendarEventHtmlLink: true,
@@ -39,6 +43,12 @@ const paymentMiniSelect = {
   failedReason: true,
   refundReason: true,
   refundedAmount: true,
+  platformFeeAmount: true,
+  therapistAmount: true,
+  transferStatus: true,
+  transferredAt: true,
+  transferFailedAt: true,
+  transferFailureReason: true,
 } satisfies Prisma.PaymentSelect;
 
 export const bookingListSelect = {
@@ -94,6 +104,9 @@ export const bookingDetailsSelect = {
           specialization: true,
           bio: true,
           googleCalendarEmail: true,
+          stripeOnboardingStatus: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
         },
       },
     },
@@ -105,6 +118,7 @@ export const bookingDetailsSelect = {
     select: {
       id: true,
       sessionStatus: true,
+      outcome: true,
       meetingUrl: true,
       googleCalendarEventId: true,
       googleCalendarEventHtmlLink: true,
@@ -129,6 +143,15 @@ export const bookingDetailsSelect = {
       refundedAmount: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
+      stripeChargeId: true,
+      stripeTransferId: true,
+      stripeTransferGroup: true,
+      platformFeeAmount: true,
+      therapistAmount: true,
+      transferStatus: true,
+      transferredAt: true,
+      transferFailedAt: true,
+      transferFailureReason: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -148,6 +171,12 @@ export const paymentSummarySelect = {
   failedReason: true,
   refundReason: true,
   refundedAmount: true,
+  platformFeeAmount: true,
+  therapistAmount: true,
+  transferStatus: true,
+  transferredAt: true,
+  transferFailedAt: true,
+  transferFailureReason: true,
   createdAt: true,
   booking: {
     select: {

@@ -50,12 +50,33 @@ enum SessionStatus {
   DONE
 }
 
+enum SessionOutcome {
+  COMPLETED
+  CLIENT_NO_SHOW
+}
+
 enum PaymentStatus {
   UNPAID
   PENDING
   PAID
   FAILED
   REFUNDED
+}
+
+enum PaymentTransferStatus {
+  NOT_ELIGIBLE
+  PENDING
+  TRANSFERRED
+  FAILED
+}
+
+enum StripeConnectOnboardingStatus {
+  NOT_STARTED
+  ACCOUNT_CREATED
+  ONBOARDING_STARTED
+  RESTRICTED
+  READY
+  DISABLED
 }
 
 enum CompensationResolutionType {
@@ -117,44 +138,53 @@ model ClientProfile {
 }
 
 model TherapistProfile {
-  id                         String                  @id @default(cuid())
-  userId                     String                  @unique
-  user                       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName                String?
-  bio                        String?
-  specialization             String?
-  sessionPricePence          Int?
-  gender                     String?
-  contactNumber              String?
-  therapyServicesProvided    String?
-  yearsOfExperience          String?
-  educationAndCertifications String?
-  specialisation             String?
-  pricePerHour               String?
-  approvalStatus             TherapistApprovalStatus @default(EMAIL_NOT_VERIFIED)
-  isApproved                 Boolean                 @default(false)
-  onboardingCompleted        Boolean                 @default(false)
-  submittedForReviewAt       DateTime?
-  approvedAt                 DateTime?
-  rejectedAt                 DateTime?
-  rejectionReason            String?
-  profileDraft               Json?
-  wixSubmissionId            String?
-  wixSyncStatus              WixSyncStatus           @default(NOT_SYNCED)
-  wixSyncedAt                DateTime?
-  wixSyncError               String?
-  googleCalendarId           String?                 @unique
-  googleCalendarEmail        String?                 @unique
-  googleAccessToken          String?
-  googleRefreshToken         String?
-  googleTokenExpiresAt       DateTime?
-  googleCalendarConnectedAt  DateTime?
-  isGoogleCalendarConnected  Boolean                 @default(false)
-  payoutDetails              TherapistPayoutDetails?
-  certificates               TherapistCertificate[]
-  reviewNotes                TherapistReviewNote[]
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
+  id                          String                        @id @default(cuid())
+  userId                      String                        @unique
+  user                        User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName                 String?
+  bio                         String?
+  specialization              String?
+  sessionPricePence           Int?
+  gender                      String?
+  contactNumber               String?
+  therapyServicesProvided     String?
+  yearsOfExperience           String?
+  educationAndCertifications  String?
+  specialisation              String?
+  pricePerHour                String?
+  approvalStatus              TherapistApprovalStatus       @default(EMAIL_NOT_VERIFIED)
+  isApproved                  Boolean                       @default(false)
+  onboardingCompleted         Boolean                       @default(false)
+  submittedForReviewAt        DateTime?
+  approvedAt                  DateTime?
+  rejectedAt                  DateTime?
+  rejectionReason             String?
+  profileDraft                Json?
+  wixSubmissionId             String?
+  wixSyncStatus               WixSyncStatus                 @default(NOT_SYNCED)
+  wixSyncedAt                 DateTime?
+  wixSyncError                String?
+  googleCalendarId            String?                       @unique
+  googleCalendarEmail         String?                       @unique
+  googleAccessToken           String?
+  googleRefreshToken          String?
+  googleTokenExpiresAt        DateTime?
+  googleCalendarConnectedAt   DateTime?
+  isGoogleCalendarConnected   Boolean                       @default(false)
+  stripeAccountId             String?                       @unique
+  stripeOnboardingStatus      StripeConnectOnboardingStatus @default(NOT_STARTED)
+  stripeChargesEnabled        Boolean                       @default(false)
+  stripePayoutsEnabled        Boolean                       @default(false)
+  stripeDetailsSubmitted      Boolean                       @default(false)
+  stripeOnboardingCompletedAt DateTime?
+  stripeAccountSyncedAt       DateTime?
+  stripeRequirementsDue       Json?
+  stripeDisabledReason        String?
+  payoutDetails               TherapistPayoutDetails?
+  certificates                TherapistCertificate[]
+  reviewNotes                 TherapistReviewNote[]
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
 
   @@index([approvalStatus])
   @@index([isApproved])
@@ -162,6 +192,8 @@ model TherapistProfile {
   @@index([submittedForReviewAt])
   @@index([isGoogleCalendarConnected])
   @@index([googleTokenExpiresAt])
+  @@index([stripeOnboardingStatus])
+  @@index([stripeChargesEnabled, stripePayoutsEnabled])
   @@index([sessionPricePence])
   @@index([gender])
   @@index([createdAt])
@@ -243,19 +275,21 @@ model Booking {
 }
 
 model Session {
-  id                          String        @id @default(cuid())
-  bookingId                   String        @unique
-  sessionStatus               SessionStatus @default(SCHEDULED)
+  id                          String          @id @default(cuid())
+  bookingId                   String          @unique
+  sessionStatus               SessionStatus   @default(SCHEDULED)
+  outcome                     SessionOutcome?
   meetingUrl                  String?
-  googleCalendarEventId       String?       @unique
+  googleCalendarEventId       String?         @unique
   googleCalendarConferenceId  String?
   googleCalendarEventHtmlLink String?
   completedAt                 DateTime?
-  createdAt                   DateTime      @default(now())
-  updatedAt                   DateTime      @updatedAt
-  booking                     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+  booking                     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([sessionStatus])
+  @@index([outcome])
   @@index([googleCalendarConferenceId])
   @@index([createdAt])
   @@index([completedAt])
@@ -267,8 +301,13 @@ model Payment {
   bookingId               String                    @unique
   stripeCheckoutSessionId String?                   @unique
   stripePaymentIntentId   String?                   @unique
+  stripeChargeId          String?                   @unique
   stripeRefundId          String?                   @unique
+  stripeTransferGroup     String?                   @unique
+  stripeTransferId        String?                   @unique
   amount                  Int
+  platformFeeAmount       Int?
+  therapistAmount         Int?
   refundedAmount          Int?
   creditAppliedAmount     Int?
   checkoutExpiresAt       DateTime?
@@ -276,22 +315,41 @@ model Payment {
   refundReason            String?
   currency                String                    @default("gbp")
   paymentStatus           PaymentStatus             @default(UNPAID)
+  transferStatus          PaymentTransferStatus     @default(NOT_ELIGIBLE)
   paidAt                  DateTime?
   failedAt                DateTime?
   refundedAt              DateTime?
+  transferredAt           DateTime?
+  transferFailedAt        DateTime?
+  transferFailureReason   String?
+  transferAttemptCount    Int                       @default(0)
   creditTransactions      ClientCreditTransaction[]
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   booking                 Booking                   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([paymentStatus])
+  @@index([transferStatus])
   @@index([createdAt])
   @@index([currency])
   @@index([checkoutExpiresAt])
   @@index([paidAt])
   @@index([failedAt])
   @@index([refundedAt])
+  @@index([transferredAt])
+  @@index([transferFailedAt])
   @@index([paymentStatus, createdAt])
+  @@index([transferStatus, createdAt])
+}
+
+model StripeWebhookEvent {
+  id          String   @id
+  eventType   String
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([processedAt])
 }
 
 model ClientCreditBalance {

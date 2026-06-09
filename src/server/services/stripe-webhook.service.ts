@@ -1,9 +1,12 @@
 import Stripe from "stripe";
+import { PaymentTransferStatus, StripeConnectOnboardingStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import {
   markStripeChargeRefunded,
   markStripeCheckoutSessionCompleted,
   markStripeCheckoutSessionExpired,
+  markStripePaymentIntentSucceeded,
   markStripePaymentIntentFailed,
   PaymentFlowServiceError,
 } from "@/server/services/payment-flow.service";
@@ -25,7 +28,8 @@ function getEventBookingId(
   object:
     | Stripe.Checkout.Session
     | Stripe.PaymentIntent
-    | Stripe.Charge,
+    | Stripe.Charge
+    | Stripe.Transfer,
 ) {
   const bookingIdFromMetadata = object.metadata?.bookingId?.trim();
 
@@ -41,6 +45,78 @@ function getEventBookingId(
   }
 
   return null;
+}
+
+function getPaymentIntentChargeId(paymentIntent: Stripe.PaymentIntent) {
+  const latestCharge = paymentIntent.latest_charge;
+
+  if (!latestCharge) {
+    return null;
+  }
+
+  return typeof latestCharge === "string" ? latestCharge : latestCharge.id;
+}
+
+function getAccountOnboardingStatus(account: Stripe.Account) {
+  if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
+    return StripeConnectOnboardingStatus.READY;
+  }
+
+  if (account.requirements?.disabled_reason) {
+    return StripeConnectOnboardingStatus.DISABLED;
+  }
+
+  if (account.details_submitted) {
+    return StripeConnectOnboardingStatus.RESTRICTED;
+  }
+
+  return StripeConnectOnboardingStatus.ACCOUNT_CREATED;
+}
+
+function getAccountRequirementsDue(account: Stripe.Account) {
+  const currentlyDue = account.requirements?.currently_due ?? [];
+  const eventuallyDue = account.requirements?.eventually_due ?? [];
+  const pastDue = account.requirements?.past_due ?? [];
+
+  if (!currentlyDue.length && !eventuallyDue.length && !pastDue.length) {
+    return undefined;
+  }
+
+  return {
+    currentlyDue,
+    eventuallyDue,
+    pastDue,
+  };
+}
+
+async function reserveWebhookEvent(event: Stripe.Event) {
+  try {
+    await prisma.stripeWebhookEvent.create({
+      data: {
+        id: event.id,
+        eventType: event.type,
+      },
+    });
+    return true;
+  } catch {
+    await createAuditLogEntryBestEffort({
+      entityType: "StripeWebhook",
+      entityId: event.id,
+      action: "STRIPE_WEBHOOK_EVENT_DUPLICATE_SKIPPED",
+      after: {
+        eventType: event.type,
+      },
+    });
+    return false;
+  }
+}
+
+async function releaseWebhookEventReservation(event: Stripe.Event) {
+  await prisma.stripeWebhookEvent.delete({
+    where: {
+      id: event.id,
+    },
+  }).catch(() => undefined);
 }
 
 function getFailedReason(paymentIntent: Stripe.PaymentIntent) {
@@ -120,6 +196,36 @@ async function markPaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   });
 }
 
+async function markPaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+  const bookingId = getEventBookingId(paymentIntent);
+
+  if (!bookingId) {
+    throw new StripeWebhookServiceError(
+      "Stripe payment_intent.succeeded event is missing booking metadata.",
+      "BOOKING_REFERENCE_MISSING",
+    );
+  }
+
+  const payment = await markStripePaymentIntentSucceeded(bookingId, {
+    paymentIntentId: paymentIntent.id,
+    chargeId: getPaymentIntentChargeId(paymentIntent),
+    amount: paymentIntent.amount_received || paymentIntent.amount,
+    currency: paymentIntent.currency ?? "gbp",
+  });
+
+  await createAuditLogEntryBestEffort({
+    entityType: "Payment",
+    entityId: payment.paymentId,
+    action: "STRIPE_PAYMENT_INTENT_SUCCEEDED",
+    after: {
+      bookingId,
+      paymentIntentId: paymentIntent.id,
+      chargeId: getPaymentIntentChargeId(paymentIntent),
+      status: payment.paymentStatus,
+    },
+  });
+}
+
 async function markCheckoutExpired(session: Stripe.Checkout.Session) {
   const bookingId = getEventBookingId(session);
 
@@ -184,10 +290,95 @@ async function markChargeRefunded(charge: Stripe.Charge) {
   });
 }
 
+async function syncAccountUpdated(account: Stripe.Account) {
+  const updated = await prisma.therapistProfile.updateMany({
+    where: {
+      stripeAccountId: account.id,
+    },
+    data: {
+      stripeOnboardingStatus: getAccountOnboardingStatus(account),
+      stripeChargesEnabled: account.charges_enabled,
+      stripePayoutsEnabled: account.payouts_enabled,
+      stripeDetailsSubmitted: account.details_submitted,
+      stripeOnboardingCompletedAt:
+        account.charges_enabled && account.payouts_enabled && account.details_submitted
+          ? new Date()
+          : undefined,
+      stripeAccountSyncedAt: new Date(),
+      stripeRequirementsDue: getAccountRequirementsDue(account),
+      stripeDisabledReason: account.requirements?.disabled_reason ?? null,
+    },
+  });
+
+  await createAuditLogEntryBestEffort({
+    entityType: "TherapistProfile",
+    entityId: account.id,
+    action: "STRIPE_CONNECT_ACCOUNT_UPDATED",
+    after: {
+      stripeAccountId: account.id,
+      matchedProfiles: updated.count,
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      detailsSubmitted: account.details_submitted,
+    },
+  });
+}
+
+async function markTransferCreated(transfer: Stripe.Transfer) {
+  const paymentId = transfer.metadata?.paymentId?.trim() || null;
+
+  if (!paymentId) {
+    return;
+  }
+
+  await prisma.payment.update({
+    where: {
+      id: paymentId,
+    },
+    data: {
+      stripeTransferId: transfer.id,
+      transferStatus: PaymentTransferStatus.TRANSFERRED,
+      transferredAt: new Date(),
+      transferFailureReason: null,
+      transferFailedAt: null,
+    },
+  });
+}
+
+async function markTransferFailed(transfer: Stripe.Transfer) {
+  const paymentId = transfer.metadata?.paymentId?.trim() || null;
+
+  if (!paymentId) {
+    return;
+  }
+
+  await prisma.payment.update({
+    where: {
+      id: paymentId,
+    },
+    data: {
+      stripeTransferId: transfer.id,
+      transferStatus: PaymentTransferStatus.FAILED,
+      transferFailedAt: new Date(),
+      transferFailureReason: "Stripe reported that the transfer failed.",
+    },
+  });
+}
+
 export async function processStripeWebhookEvent(event: Stripe.Event) {
-  switch (event.type) {
+  const reserved = await reserveWebhookEvent(event);
+
+  if (!reserved) {
+    return;
+  }
+
+  try {
+  switch (event.type as string) {
     case "checkout.session.completed":
       await markCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+      return;
+    case "payment_intent.succeeded":
+      await markPaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
       return;
     case "payment_intent.payment_failed":
       await markPaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
@@ -197,6 +388,15 @@ export async function processStripeWebhookEvent(event: Stripe.Event) {
       return;
     case "charge.refunded":
       await markChargeRefunded(event.data.object as Stripe.Charge);
+      return;
+    case "account.updated":
+      await syncAccountUpdated(event.data.object as Stripe.Account);
+      return;
+    case "transfer.created":
+      await markTransferCreated(event.data.object as Stripe.Transfer);
+      return;
+    case "transfer.failed":
+      await markTransferFailed(event.data.object as Stripe.Transfer);
       return;
     default:
       await createAuditLogEntryBestEffort({
@@ -211,6 +411,10 @@ export async function processStripeWebhookEvent(event: Stripe.Event) {
         `Stripe event ${event.type} is not handled by this webhook service.`,
         "UNSUPPORTED_EVENT",
       );
+  }
+  } catch (error) {
+    await releaseWebhookEventReservation(event);
+    throw error;
   }
 }
 

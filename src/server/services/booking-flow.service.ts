@@ -2,6 +2,7 @@ import {
   BookingStatus,
   PaymentStatus,
   Prisma,
+  SessionOutcome,
   SessionStatus,
   TherapistApprovalStatus,
   UserRole,
@@ -27,6 +28,14 @@ import {
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
 import { getPaymentDueBy } from "@/server/services/payment-flow.service";
+import {
+  refundPlatformCancellationIfEligible,
+  RefundServiceError,
+} from "@/server/services/refund.service";
+import {
+  createTherapistTransferForBooking,
+  type TherapistTransferResult,
+} from "@/server/services/therapist-transfer.service";
 import {
   sendBookingCancelledEmailsBestEffort,
   sendBookingConfirmedEmailBestEffort,
@@ -58,6 +67,10 @@ const bookableTherapistSelect = {
       googleCalendarId: true,
       googleCalendarEmail: true,
       isGoogleCalendarConnected: true,
+      stripeAccountId: true,
+      stripeOnboardingStatus: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
       approvalStatus: true,
       isApproved: true,
       onboardingCompleted: true,
@@ -74,6 +87,12 @@ const bookableTherapistWhere = {
       approvalStatus: TherapistApprovalStatus.APPROVED,
       isApproved: true,
       onboardingCompleted: true,
+      stripeAccountId: {
+        not: null,
+      },
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      stripeOnboardingStatus: "READY",
     },
   },
 } satisfies Prisma.UserWhereInput;
@@ -98,6 +117,11 @@ export type CreateBookingRequestInput = {
   notes?: string | null;
 };
 
+export type TherapistSessionSettlementResult = {
+  booking: BookingDetailsItem;
+  transfer: TherapistTransferResult;
+};
+
 export class BookingFlowServiceError extends Error {
   constructor(
     message: string,
@@ -109,6 +133,9 @@ export class BookingFlowServiceError extends Error {
       | "CLIENT_NOT_ELIGIBLE"
       | "INVALID_DATE_RANGE"
       | "INVALID_MEETING_URL"
+      | "PAYMENT_NOT_SETTLED"
+      | "REFUND_FAILED"
+      | "SESSION_NOT_SETTLEABLE"
       | "SLOT_CONFLICT"
       | "THERAPIST_NOT_BOOKABLE"
       | "GOOGLE_CALENDAR_SYNC_FAILED",
@@ -796,6 +823,29 @@ export async function cancelConfirmedBookingByTherapist(
   }
 
   const now = new Date();
+  let refundResult: Awaited<ReturnType<typeof refundPlatformCancellationIfEligible>> = {
+    status: "skipped",
+    reason: "PAYMENT_NOT_FOUND",
+    refundId: null,
+    refundedAmount: null,
+  };
+
+  if (booking.payment?.paymentStatus === PaymentStatus.PAID) {
+    try {
+      refundResult = await refundPlatformCancellationIfEligible({
+        bookingId: booking.id,
+        actorUserId: therapistUserId,
+        trigger: "THERAPIST_CANCELLATION",
+        businessReason: "Therapist cancelled the confirmed paid session. A full refund is required.",
+      });
+    } catch (error) {
+      if (error instanceof RefundServiceError) {
+        throw new BookingFlowServiceError(error.message, "REFUND_FAILED");
+      }
+
+      throw error;
+    }
+  }
 
   const updatedBooking = await prisma.$transaction(async (tx) => {
     await tx.booking.update({
@@ -842,8 +892,9 @@ export async function cancelConfirmedBookingByTherapist(
         cancelledByUserId: therapistUserId,
         sessionStatus: SessionStatus.CANCELLED,
         paymentStatus: booking.payment?.paymentStatus ?? null,
-        compensationPending:
-          booking.payment?.paymentStatus === PaymentStatus.PAID,
+        refundStatus: refundResult.status,
+        refundReason: refundResult.reason,
+        refundId: refundResult.refundId,
       },
     });
 
@@ -867,6 +918,141 @@ export async function cancelConfirmedBookingByTherapist(
   });
 
   return updatedBooking;
+}
+
+export async function settleConfirmedSessionByTherapist(
+  therapistUserId: string,
+  bookingId: string,
+  outcome: SessionOutcome,
+): Promise<TherapistSessionSettlementResult> {
+  const now = new Date();
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      therapistId: therapistUserId,
+    },
+    select: {
+      id: true,
+      bookingStatus: true,
+      startsAt: true,
+      endsAt: true,
+      therapistId: true,
+      session: {
+        select: {
+          id: true,
+          sessionStatus: true,
+          outcome: true,
+          completedAt: true,
+        },
+      },
+      payment: {
+        select: {
+          id: true,
+          paymentStatus: true,
+          transferStatus: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    throw new BookingFlowServiceError(
+      "Booking not found for this therapist.",
+      "BOOKING_NOT_FOUND",
+    );
+  }
+
+  if (
+    booking.bookingStatus !== BookingStatus.CONFIRMED ||
+    booking.session?.sessionStatus !== SessionStatus.SCHEDULED
+  ) {
+    throw new BookingFlowServiceError(
+      "Only scheduled confirmed sessions can be completed or marked no-show.",
+      "SESSION_NOT_SETTLEABLE",
+    );
+  }
+
+  if (booking.endsAt > now) {
+    throw new BookingFlowServiceError(
+      "Sessions can only be completed after their scheduled end time.",
+      "SESSION_NOT_SETTLEABLE",
+    );
+  }
+
+  if (booking.payment?.paymentStatus !== PaymentStatus.PAID) {
+    throw new BookingFlowServiceError(
+      "Only paid sessions can be completed for therapist payout.",
+      "PAYMENT_NOT_SETTLED",
+    );
+  }
+
+  const updatedBooking = await prisma.$transaction(async (tx) => {
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        bookingStatus: BookingStatus.COMPLETED,
+      },
+    });
+
+    if (booking.session?.id) {
+      await tx.session.update({
+        where: { id: booking.session.id },
+        data: {
+          sessionStatus: SessionStatus.DONE,
+          outcome,
+          completedAt: now,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: therapistUserId,
+        entityType: "Booking",
+        entityId: booking.id,
+        action:
+          outcome === SessionOutcome.CLIENT_NO_SHOW
+            ? "THERAPIST_MARK_CLIENT_NO_SHOW"
+            : "THERAPIST_MARK_SESSION_COMPLETED",
+        before: {
+          bookingStatus: booking.bookingStatus,
+          sessionStatus: booking.session?.sessionStatus ?? null,
+          sessionOutcome: booking.session?.outcome ?? null,
+          completedAt: booking.session?.completedAt ?? null,
+          paymentStatus: booking.payment?.paymentStatus ?? null,
+          transferStatus: booking.payment?.transferStatus ?? null,
+        },
+        after: {
+          bookingStatus: BookingStatus.COMPLETED,
+          sessionStatus: SessionStatus.DONE,
+          sessionOutcome: outcome,
+          completedAt: now,
+          paymentStatus: booking.payment?.paymentStatus ?? null,
+        },
+      },
+    });
+
+    const settledBooking = await tx.booking.findUnique({
+      where: { id: booking.id },
+      select: bookingDetailsSelect,
+    });
+
+    if (!settledBooking) {
+      throw new BookingFlowServiceError(
+        "Booking not found after session settlement.",
+        "BOOKING_NOT_FOUND",
+      );
+    }
+
+    return settledBooking;
+  });
+
+  const transfer = await createTherapistTransferForBooking(booking.id, therapistUserId);
+
+  return {
+    booking: updatedBooking,
+    transfer,
+  };
 }
 
 export async function attachMeetingLinkToBooking(

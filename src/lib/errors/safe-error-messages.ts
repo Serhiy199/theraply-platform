@@ -45,6 +45,12 @@ export function getSafeBookingFlowErrorMessage(code: string) {
       return BOOKING_FLOW_MESSAGES.invalidRange;
     case "INVALID_MEETING_URL":
       return "The session meeting link could not be prepared.";
+    case "PAYMENT_NOT_SETTLED":
+      return "This session must be paid before it can be completed or marked no-show.";
+    case "REFUND_FAILED":
+      return "The automatic refund could not be completed right now. Please contact support.";
+    case "SESSION_NOT_SETTLEABLE":
+      return "This session cannot be completed or marked no-show yet.";
     case "SLOT_CONFLICT":
       return BOOKING_FLOW_MESSAGES.slotConflict;
     case "THERAPIST_NOT_BOOKABLE":

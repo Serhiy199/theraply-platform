@@ -19,31 +19,29 @@ type ClientTherapistAvailabilityPageProps = {
 export default async function ClientTherapistAvailabilityPage({ params }: ClientTherapistAvailabilityPageProps) {
   await requireRole([UserRole.CLIENT]);
   const { therapistId } = await params;
+  let availabilityIssue: string | undefined;
+  let slots: Awaited<ReturnType<typeof getTherapistAvailability>> = [];
 
   try {
-    const [therapist, slots] = await Promise.all([
-      getBookableTherapistById(therapistId),
-      getTherapistAvailability(therapistId),
-    ]);
-
-    return <TherapistAvailability therapist={therapist} slots={slots} />;
+    slots = await getTherapistAvailability(therapistId);
   } catch (error) {
     if (error instanceof BookingFlowServiceError && error.code === "THERAPIST_NOT_BOOKABLE") {
       notFound();
     }
 
     if (error instanceof GoogleAvailabilityServiceError) {
-      const therapist = await getBookableTherapistById(therapistId);
-
-      return (
-        <TherapistAvailability
-          therapist={therapist}
-          slots={[]}
-          availabilityIssue={getSafeGoogleAvailabilityErrorMessage(error.code)}
-        />
-      );
+      availabilityIssue = getSafeGoogleAvailabilityErrorMessage(error.code);
+    } else {
+      throw error;
     }
-
-    throw error;
   }
+
+  const therapist = await getBookableTherapistById(therapistId);
+  return (
+    <TherapistAvailability
+      therapist={therapist}
+      slots={slots}
+      availabilityIssue={availabilityIssue}
+    />
+  );
 }

@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus, SessionStatus } from "@prisma/client";
+import { BookingStatus, SessionStatus } from "@prisma/client";
 import {
   bookingDetailsSelect,
   bookingListSelect,
@@ -8,15 +8,12 @@ import {
   type PaymentSummaryItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
-import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
 } from "@/server/services/google-calendar.service";
-import { issueClientCredit } from "@/server/services/client-credit.service";
 import {
   refundClientCancellationIfEligible,
-  refundPlatformCancellationIfEligible,
   RefundServiceError,
   type RefundExecutionResult,
 } from "@/server/services/refund.service";
@@ -289,8 +286,10 @@ export async function cancelClientBooking(
 export async function resolveClientCancellationCompensation(
   userId: string,
   bookingId: string,
-  resolution: "refund" | "credit",
+  _resolution: "refund" | "credit",
 ): Promise<ClientCompensationResolutionResult> {
+  void _resolution;
+
   const booking = await prisma.booking.findFirst({
     where: {
       id: bookingId,
@@ -298,19 +297,8 @@ export async function resolveClientCancellationCompensation(
     },
     select: {
       id: true,
-      clientId: true,
-      therapistId: true,
       bookingStatus: true,
-      cancelledByUserId: true,
       compensationResolutionType: true,
-      payment: {
-        select: {
-          id: true,
-          amount: true,
-          currency: true,
-          paymentStatus: true,
-        },
-      },
     },
   });
 
@@ -325,98 +313,8 @@ export async function resolveClientCancellationCompensation(
     );
   }
 
-  const compensationChoiceAvailable =
-    booking.bookingStatus === BookingStatus.CANCELLED &&
-    booking.cancelledByUserId === booking.therapistId &&
-    booking.payment?.paymentStatus === PaymentStatus.PAID;
-
-  if (!compensationChoiceAvailable || !booking.payment) {
-    throw new ClientBookingsServiceError(
-      "Compensation choice is not available for this booking.",
-      "COMPENSATION_NOT_ELIGIBLE",
-    );
-  }
-
-  if (resolution === "refund") {
-    let refund: RefundExecutionResult;
-
-    try {
-      refund = await refundPlatformCancellationIfEligible({
-        bookingId: booking.id,
-        actorUserId: userId,
-        trigger: "THERAPIST_CANCELLATION",
-        businessReason:
-          "Client chose a full refund after the therapist cancelled the confirmed session.",
-      });
-    } catch (error) {
-      if (error instanceof RefundServiceError) {
-        throw new ClientBookingsServiceError(error.message, "REFUND_FAILED");
-      }
-
-      throw error;
-    }
-
-    const updatedBooking = await prisma.booking.findUnique({
-      where: {
-        id: booking.id,
-      },
-      select: bookingDetailsSelect,
-    });
-
-    if (!updatedBooking) {
-      throw new ClientBookingsServiceError("Booking not found after update.", "BOOKING_NOT_FOUND");
-    }
-
-    return {
-      booking: updatedBooking,
-      resolution: "refund",
-      refund,
-      issuedCreditAmount: null,
-    };
-  }
-
-  const issuedCreditAmount = await issueClientCredit({
-    clientId: userId,
-    bookingId: booking.id,
-    paymentId: booking.payment.id,
-    amount: booking.payment.amount,
-    currency: booking.payment.currency,
-    notes:
-      "Client chose platform credit after the therapist cancelled the confirmed session.",
-    actorUserId: userId,
-  });
-
-  const updatedBooking = await prisma.booking.update({
-    where: {
-      id: booking.id,
-    },
-    data: {
-      compensationResolutionType: "CREDIT",
-      compensationResolvedAt: new Date(),
-    },
-    select: bookingDetailsSelect,
-  });
-
-  await createAuditLogEntryBestEffort({
-    actorUserId: userId,
-    entityType: "Booking",
-    entityId: booking.id,
-    action: "CLIENT_COMPENSATION_CREDIT_SELECTED",
-    before: {
-      compensationResolutionType: booking.compensationResolutionType,
-      paymentStatus: booking.payment.paymentStatus,
-    },
-    after: {
-      compensationResolutionType: "CREDIT",
-      issuedCreditAmount,
-      currency: booking.payment.currency,
-    },
-  });
-
-  return {
-    booking: updatedBooking,
-    resolution: "credit",
-    refund: null,
-    issuedCreditAmount,
-  };
+  throw new ClientBookingsServiceError(
+    "Therapist cancellation compensation choice is no longer available because therapist cancellations are refunded automatically.",
+    "COMPENSATION_NOT_ELIGIBLE",
+  );
 }

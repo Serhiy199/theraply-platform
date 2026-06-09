@@ -34,7 +34,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
       complete: Boolean(data.profileSummary.calendarEmail),
     },
     {
-      label: "Set payout country",
+      label: "Connect Stripe payouts",
       complete: Boolean(data.profileSummary.payoutCountry),
     },
   ];

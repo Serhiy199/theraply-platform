@@ -1,10 +1,12 @@
-import { BookingStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { BookingStatus, PaymentStatus, PaymentTransferStatus, Prisma } from "@prisma/client";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import {
   PAYMENT_CURRENCY,
   PAYMENT_ELIGIBILITY_MESSAGES,
   PAYMENT_POLICY_HOURS_BEFORE_SESSION,
+  PLATFORM_FEE_PERCENT,
+  THERAPIST_SHARE_PERCENT,
 } from "@/lib/constants/payments";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
@@ -18,6 +20,7 @@ import {
   sendPaymentFailedEmailBestEffort,
   sendPaymentSuccessfulEmailBestEffort,
 } from "@/server/services/transactional-email-events.service";
+import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
 const paymentEligibilitySelect = {
   id: true,
@@ -31,6 +34,10 @@ const paymentEligibilitySelect = {
       therapistProfile: {
         select: {
           sessionPricePence: true,
+          stripeAccountId: true,
+          stripeOnboardingStatus: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
         },
       },
     },
@@ -67,6 +74,7 @@ export type PaymentEligibilityCode =
   | "BOOKING_NOT_CONFIRMED"
   | "BOOKING_CLOSED"
   | "MISSING_THERAPIST_PRICE"
+  | "THERAPIST_STRIPE_NOT_READY"
   | "ALREADY_PAID"
   | "PAYMENT_PENDING"
   | "REFUNDED"
@@ -131,6 +139,10 @@ const stripeCheckoutBookingSelect = {
         select: {
           displayName: true,
           sessionPricePence: true,
+          stripeAccountId: true,
+          stripeOnboardingStatus: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
         },
       },
     },
@@ -205,6 +217,18 @@ function buildCreditSuccessUrl(successUrl: string) {
   url.searchParams.delete("session_id");
   url.searchParams.set("source", "credit");
   return url.toString();
+}
+
+function getPlatformFeeAmount(amount: number) {
+  return Math.round((amount * PLATFORM_FEE_PERCENT) / 100);
+}
+
+function getTherapistAmount(amount: number) {
+  return Math.round((amount * THERAPIST_SHARE_PERCENT) / 100);
+}
+
+function getTransferGroup(bookingId: string) {
+  return `theraply_booking_${bookingId}`;
 }
 
 type StripePaymentUpdateResult = {
@@ -357,6 +381,15 @@ function evaluatePaymentEligibility(
     );
   }
 
+  if (!isStripeConnectReady(booking.therapist.therapistProfile)) {
+    return buildEligibilityResult(
+      booking,
+      "THERAPIST_STRIPE_NOT_READY",
+      PAYMENT_ELIGIBILITY_MESSAGES.therapistStripeNotReady,
+      false,
+    );
+  }
+
   const paymentDueBy = booking.paymentDueBy ?? getPaymentDueBy(booking.startsAt);
 
   if (paymentDueBy <= now) {
@@ -447,9 +480,15 @@ async function getStripePaymentBookingOrThrow(bookingId: string) {
           amount: true,
           currency: true,
           paymentStatus: true,
+          paidAt: true,
           creditAppliedAmount: true,
           stripeCheckoutSessionId: true,
+          stripeChargeId: true,
           stripeRefundId: true,
+          stripeTransferGroup: true,
+          platformFeeAmount: true,
+          therapistAmount: true,
+          transferStatus: true,
         },
       },
     },
@@ -527,7 +566,13 @@ export async function createClientStripeCheckoutSession(
         creditAppliedAmount,
         stripeCheckoutSessionId: null,
         stripePaymentIntentId: null,
+        stripeChargeId: null,
         stripeRefundId: null,
+        stripeTransferId: null,
+        stripeTransferGroup: getTransferGroup(booking.id),
+        platformFeeAmount: getPlatformFeeAmount(eligibility.amount),
+        therapistAmount: getTherapistAmount(eligibility.amount),
+        transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
         checkoutExpiresAt: null,
       },
       create: {
@@ -537,6 +582,10 @@ export async function createClientStripeCheckoutSession(
         paymentStatus: PaymentStatus.PAID,
         paidAt: new Date(),
         creditAppliedAmount,
+        stripeTransferGroup: getTransferGroup(booking.id),
+        platformFeeAmount: getPlatformFeeAmount(eligibility.amount),
+        therapistAmount: getTherapistAmount(eligibility.amount),
+        transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
       },
       select: {
         id: true,
@@ -612,6 +661,12 @@ export async function createClientStripeCheckoutSession(
         stripeRefundId: null,
         stripeCheckoutSessionId: null,
         stripePaymentIntentId: null,
+        stripeChargeId: null,
+        stripeTransferId: null,
+        stripeTransferGroup: getTransferGroup(booking.id),
+        platformFeeAmount: getPlatformFeeAmount(eligibility.amount),
+        therapistAmount: getTherapistAmount(eligibility.amount),
+        transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
         creditAppliedAmount: null,
       },
       create: {
@@ -620,6 +675,10 @@ export async function createClientStripeCheckoutSession(
         currency: eligibility.currency,
         paymentStatus: PaymentStatus.PENDING,
         checkoutExpiresAt,
+        stripeTransferGroup: getTransferGroup(booking.id),
+        platformFeeAmount: getPlatformFeeAmount(eligibility.amount),
+        therapistAmount: getTherapistAmount(eligibility.amount),
+        transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
       },
       select: {
         id: true,
@@ -651,14 +710,19 @@ export async function createClientStripeCheckoutSession(
         therapistUserId: booking.therapistId,
         creditAppliedAmount: String(creditAppliedAmount),
         grossAmount: String(eligibility.amount),
+        platformFeeAmount: String(getPlatformFeeAmount(eligibility.amount)),
+        therapistAmount: String(getTherapistAmount(eligibility.amount)),
       },
       payment_intent_data: {
+        transfer_group: getTransferGroup(booking.id),
         metadata: {
           bookingId: booking.id,
           clientUserId,
           therapistUserId: booking.therapistId,
           creditAppliedAmount: String(creditAppliedAmount),
           grossAmount: String(eligibility.amount),
+          platformFeeAmount: String(getPlatformFeeAmount(eligibility.amount)),
+          therapistAmount: String(getTherapistAmount(eligibility.amount)),
         },
       },
       expires_at: checkoutExpiresAt
@@ -904,6 +968,7 @@ export async function markStripeCheckoutSessionCompleted(
   input: {
     checkoutSessionId: string;
     paymentIntentId: string | null;
+    chargeId?: string | null;
     amount: number;
     currency: string;
   },
@@ -922,6 +987,15 @@ export async function markStripeCheckoutSessionCompleted(
       paymentStatus: PaymentStatus.PAID,
       stripeCheckoutSessionId: input.checkoutSessionId,
       stripePaymentIntentId: input.paymentIntentId,
+      stripeChargeId: input.chargeId ?? existingPayment?.stripeChargeId ?? null,
+      stripeTransferGroup: existingPayment?.stripeTransferGroup ?? getTransferGroup(bookingId),
+      platformFeeAmount:
+        existingPayment?.platformFeeAmount ??
+        getPlatformFeeAmount(existingPayment?.amount ?? input.amount),
+      therapistAmount:
+        existingPayment?.therapistAmount ??
+        getTherapistAmount(existingPayment?.amount ?? input.amount),
+      transferStatus: existingPayment?.transferStatus ?? PaymentTransferStatus.NOT_ELIGIBLE,
       paidAt,
       failedAt: null,
       refundedAt: null,
@@ -938,6 +1012,11 @@ export async function markStripeCheckoutSessionCompleted(
       paymentStatus: PaymentStatus.PAID,
       stripeCheckoutSessionId: input.checkoutSessionId,
       stripePaymentIntentId: input.paymentIntentId,
+      stripeChargeId: input.chargeId ?? null,
+      stripeTransferGroup: getTransferGroup(bookingId),
+      platformFeeAmount: getPlatformFeeAmount(input.amount),
+      therapistAmount: getTherapistAmount(input.amount),
+      transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
       paidAt,
     },
     select: {
@@ -1024,6 +1103,73 @@ export async function markStripePaymentIntentFailed(
 
   await sendPaymentFailedEmailBestEffort(payment.bookingId, {
     reason: input.failedReason,
+  });
+
+  return {
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    paymentStatus: payment.paymentStatus,
+  };
+}
+
+export async function markStripePaymentIntentSucceeded(
+  bookingId: string,
+  input: {
+    paymentIntentId: string;
+    chargeId: string | null;
+    amount: number;
+    currency: string;
+  },
+): Promise<StripePaymentUpdateResult> {
+  const paidAt = new Date();
+  const booking = await getStripePaymentBookingOrThrow(bookingId);
+  const existingPayment = booking.payment;
+
+  const payment = await prisma.payment.upsert({
+    where: {
+      bookingId,
+    },
+    update: {
+      amount: existingPayment?.amount ?? input.amount,
+      currency: existingPayment?.currency ?? input.currency,
+      paymentStatus: PaymentStatus.PAID,
+      stripePaymentIntentId: input.paymentIntentId,
+      stripeChargeId: input.chargeId ?? existingPayment?.stripeChargeId ?? null,
+      stripeTransferGroup: existingPayment?.stripeTransferGroup ?? getTransferGroup(bookingId),
+      platformFeeAmount:
+        existingPayment?.platformFeeAmount ??
+        getPlatformFeeAmount(existingPayment?.amount ?? input.amount),
+      therapistAmount:
+        existingPayment?.therapistAmount ??
+        getTherapistAmount(existingPayment?.amount ?? input.amount),
+      transferStatus: existingPayment?.transferStatus ?? PaymentTransferStatus.NOT_ELIGIBLE,
+      paidAt: existingPayment?.paidAt ?? paidAt,
+      failedAt: null,
+      refundedAt: null,
+      failedReason: null,
+      refundReason: null,
+      refundedAmount: null,
+      stripeRefundId: null,
+      checkoutExpiresAt: null,
+    },
+    create: {
+      bookingId,
+      amount: input.amount,
+      currency: input.currency,
+      paymentStatus: PaymentStatus.PAID,
+      stripePaymentIntentId: input.paymentIntentId,
+      stripeChargeId: input.chargeId,
+      stripeTransferGroup: getTransferGroup(bookingId),
+      platformFeeAmount: getPlatformFeeAmount(input.amount),
+      therapistAmount: getTherapistAmount(input.amount),
+      transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
+      paidAt,
+    },
+    select: {
+      id: true,
+      bookingId: true,
+      paymentStatus: true,
+    },
   });
 
   return {
@@ -1136,6 +1282,10 @@ export async function markStripeChargeRefunded(
       refundedAmount: input.refundedAmount,
       stripeRefundId: input.refundId,
       refundReason: input.refundReason,
+      transferStatus:
+        booking.payment.transferStatus === PaymentTransferStatus.TRANSFERRED
+          ? booking.payment.transferStatus
+          : PaymentTransferStatus.NOT_ELIGIBLE,
     },
     select: {
       id: true,

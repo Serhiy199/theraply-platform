@@ -9,14 +9,14 @@ import {
 } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import { googleCalendarSelectionPayloadSchema } from "@/lib/validations/action-payloads";
-import { therapistPayoutDetailsPayloadSchema } from "@/lib/validations/therapist-payout";
+import { therapistSessionPricePayloadSchema } from "@/lib/validations/therapist-payout";
 import {
   GoogleCalendarServiceError,
   updateTherapistSelectedGoogleCalendar,
 } from "@/server/services/google-calendar.service";
 import {
   TherapistBookingsServiceError,
-  updateTherapistPayoutDetails,
+  updateTherapistSessionPrice,
 } from "@/server/services/therapist-bookings.service";
 
 export type PayoutDetailsActionState = {
@@ -35,12 +35,7 @@ export async function payoutDetailsAction(
   formData: FormData,
 ): Promise<PayoutDetailsActionState> {
   const user = await getCurrentUser();
-  const parsed = therapistPayoutDetailsPayloadSchema.safeParse({
-    accountHolderName: formData.get("accountHolderName"),
-    bankName: formData.get("bankName") ?? "",
-    iban: formData.get("iban") ?? "",
-    swift: formData.get("swift") ?? "",
-    country: formData.get("country") ?? "",
+  const parsed = therapistSessionPricePayloadSchema.safeParse({
     sessionPriceGbp: formData.get("sessionPriceGbp") ?? "",
   });
 
@@ -53,26 +48,19 @@ export async function payoutDetailsAction(
     if (!parsed.success) {
       return {
         status: "error",
-        message: "Please complete the required payout fields.",
+        message: "Please enter a valid session price.",
         fieldErrors: parsed.error.flatten().fieldErrors,
       };
     }
 
-    await updateTherapistPayoutDetails(activeTherapist.id, {
-      accountHolderName: parsed.data.accountHolderName,
-      bankName: parsed.data.bankName,
-      iban: parsed.data.iban,
-      swift: parsed.data.swift,
-      country: parsed.data.country,
-      sessionPricePence: parsed.data.sessionPriceGbp,
-    });
+    await updateTherapistSessionPrice(activeTherapist.id, parsed.data.sessionPriceGbp);
 
     revalidatePath("/therapist/payout-details");
     revalidatePath("/therapist/dashboard");
 
     return {
       status: "success",
-      message: "Payout details saved successfully.",
+      message: "Session price saved successfully.",
     };
   } catch (error) {
     if (error instanceof ActionPermissionError) {

@@ -50,6 +50,14 @@ export type TherapistPayoutDetailsView = {
     googleCalendarEmail: string | null;
     isGoogleCalendarConnected: boolean;
     googleCalendarConnectedAt: Date | null;
+    stripeAccountId: string | null;
+    stripeOnboardingStatus: string;
+    stripeChargesEnabled: boolean;
+    stripePayoutsEnabled: boolean;
+    stripeDetailsSubmitted: boolean;
+    stripeOnboardingCompletedAt: Date | null;
+    stripeAccountSyncedAt: Date | null;
+    stripeDisabledReason: string | null;
   };
   payoutDetails: {
     id: string;
@@ -100,6 +108,14 @@ async function getTherapistProfileOrThrow(userId: string) {
       googleCalendarEmail: true,
       isGoogleCalendarConnected: true,
       googleCalendarConnectedAt: true,
+      stripeAccountId: true,
+      stripeOnboardingStatus: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      stripeDetailsSubmitted: true,
+      stripeOnboardingCompletedAt: true,
+      stripeAccountSyncedAt: true,
+      stripeDisabledReason: true,
       payoutDetails: {
         select: {
           id: true,
@@ -403,6 +419,14 @@ export async function getTherapistPayoutDetails(
       googleCalendarEmail: therapistProfile.googleCalendarEmail,
       isGoogleCalendarConnected: therapistProfile.isGoogleCalendarConnected,
       googleCalendarConnectedAt: therapistProfile.googleCalendarConnectedAt,
+      stripeAccountId: therapistProfile.stripeAccountId,
+      stripeOnboardingStatus: therapistProfile.stripeOnboardingStatus,
+      stripeChargesEnabled: therapistProfile.stripeChargesEnabled,
+      stripePayoutsEnabled: therapistProfile.stripePayoutsEnabled,
+      stripeDetailsSubmitted: therapistProfile.stripeDetailsSubmitted,
+      stripeOnboardingCompletedAt: therapistProfile.stripeOnboardingCompletedAt,
+      stripeAccountSyncedAt: therapistProfile.stripeAccountSyncedAt,
+      stripeDisabledReason: therapistProfile.stripeDisabledReason,
     },
     payoutDetails: therapistProfile.payoutDetails,
   };
@@ -512,4 +536,39 @@ export async function updateTherapistPayoutDetails(
   });
 
   return updatedPayoutDetails;
+}
+
+export async function updateTherapistSessionPrice(
+  userId: string,
+  sessionPricePence: number | null,
+) {
+  const therapistProfile = await getTherapistProfileOrThrow(userId);
+
+  const updatedProfile = await prisma.therapistProfile.update({
+    where: {
+      id: therapistProfile.id,
+    },
+    data: {
+      sessionPricePence,
+    },
+    select: {
+      id: true,
+      sessionPricePence: true,
+    },
+  });
+
+  await createAuditLogEntryBestEffort({
+    actorUserId: userId,
+    entityType: "TherapistProfile",
+    entityId: therapistProfile.id,
+    action: "THERAPIST_SESSION_PRICE_UPDATED",
+    before: {
+      sessionPricePence: therapistProfile.sessionPricePence,
+    },
+    after: {
+      sessionPricePence,
+    },
+  });
+
+  return updatedProfile;
 }
