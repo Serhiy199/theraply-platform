@@ -1,4 +1,3 @@
-﻿import Link from "next/link";
 import type { BookingListItem } from "@/lib/contracts/bookings";
 import { ClientBookingCard } from "@/components/dashboard/client/client-booking-card";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";

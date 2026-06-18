@@ -1,5 +1,4 @@
 import { formatDateKeyInTimeZone } from "@/lib/google/google-time-zone";
-import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";

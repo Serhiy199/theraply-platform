@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import { TherapistCard } from "@/components/booking/client/therapist-card";

@@ -3,7 +3,6 @@ import Stripe from "stripe";
 import { getStripeConfig } from "@/lib/stripe/stripe-config";
 
 declare global {
-  // eslint-disable-next-line no-var
   var stripeClientSingleton: Stripe | undefined;
 }
 

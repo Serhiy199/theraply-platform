@@ -34,8 +34,6 @@ export function RequestSlotForm({ therapistId, startsAt, endsAt }: RequestSlotFo
     createBookingRequestAction,
     initialBookingRequestActionState,
   );
-  const buttonDisabled = pending;
-
   return (
     <form action={formAction} className="mt-4 grid gap-3">
       <input type="hidden" name="therapistId" value={therapistId} />

@@ -29,7 +29,6 @@ const FALLBACK_CLIENT_IDENTIFIER = "anonymous";
 const MEMORY_STORE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __theraplyRateLimitStore:
     | {
         entries: Map<string, RateLimitStoreEntry>;

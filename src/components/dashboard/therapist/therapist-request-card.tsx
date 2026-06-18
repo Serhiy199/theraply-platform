@@ -1,4 +1,3 @@
-﻿import Link from "next/link";
 import type { TherapistRequestItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,

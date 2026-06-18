@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import {
   formatBookingStatus,

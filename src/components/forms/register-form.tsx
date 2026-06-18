@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import Link from "next/link";
 import { Alert, Button, Form, Input, Modal, Radio, Space, Typography } from "antd";
-import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
+import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { registerAction } from "@/app/register/actions";
 import {
   initialRegisterActionState,

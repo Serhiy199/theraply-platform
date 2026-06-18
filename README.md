@@ -2,44 +2,25 @@
 
 Ukrainian version: [README.ua.md](./README.ua.md)
 
-Theraply Platform is the product application built with Next.js for three core roles:
-
-- clients
-- therapists
-- administrators
-
-The marketing website remains outside this repository. This codebase contains the private product workspace that runs on the platform subdomain.
+Theraply Platform is the private product workspace for clients, therapists, and administrators. The marketing site remains outside this repository; this app is intended to run on the product subdomain, for example `app.theraply.online`.
 
 ## Current Status
 
-Completed phases:
+The MVP implementation is ready for final hosted acceptance testing.
 
-- `Phase 1` - project initialization
-- `Phase 2` - database design and PostgreSQL bootstrap
-- `Phase 3` - authentication, password recovery, and route protection
-- `Phase 4` - private app shell, role dashboards, and core internal navigation
-- `Stages 5-7` - operational modules for client, therapist, and admin
-- `Phase 8` - end-to-end booking flow
-- `Phase 9` - Google Calendar integration
-- `Phase 10` - Stripe payments, refunds, client credit, and finance visibility
+Completed product areas:
 
-The current application already includes:
-
-- client self-signup and credentials-based login with `NextAuth`
-- forgot-password and reset-password flows
-- protected role-based routes
-- private dashboards for `client`, `therapist`, and `admin`
-- real booking, payment, and cancellation flows for clients
-- therapist requests, sessions, clients, payout details, and pricing
-- admin oversight for users, therapists, bookings, payments, and audit logs
-- end-to-end Google Calendar sync with therapist-owned calendars
-- Stripe Checkout from client booking details
-- Stripe webhook processing for success, failure, expiry, and refund events
-- refund flow for standard client cancellation and platform-driven paid cancellation
-- client credit issuance, application, reversal, and balance tracking
-- late cancellation UX for `< 24 hours`
-- admin finance visibility for pending, failed, refunded, and credit-backed cases
-- audit logging across Google Calendar, Stripe, refund, and client-credit lifecycle events
+- Project foundation, database schema, and private app shell.
+- Credentials auth, role-based routing, email verification, forgot/reset password.
+- Client, therapist, and admin dashboards.
+- Client booking flow with therapist selection, Google Calendar availability, pending therapist confirmation, payment, cancellation, and booking history.
+- Therapist onboarding, admin review, certificate upload, Google Calendar connection, Stripe Connect onboarding, requests, clients, session completion, no-show, and payout state.
+- Admin users, therapists, bookings, payments, finance cases, transfer retry, and audit visibility.
+- Stripe Checkout, webhook reconciliation, refunds, client credit, Stripe Connect transfers, and retry cron.
+- Transactional email logging/delivery abstraction.
+- Cron endpoints for unpaid booking rules and therapist transfer retry.
+- Security hardening: route guards, ownership checks, payload validation, rate-limit foundation, safe errors, monitoring redaction, audit logs.
+- Vitest test infrastructure and targeted unit/service coverage.
 
 ## Tech Stack
 
@@ -51,73 +32,64 @@ The current application already includes:
 - NextAuth v4
 - Prisma 6
 - PostgreSQL
-- bcryptjs
-- Zod
-- Stripe
+- Stripe Checkout and Stripe Connect
+- Google Calendar / Google Meet
+- Nodemailer SMTP
+- Cloudinary certificate storage
+- Wix forms sync support
 
-## Implemented Phases
+## Key Runtime Flows
 
-### Phase 8
+### Client
 
-Completed the core booking flow end-to-end:
+- Registers and verifies email.
+- Chooses an approved therapist.
+- Views slots from the therapist Google Calendar availability.
+- Creates a pending booking request.
+- Pays through Stripe Checkout after therapist confirmation.
+- Cancels with the configured refund policy: `24h+` can refund, `<24h` is non-refundable after payment capture.
 
-- therapist selection and slot selection for the client flow
-- booking request creation with `PENDING_THERAPIST`
-- therapist confirm / reject flow
-- meeting link creation and session linkage
-- end-to-end verification script in `scripts/verify-stage-8.ts`
+### Therapist
 
-### Phase 9
+- Registers, verifies email, completes onboarding, and waits for admin approval.
+- Connects Google Calendar and Stripe Connect.
+- Sets session price.
+- Confirms/rejects booking requests.
+- Cancels confirmed paid sessions with automatic full refund.
+- Marks sessions as completed or client no-show after the session end time.
+- Completed/no-show paid sessions trigger a 90% therapist transfer with cron retry fallback.
 
-Completed Google Calendar integration:
+### Admin
 
-- therapist-owned Google OAuth connection
-- target calendar selection
-- real availability from Google Calendar `freeBusy`
-- conflict-aware booking creation with database and Google checks
-- Google Calendar event creation after therapist confirmation
-- Google Meet link storage in `Session`
-- synced event cleanup on reject / cancel
-- UI indicators and audit logging for the Google integration lifecycle
+- Reviews users, therapists, bookings, payments, finance cases, and audit logs.
+- Approves/rejects therapists.
+- Cancels bookings manually.
+- Reviews payment split and transfer state.
+- Retries failed therapist transfers.
 
-### Phase 10
+## Important Business Rules
 
-Completed Stripe payment and compensation implementation:
-
-- therapist-specific pricing through `sessionPricePence`
-- server-side payment eligibility checks
-- `GBP` payment flow after therapist confirmation
-- payment deadline enforcement at `24 hours` before session start
-- `Stripe Checkout` session creation from client booking details
-- payment success and failed pages
-- webhook handling for:
-  - `checkout.session.completed`
-  - `payment_intent.payment_failed`
-  - `checkout.session.expired`
-  - `charge.refunded`
-- standard client cancellation refund logic
-- platform-side paid cancellation refund logic
-- client credit balance and transaction model
-- automatic client credit application before Stripe charge
-- partial credit + Stripe mixed settlement
-- full settlement by client credit without opening Stripe Checkout
-- credit reversal on failed or expired checkout
-- refund-time restoration of previously applied credit
-- admin finance visibility for problematic payment states
-- audit logging for checkout, webhook, refund, and client credit lifecycle events
+- Clients pay only after therapist confirmation.
+- Therapist cancellation of a paid session creates a full Stripe refund; client credit is not offered for that scenario.
+- Client cancellation follows the 24-hour refund policy.
+- Stripe Connect readiness is required before a therapist can accept payable bookings.
+- Therapist payout uses separate charges and transfers: platform keeps 10%, therapist receives 90%.
+- Transfer is created only after the therapist marks a paid session as completed or client no-show.
+- Cron is used as retry/fallback, not as the primary completion mechanism.
 
 ## Implemented Routes
 
-### Public routes
+Public:
 
 - `/`
 - `/login`
 - `/register`
 - `/forgot-password`
 - `/reset-password/[token]`
+- `/verify-email/[token]`
 - `/403`
 
-### Client routes
+Client:
 
 - `/client/dashboard`
 - `/client/book/new`
@@ -128,15 +100,16 @@ Completed Stripe payment and compensation implementation:
 - `/client/payments/success`
 - `/client/payments/failed`
 
-### Therapist routes
+Therapist:
 
 - `/therapist/dashboard`
+- `/therapist/onboarding`
 - `/therapist/requests`
 - `/therapist/requests/[bookingId]`
 - `/therapist/clients`
 - `/therapist/payout-details`
 
-### Admin routes
+Admin:
 
 - `/admin/dashboard`
 - `/admin/users`
@@ -145,246 +118,82 @@ Completed Stripe payment and compensation implementation:
 - `/admin/bookings/[bookingId]`
 - `/admin/payments`
 
-### API routes
+API:
 
 - `/api/auth/[...nextauth]`
 - `/api/integrations/google/connect`
 - `/api/integrations/google/callback`
 - `/api/stripe/checkout`
 - `/api/stripe/webhook`
+- `/api/stripe/connect/account-link`
+- `/api/stripe/connect/refresh`
+- `/api/stripe/connect/return`
+- `/api/cron/booking-rules`
+- `/api/cron/therapist-transfers`
+- `/api/therapist/certificates/upload-signature`
+- `/api/therapist/certificates/confirm-upload`
 
-## Database Model
+## Database Notes
 
-### Enums
+Core Prisma models include:
 
-- `UserRole`
-- `TherapistApprovalStatus`
-- `BookingStatus`
-- `SessionStatus`
-- `PaymentStatus`
-- `CompensationResolutionType`
-- `ClientCreditTransactionType`
-- `EmailStatus`
-
-### Models
-
-- `User`
-- `ClientProfile`
-- `TherapistProfile`
-- `Booking`
-- `Session`
-- `Payment`
-- `ClientCreditBalance`
-- `ClientCreditTransaction`
+- `User`, `ClientProfile`, `TherapistProfile`
+- `TherapistCertificate`, `TherapistReviewNote`
+- `Booking`, `Session`, `Payment`
+- `StripeWebhookEvent`
+- `ClientCreditBalance`, `ClientCreditTransaction`
 - `TherapistPayoutDetails`
-- `EmailLog`
-- `AuditLog`
-- `PasswordResetToken`
+- `EmailLog`, `AuditLog`
+- `PasswordResetToken`, `EmailVerificationToken`
 
-### Important domain notes
+`TherapistPayoutDetails` is legacy storage kept for compatibility/history. New payout readiness and payout UX use Stripe Connect fields on `TherapistProfile`, plus payment transfer fields on `Payment`.
 
-- roles are stored in `User.role`
-- `Booking` tracks booking state and intent
-- `Session` tracks the actual session and meeting metadata
-- `Payment` tracks Stripe identifiers, checkout expiry, refund metadata, and applied credit
-- `ClientCreditBalance` and `ClientCreditTransaction` treat platform credit as a first-class domain concept
-- booking compensation is resolved through `compensationResolutionType`
-- therapist availability is sourced from Google Calendar `freeBusy`
-- payment starts only after therapist confirmation
+## Environment Variables
 
-## Local Environment
+Required environment groups:
 
-Environment variables expected by the project:
-
-- `DATABASE_URL`
-- `NEXT_PUBLIC_APP_URL`
-- `APP_URL`
-- `NEXTAUTH_URL`
-- `AUTH_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_CALENDAR_REDIRECT_URI`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `RESEND_API_KEY`
-
-## Google Calendar Integration
-
-Phase 9 uses therapist-owned Google accounts.
-
-Current runtime behavior:
-
-- therapists connect their own Google account from `/therapist/payout-details`
-- Theraply reads availability from Google Calendar `freeBusy`
-- bookings remain in `PENDING_THERAPIST` until therapist action
-- confirmation creates the Google Calendar event and stores the Google Meet link
-- reject and cancel flows delete the synced Google Calendar event
-- connection, token refresh, sync, and failure events are logged to `AuditLog`
-
-More details: [docs/phase-9-google-calendar-integration.md](./docs/phase-9-google-calendar-integration.md)
-
-## Stripe Payments
-
-Phase 10 is implemented with Stripe test-mode support for development and hosted testing.
-
-Current runtime behavior:
-
-- therapist confirms first, then the client can pay
-- the payable amount comes from therapist-specific `GBP` pricing
-- client credit is applied automatically before Stripe Checkout
-- full-credit bookings settle without opening Stripe Checkout
-- partial-credit bookings charge only the remainder through Stripe
-- Stripe webhooks remain the source of truth for payment confirmation
-- standard client cancellation (`24h+`) can create a Stripe refund
-- late cancellation (`< 24h`) requires explicit confirmation and is treated as non-refundable once payment is captured
-- paid platform-side cancellation can create a Stripe refund
-- checkout, webhook, refund, and credit events are written to `AuditLog`
-
-Required Stripe variables:
-
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-
-Recommended local Stripe setup:
-
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-Use `pk_test` and `sk_test` from Stripe Dashboard, then copy the CLI-provided `whsec_...` into local `.env`.
-
-Hosted test setup:
-
-- keep Stripe in `Test mode`
-- create a webhook endpoint for `https://your-domain/api/stripe/webhook`
-- place that hosted signing secret into `STRIPE_WEBHOOK_SECRET`
-
-More details: [docs/phase-10-stripe-payments.md](./docs/phase-10-stripe-payments.md)
+- App/auth: `DATABASE_URL`, `NEXT_PUBLIC_APP_URL`, `APP_URL`, `NEXTAUTH_URL`, `AUTH_SECRET`
+- Cron: `CRON_SECRET`
+- Stripe: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- Google Calendar: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI`
+- Email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, `EMAIL_REPLY_TO`
+- Cloudinary: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_CERTIFICATES_FOLDER`
+- Wix sync: `WIX_API_TOKEN`, `WIX_SITE_ID`, `WIX_THERAPIST_APPLICATION_FORM_ID`, `WIX_ACCOUNT_ID`
+- Monitoring: `ERROR_MONITORING_PROVIDER`, `SENTRY_DSN`
 
 ## Useful Commands
 
-Install dependencies:
-
-```bash
-npm install
+```powershell
+npm.cmd install
+npm.cmd run dev
+npm.cmd run build
+npx.cmd prisma validate
+npx.cmd prisma migrate status
+npx.cmd prisma migrate deploy
+npm.cmd run lint
+npx.cmd tsc --noEmit --incremental false
+npm.cmd test
+npm.cmd run verify:security
+npm.cmd run verify:phase10
 ```
 
-Run the application locally:
+## Current Verification Baseline
 
-```bash
-npm run dev
-```
+Latest local verification after the Stripe Connect migration:
 
-Build the project:
+- `npx prisma migrate status` passes and reports the DB is up to date.
+- `npm run verify:security` passes.
+- `npm run verify:phase10` passes.
+- `npx tsc --noEmit --incremental false` passes.
+- `npm test` passes: 17 files / 90 tests.
+- `npm run lint` passes with no warnings.
+- `npm run build` passes.
 
-```bash
-npm run build
-```
+Known caveat: in the current Windows/local environment, `npm run build` can print Prisma TLS warnings while prerendering pages that try to read the configured remote DB. The build still completes successfully. Hosted environment DB connectivity should be confirmed during hosted QA.
 
-Generate Prisma Client:
+## Production Notes
 
-```bash
-npm run prisma:generate
-```
-
-Create and apply a local migration:
-
-```bash
-npm run prisma:migrate:dev -- --name your_migration_name
-```
-
-Open Prisma Studio:
-
-```bash
-npm run prisma:studio
-```
-
-Run seed manually:
-
-```bash
-npx prisma db seed
-```
-
-Forward Stripe webhooks locally:
-
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-Run the Phase 10 verification script:
-
-```bash
-npm run verify:phase10
-```
-
-## Remote production / Vercel database
-
-The project can work against the remote Vercel / Prisma Postgres database directly when the local environment should use the shared remote database as the main datasource.
-
-1. Copy the template:
-
-```bash
-cp .env.production.local.example .env.production.local
-```
-
-2. Paste the remote `DATABASE_URL` from Vercel / Prisma Postgres into `.env.production.local`.
-
-3. If you want the local project to use the remote database as the primary datasource, mirror the same `DATABASE_URL` into `.env`.
-
-4. Run remote migrations:
-
-```bash
-npm run prisma:migrate:remote
-```
-
-5. Run remote seed only when you intentionally want to write seed data into that shared environment:
-
-```bash
-npm run prisma:seed:remote
-```
-
-## Test Accounts
-
-### Admin
-
-- email: `admin@theraply.local`
-- password: `Admin123!`
-
-### Therapists
-
-- email: `therapist.anna@theraply.local`
-- password: `Therapist123!`
-
-- email: `therapist.david@theraply.local`
-- password: `Therapist123!`
-
-### Clients
-
-- email: `client.emma@theraply.local`
-- password: `Client123!`
-
-- email: `client.james@theraply.local`
-- password: `Client123!`
-
-## Verification Summary
-
-Current verified state:
-
-- `Phase 3` is verified through registration, login, reset flow, and JWT session behavior
-- `Phase 4` is verified through build and private role routes
-- `Stages 5-7` are verified through operational flows and route checks
-- `Phase 8` is verified through booking creation, confirmation, and session linkage
-- `Phase 9` is verified through Google Calendar connect, availability, confirm, and cancellation sync flows
-- `Phase 10` is verified through `scripts/verify-phase-10.ts`, plus build-passing Stripe checkout, webhook, refund-state, credit, late-cancellation, and admin-finance flows
-- `npm run build` passes successfully
-- `npm run dev` starts correctly
-
-## What Comes Next
-
-The most logical next steps are:
-
-- email notifications
-- production hardening, filters, pagination, and monitoring
-- final end-to-end payment verification in hosted test mode
+- The current rate limiter uses an in-memory store. This is acceptable as a baseline, but production should use a shared store such as Redis/Upstash when running multiple instances.
+- Do not run seed commands against production unless intentionally creating/resetting demo data.
+- Cron behavior should be verified on the final hosting platform because the project may move away from Vercel.
+- Hosted QA checklist: [docs/hosted-qa-handoff-checklist.md](./docs/hosted-qa-handoff-checklist.md)
