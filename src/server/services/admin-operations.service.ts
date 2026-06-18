@@ -242,6 +242,7 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
       stripeOnboardingStatus: true,
       stripeChargesEnabled: true,
       stripePayoutsEnabled: true,
+      stripeDetailsSubmitted: true,
       createdAt: true,
       updatedAt: true,
       user: {
@@ -291,8 +292,8 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     payoutVerified:
       Boolean(therapist.stripeAccountId) &&
       therapist.stripeOnboardingStatus === "READY" &&
-      therapist.stripeChargesEnabled &&
-      therapist.stripePayoutsEnabled,
+      therapist.stripePayoutsEnabled &&
+      therapist.stripeDetailsSubmitted,
     payoutCountry: therapist.payoutDetails?.country ?? null,
     certificates: therapist.certificates,
     createdAt: therapist.createdAt,

@@ -95,8 +95,8 @@ export function TherapistPayoutForm({
   const calendarButtonDisabled = !googleCalendars.length || calendarPending;
   const stripeReady =
     Boolean(data.profile.stripeAccountId) &&
-    data.profile.stripeChargesEnabled &&
     data.profile.stripePayoutsEnabled &&
+    data.profile.stripeDetailsSubmitted &&
     data.profile.stripeOnboardingStatus === "READY";
 
   return (
@@ -132,8 +132,8 @@ export function TherapistPayoutForm({
             <span className="text-right capitalize">{formatStripeStatus(data.profile.stripeOnboardingStatus)}</span>
           </div>
           <div className="flex items-start justify-between gap-4">
-            <span className="font-medium">Charges</span>
-            <span className="text-right">{data.profile.stripeChargesEnabled ? "Enabled" : "Not enabled"}</span>
+            <span className="font-medium">Details submitted</span>
+            <span className="text-right">{data.profile.stripeDetailsSubmitted ? "Yes" : "No"}</span>
           </div>
           <div className="flex items-start justify-between gap-4">
             <span className="font-medium">Payouts</span>

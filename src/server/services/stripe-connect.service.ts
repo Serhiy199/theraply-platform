@@ -75,7 +75,7 @@ function getRequirementsDue(account: Stripe.Account) {
 function getOnboardingStatus(account: Stripe.Account): StripeConnectOnboardingStatus {
   const disabledReason = getAccountDisabledReason(account);
 
-  if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
+  if (account.payouts_enabled && account.details_submitted) {
     return StripeConnectOnboardingStatus.READY;
   }
 
@@ -140,14 +140,14 @@ function getTherapistDisplayName(therapistProfile: Awaited<ReturnType<typeof get
 
 export function isStripeConnectReady(input: {
   stripeAccountId?: string | null;
-  stripeChargesEnabled?: boolean | null;
   stripePayoutsEnabled?: boolean | null;
+  stripeDetailsSubmitted?: boolean | null;
   stripeOnboardingStatus?: StripeConnectOnboardingStatus | null;
 }) {
   return Boolean(
     input.stripeAccountId &&
-      input.stripeChargesEnabled &&
       input.stripePayoutsEnabled &&
+      input.stripeDetailsSubmitted &&
       input.stripeOnboardingStatus === StripeConnectOnboardingStatus.READY,
   );
 }
@@ -178,8 +178,8 @@ export async function syncTherapistStripeAccountStatus(therapistUserId: string):
     const now = new Date();
     const isReady =
       onboardingStatus === StripeConnectOnboardingStatus.READY &&
-      account.charges_enabled &&
-      account.payouts_enabled;
+      account.payouts_enabled &&
+      account.details_submitted;
 
     const updated = await prisma.therapistProfile.update({
       where: { id: therapistProfile.id },
@@ -244,7 +244,6 @@ export async function createTherapistStripeAccountLink(therapistUserId: string) 
           product_description: "Online therapy sessions booked through Theraply.",
         },
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
         },
         metadata: {

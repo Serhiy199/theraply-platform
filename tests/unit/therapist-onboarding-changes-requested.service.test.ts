@@ -1,7 +1,10 @@
 import { TherapistApprovalStatus } from "@prisma/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { saveTherapistOnboardingDraft } from "@/server/services/therapist-onboarding.service";
+import {
+  saveTherapistOnboardingDraft,
+  submitTherapistOnboardingForReview,
+} from "@/server/services/therapist-onboarding.service";
 
 const findUniqueMock = vi.hoisted(() => vi.fn());
 const updateMock = vi.hoisted(() => vi.fn());
@@ -73,6 +76,52 @@ describe("saveTherapistOnboardingDraft after a changes request", () => {
         },
         after: expect.objectContaining({
           approvalStatus: TherapistApprovalStatus.CHANGES_REQUESTED,
+        }),
+      }),
+    );
+  });
+});
+
+describe("submitTherapistOnboardingForReview", () => {
+  it("copies a numeric onboarding price into the payable session price", async () => {
+    findUniqueMock.mockResolvedValue({
+      id: "therapist-profile-id",
+      userId: "therapist-user-id",
+      approvalStatus: TherapistApprovalStatus.PROFILE_INCOMPLETE,
+      user: {
+        email: "therapist@example.com",
+        firstName: "Ada",
+        lastName: "Lovelace",
+      },
+    });
+    updateMock.mockResolvedValue({
+      id: "therapist-profile-id",
+      userId: "therapist-user-id",
+      approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
+      profileDraft: {},
+      displayName: "Ada Lovelace",
+      user: {
+        email: "therapist@example.com",
+        firstName: "Ada",
+      },
+    });
+
+    await submitTherapistOnboardingForReview("therapist-user-id", {
+      gender: "Female",
+      contactNumber: "+44 7000 000000",
+      therapyServicesProvided: "Personal therapy",
+      yearsOfExperience: "5",
+      educationAndCertifications: "Certificate details",
+      specialisation: "Anxiety",
+      pricePerHour: "50",
+    });
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          pricePerHour: "50",
+          sessionPricePence: 5000,
+          approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
         }),
       }),
     );

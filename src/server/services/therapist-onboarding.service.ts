@@ -37,6 +37,22 @@ function getUserDisplayName(user: { firstName: string | null; lastName: string |
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
 }
 
+function parsePricePerHourToPence(pricePerHour: string | null | undefined) {
+  const normalized = pricePerHour
+    ?.trim()
+    .replace(/^gbp\s*/i, "")
+    .replace(/^£\s*/, "")
+    .replace(",", ".");
+
+  if (!normalized || !/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    return null;
+  }
+
+  const amount = Number(normalized);
+
+  return Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) : null;
+}
+
 function withTrustedUserSnapshot(
   draft: TherapistOnboardingDraft,
   user: { firstName: string | null; lastName: string | null; email: string },
@@ -194,6 +210,7 @@ export async function submitTherapistOnboardingForReview(
       specialisation: draft.specialisation,
       specialization: draft.specialization,
       pricePerHour: draft.pricePerHour,
+      sessionPricePence: parsePricePerHourToPence(draft.pricePerHour),
       approvalStatus: TherapistApprovalStatus.PENDING_REVIEW,
       isApproved: false,
       onboardingCompleted: true,

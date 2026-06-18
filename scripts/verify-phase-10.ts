@@ -107,7 +107,7 @@ async function main() {
           originalTherapistProfile?.stripeAccountId ??
           `acct_verify_phase10_${therapist.id.slice(0, 12)}`,
         stripeOnboardingStatus: StripeConnectOnboardingStatus.READY,
-        stripeChargesEnabled: true,
+        stripeChargesEnabled: false,
         stripePayoutsEnabled: true,
         stripeDetailsSubmitted: true,
         stripeOnboardingCompletedAt:

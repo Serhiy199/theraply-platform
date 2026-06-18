@@ -58,7 +58,7 @@ function getPaymentIntentChargeId(paymentIntent: Stripe.PaymentIntent) {
 }
 
 function getAccountOnboardingStatus(account: Stripe.Account) {
-  if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
+  if (account.payouts_enabled && account.details_submitted) {
     return StripeConnectOnboardingStatus.READY;
   }
 
@@ -301,7 +301,7 @@ async function syncAccountUpdated(account: Stripe.Account) {
       stripePayoutsEnabled: account.payouts_enabled,
       stripeDetailsSubmitted: account.details_submitted,
       stripeOnboardingCompletedAt:
-        account.charges_enabled && account.payouts_enabled && account.details_submitted
+        account.payouts_enabled && account.details_submitted
           ? new Date()
           : undefined,
       stripeAccountSyncedAt: new Date(),

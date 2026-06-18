@@ -61,8 +61,9 @@ function buildTransferBooking(overrides: Record<string, unknown> = {}) {
       therapistProfile: {
         stripeAccountId: "acct_123",
         stripeOnboardingStatus: StripeConnectOnboardingStatus.READY,
-        stripeChargesEnabled: true,
+        stripeChargesEnabled: false,
         stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
       },
     },
     payment: {

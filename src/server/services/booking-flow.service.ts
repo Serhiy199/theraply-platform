@@ -71,6 +71,7 @@ const bookableTherapistSelect = {
       stripeOnboardingStatus: true,
       stripeChargesEnabled: true,
       stripePayoutsEnabled: true,
+      stripeDetailsSubmitted: true,
       approvalStatus: true,
       isApproved: true,
       onboardingCompleted: true,
@@ -90,8 +91,8 @@ const bookableTherapistWhere = {
       stripeAccountId: {
         not: null,
       },
-      stripeChargesEnabled: true,
       stripePayoutsEnabled: true,
+      stripeDetailsSubmitted: true,
       stripeOnboardingStatus: "READY",
     },
   },

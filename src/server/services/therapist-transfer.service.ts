@@ -90,6 +90,7 @@ const transferBookingSelect = {
           stripeOnboardingStatus: true,
           stripeChargesEnabled: true,
           stripePayoutsEnabled: true,
+          stripeDetailsSubmitted: true,
         },
       },
     },

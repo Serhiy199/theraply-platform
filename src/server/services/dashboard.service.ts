@@ -194,6 +194,7 @@ export async function getTherapistDashboardData(userId: string) {
           stripeOnboardingStatus: true,
           stripeChargesEnabled: true,
           stripePayoutsEnabled: true,
+          stripeDetailsSubmitted: true,
           payoutDetails: {
             select: {
               isVerified: true,
@@ -265,8 +266,8 @@ export async function getTherapistDashboardData(userId: string) {
       value:
         therapistProfile?.stripeAccountId &&
         therapistProfile.stripeOnboardingStatus === "READY" &&
-        therapistProfile.stripeChargesEnabled &&
-        therapistProfile.stripePayoutsEnabled
+        therapistProfile.stripePayoutsEnabled &&
+        therapistProfile.stripeDetailsSubmitted
           ? "Yes"
           : "No",
       hint: "Whether Stripe Connect is ready for therapist transfers.",
@@ -338,8 +339,8 @@ export async function getAdminDashboardData() {
           not: null,
         },
         stripeOnboardingStatus: "READY",
-        stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
       },
     }),
     prisma.user.findMany({
