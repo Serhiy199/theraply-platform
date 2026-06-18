@@ -173,7 +173,7 @@ const validationCoverageFiles: Array<{
   },
   {
     file: "src/app/therapist/payout-details/actions.ts",
-    patterns: ["therapistPayoutDetailsPayloadSchema", "googleCalendarSelectionPayloadSchema", "safeParse"],
+    patterns: ["therapistSessionPricePayloadSchema", "googleCalendarSelectionPayloadSchema", "safeParse"],
   },
 ];
 

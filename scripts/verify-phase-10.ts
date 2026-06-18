@@ -2,6 +2,8 @@ import {
   BookingStatus,
   CompensationResolutionType,
   PaymentStatus,
+  Prisma,
+  StripeConnectOnboardingStatus,
 } from "@prisma/client";
 import Stripe from "stripe";
 import { prisma } from "../src/lib/prisma";
@@ -82,20 +84,39 @@ async function main() {
     where: { userId: therapist.id },
     select: {
       sessionPricePence: true,
+      stripeAccountId: true,
+      stripeOnboardingStatus: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
+      stripeDetailsSubmitted: true,
+      stripeOnboardingCompletedAt: true,
+      stripeAccountSyncedAt: true,
+      stripeRequirementsDue: true,
+      stripeDisabledReason: true,
     },
   });
 
   try {
     const now = new Date();
 
-    if (!originalTherapistProfile?.sessionPricePence) {
-      await prisma.therapistProfile.update({
-        where: { userId: therapist.id },
-        data: {
-          sessionPricePence: 8500,
-        },
-      });
-    }
+    await prisma.therapistProfile.update({
+      where: { userId: therapist.id },
+      data: {
+        sessionPricePence: originalTherapistProfile?.sessionPricePence ?? 8500,
+        stripeAccountId:
+          originalTherapistProfile?.stripeAccountId ??
+          `acct_verify_phase10_${therapist.id.slice(0, 12)}`,
+        stripeOnboardingStatus: StripeConnectOnboardingStatus.READY,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
+        stripeOnboardingCompletedAt:
+          originalTherapistProfile?.stripeOnboardingCompletedAt ?? now,
+        stripeAccountSyncedAt: now,
+        stripeRequirementsDue: Prisma.DbNull,
+        stripeDisabledReason: null,
+      },
+    });
 
     const fullCreditBooking = await prisma.booking.create({
       data: {
@@ -630,6 +651,18 @@ async function main() {
         where: { userId: therapist.id },
         data: {
           sessionPricePence: originalTherapistProfile.sessionPricePence,
+          stripeAccountId: originalTherapistProfile.stripeAccountId,
+          stripeOnboardingStatus: originalTherapistProfile.stripeOnboardingStatus,
+          stripeChargesEnabled: originalTherapistProfile.stripeChargesEnabled,
+          stripePayoutsEnabled: originalTherapistProfile.stripePayoutsEnabled,
+          stripeDetailsSubmitted: originalTherapistProfile.stripeDetailsSubmitted,
+          stripeOnboardingCompletedAt: originalTherapistProfile.stripeOnboardingCompletedAt,
+          stripeAccountSyncedAt: originalTherapistProfile.stripeAccountSyncedAt,
+          stripeRequirementsDue:
+            originalTherapistProfile.stripeRequirementsDue === null
+              ? Prisma.DbNull
+              : (originalTherapistProfile.stripeRequirementsDue as Prisma.InputJsonValue),
+          stripeDisabledReason: originalTherapistProfile.stripeDisabledReason,
         },
       });
     }
