@@ -167,6 +167,17 @@ function normalizeOptionalString(value: string | null | undefined) {
   return normalized ? normalized : null;
 }
 
+function getAuditPaymentStatusAfterRefund(
+  currentStatus: PaymentStatus | null | undefined,
+  refund: { status: string; reason?: string | null },
+) {
+  if (refund.status === "refunded" || refund.reason === "ALREADY_REFUNDED") {
+    return PaymentStatus.REFUNDED;
+  }
+
+  return currentStatus ?? null;
+}
+
 function mergeNotes(existingNotes: string | null, extraNotes: string | null) {
   if (!extraNotes) {
     return existingNotes;
@@ -891,7 +902,10 @@ export async function cancelConfirmedBookingByTherapist(
         cancelledAt: now,
         cancelledByUserId: therapistUserId,
         sessionStatus: SessionStatus.CANCELLED,
-        paymentStatus: booking.payment?.paymentStatus ?? null,
+        paymentStatus: getAuditPaymentStatusAfterRefund(
+          booking.payment?.paymentStatus,
+          refundResult,
+        ),
         refundStatus: refundResult.status,
         refundReason: refundResult.reason,
         refundId: refundResult.refundId,

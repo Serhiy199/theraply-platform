@@ -85,8 +85,8 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
       </div>
 
       {payments.length ? (
-        <div className="mt-6 overflow-x-auto rounded-[1.5rem] border border-slate-200/70 bg-white/70">
-          <table className="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
+        <div className="mt-6 max-w-full overflow-x-auto rounded-[1.5rem] border border-slate-200/70 bg-white/70">
+          <table className="min-w-[86rem] divide-y divide-slate-200 text-left text-sm text-slate-700">
             <thead className="bg-slate-50/80 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-5 py-4">Booking</th>

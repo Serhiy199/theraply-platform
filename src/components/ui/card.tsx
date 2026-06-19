@@ -23,7 +23,7 @@ export function SurfaceCard<T extends ElementType = "section">({
   return (
     <Component
       className={joinClasses(
-        "soft-card rounded-[2rem] border border-slate-200/70",
+        "soft-card min-w-0 rounded-[2rem] border border-slate-200/70",
         padded && "p-6 md:p-8",
         className,
       )}
@@ -63,7 +63,7 @@ export function InsetCard<T extends ElementType = "article">({
   return (
     <Component
       className={joinClasses(
-        "rounded-[1.75rem] border border-slate-200/70 p-5",
+        "min-w-0 rounded-[1.75rem] border border-slate-200/70 p-5",
         insetToneClasses[tone],
         className,
       )}
@@ -102,9 +102,11 @@ type StatCardProps = {
 export function StatCard({ label, value, hint, className }: StatCardProps) {
   return (
     <InsetCard tone="plain" className={className}>
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 [overflow-wrap:anywhere]">
+        {label}
+      </p>
       <p className="mt-4 text-4xl font-semibold text-slate-900">{value}</p>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{hint}</p>
+      <p className="mt-3 text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">{hint}</p>
     </InsetCard>
   );
 }
