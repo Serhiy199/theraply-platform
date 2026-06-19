@@ -18,7 +18,6 @@ import {
   type CancelBookingActionState,
 } from "@/app/client/bookings/actions";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
-import { GoogleCalendarMeetingStatus } from "@/components/dashboard/shared/google-calendar-status";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
@@ -345,19 +344,12 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
       </SurfaceCard>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <SurfaceCard as="article" className="p-6">
-          <h3 className="text-xl font-semibold text-slate-900">Booking notes</h3>
-          <p className="mt-4 text-sm leading-7 text-slate-600">
-            {booking.notes || "No extra booking notes were attached to this record yet."}
-          </p>
-
-          <GoogleCalendarMeetingStatus
-            meetingUrl={booking.session?.meetingUrl}
-            googleCalendarEventId={booking.session?.googleCalendarEventId}
-            googleCalendarEventHtmlLink={booking.session?.googleCalendarEventHtmlLink}
-            bookingStatus={booking.bookingStatus}
-          />
-        </SurfaceCard>
+        {booking.notes ? (
+          <SurfaceCard as="article" className="p-6">
+            <h3 className="text-xl font-semibold text-slate-900">Booking notes</h3>
+            <p className="mt-4 text-sm leading-7 text-slate-600">{booking.notes}</p>
+          </SurfaceCard>
+        ) : null}
 
         <SurfaceCard as="article" className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">
