@@ -214,6 +214,24 @@ function normalizeCheckoutSessionId(checkoutSessionId: string) {
   }
 }
 
+function getCheckoutSessionPaymentIntentId(paymentIntent: Stripe.Checkout.Session["payment_intent"]) {
+  return typeof paymentIntent === "string" ? paymentIntent : paymentIntent?.id ?? null;
+}
+
+function getCheckoutSessionChargeId(paymentIntent: Stripe.Checkout.Session["payment_intent"]) {
+  if (!paymentIntent || typeof paymentIntent === "string") {
+    return null;
+  }
+
+  const latestCharge = paymentIntent.latest_charge;
+
+  if (!latestCharge) {
+    return null;
+  }
+
+  return typeof latestCharge === "string" ? latestCharge : latestCharge.id;
+}
+
 function buildCreditSuccessUrl(successUrl: string) {
   const url = new URL(successUrl);
   url.searchParams.delete("session_id");
@@ -888,7 +906,9 @@ export async function syncClientStripeCheckoutSuccess(
   let session: Stripe.Checkout.Session;
 
   try {
-    session = await stripe.checkout.sessions.retrieve(normalizedCheckoutSessionId);
+    session = await stripe.checkout.sessions.retrieve(normalizedCheckoutSessionId, {
+      expand: ["payment_intent"],
+    });
   } catch (error) {
     const stripeLikeError =
       typeof error === "object" && error !== null
@@ -934,14 +954,13 @@ export async function syncClientStripeCheckoutSuccess(
     };
   }
 
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.payment_intent?.id ?? null;
+  const paymentIntentId = getCheckoutSessionPaymentIntentId(session.payment_intent);
+  const chargeId = getCheckoutSessionChargeId(session.payment_intent);
 
   const payment = await markStripeCheckoutSessionCompleted(booking.id, {
     checkoutSessionId: session.id,
     paymentIntentId,
+    chargeId,
     amount: session.amount_total ?? 0,
     currency: session.currency ?? PAYMENT_CURRENCY,
   });
@@ -955,6 +974,7 @@ export async function syncClientStripeCheckoutSuccess(
       bookingId: booking.id,
       sessionId: session.id,
       paymentIntentId,
+      chargeId,
     },
   });
 
