@@ -63,19 +63,19 @@ export function AdminFinanceCases({ cases, payments = [] }: AdminFinanceCasesPro
   const flaggedPayments = getFlaggedPayments(payments);
 
   return (
-    <SurfaceCard as="section">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <SurfaceCard as="section" className="overflow-hidden">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <SectionEyebrow>Financial visibility</SectionEyebrow>
           <h2 className="mt-3 text-3xl font-semibold text-slate-900">Payment cases</h2>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 [overflow-wrap:anywhere]">
             This surface isolates the bookings that typically need finance or operations
             follow-up: pending checkout, failures, refunds, and credit-backed settlements.
           </p>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-4">
+      <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-4">
         {cases.map((item) => (
           <StatCard
             key={item.label}
@@ -88,15 +88,15 @@ export function AdminFinanceCases({ cases, payments = [] }: AdminFinanceCasesPro
       </div>
 
       {flaggedPayments.length ? (
-        <div className="mt-6 grid gap-3">
+        <div className="mt-6 grid min-w-0 gap-3">
           {flaggedPayments.map((payment) => (
-            <InsetCard key={payment.id} as="article" tone="soft" className="px-4 py-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
+            <InsetCard key={payment.id} as="article" tone="soft" className="overflow-hidden px-4 py-4">
+              <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 [overflow-wrap:anywhere]">
                     Booking {payment.booking.id}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-slate-600 [overflow-wrap:anywhere]">
                     {payment.booking.therapist.therapistProfile?.displayName ||
                       payment.booking.therapist.email}
                   </p>
@@ -117,7 +117,7 @@ export function AdminFinanceCases({ cases, payments = [] }: AdminFinanceCasesPro
                         ? "info"
                         : "success"
                 }
-                className="mt-3"
+                className="mt-3 [overflow-wrap:anywhere]"
               >
                 {getCaseNote(payment)}
               </Alert>

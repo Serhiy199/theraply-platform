@@ -18,7 +18,7 @@ export default async function AdminPaymentsPage() {
   ]);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6">
       <AdminFinanceCases cases={dashboardData.financeCases} payments={payments} />
       <AdminPaymentsTable payments={payments} />
       <AdminAuditList logs={auditLogs} />
