@@ -93,7 +93,6 @@ const bookableTherapistWhere = {
       },
       stripePayoutsEnabled: true,
       stripeDetailsSubmitted: true,
-      stripeOnboardingStatus: "READY",
     },
   },
 } satisfies Prisma.UserWhereInput;

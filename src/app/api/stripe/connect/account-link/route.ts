@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
-import { SAFE_ERROR_MESSAGES } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   createTherapistStripeAccountLink,
@@ -82,7 +81,7 @@ export async function GET(request: NextRequest) {
     const message =
       error instanceof StripeConnectServiceError && error.code === "STRIPE_NOT_CONFIGURED"
         ? "Stripe Connect is not configured yet."
-        : SAFE_ERROR_MESSAGES.genericPayment;
+        : "Something went wrong while starting Stripe onboarding.";
 
     return NextResponse.redirect(buildStripeRedirect(request, "error", message));
   }

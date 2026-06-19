@@ -35,7 +35,7 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
     },
     {
       label: "Connect Stripe payouts",
-      complete: Boolean(data.profileSummary.payoutCountry),
+      complete: data.profileSummary.isStripePayoutReady,
     },
   ];
 

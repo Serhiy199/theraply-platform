@@ -142,13 +142,11 @@ export function isStripeConnectReady(input: {
   stripeAccountId?: string | null;
   stripePayoutsEnabled?: boolean | null;
   stripeDetailsSubmitted?: boolean | null;
-  stripeOnboardingStatus?: StripeConnectOnboardingStatus | null;
 }) {
   return Boolean(
     input.stripeAccountId &&
       input.stripePayoutsEnabled &&
-      input.stripeDetailsSubmitted &&
-      input.stripeOnboardingStatus === StripeConnectOnboardingStatus.READY,
+      input.stripeDetailsSubmitted,
   );
 }
 
@@ -176,10 +174,11 @@ export async function syncTherapistStripeAccountStatus(therapistUserId: string):
     const account = await stripe.accounts.retrieve(therapistProfile.stripeAccountId);
     const onboardingStatus = getOnboardingStatus(account);
     const now = new Date();
-    const isReady =
-      onboardingStatus === StripeConnectOnboardingStatus.READY &&
-      account.payouts_enabled &&
-      account.details_submitted;
+    const isReady = isStripeConnectReady({
+      stripeAccountId: account.id,
+      stripePayoutsEnabled: account.payouts_enabled,
+      stripeDetailsSubmitted: account.details_submitted,
+    });
 
     const updated = await prisma.therapistProfile.update({
       where: { id: therapistProfile.id },

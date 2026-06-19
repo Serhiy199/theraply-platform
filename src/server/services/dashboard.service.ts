@@ -5,6 +5,7 @@ import {
   UserRole,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
 const upcomingBookingStatuses = [BookingStatus.PENDING_THERAPIST, BookingStatus.CONFIRMED];
 
@@ -245,6 +246,8 @@ export async function getTherapistDashboardData(userId: string) {
       }),
     ]);
 
+  const isPayoutReady = isStripeConnectReady(therapistProfile ?? {});
+
   const stats: TherapistDashboardStat[] = [
     {
       label: "Pending requests",
@@ -263,13 +266,7 @@ export async function getTherapistDashboardData(userId: string) {
     },
     {
       label: "Payout verified",
-      value:
-        therapistProfile?.stripeAccountId &&
-        therapistProfile.stripeOnboardingStatus === "READY" &&
-        therapistProfile.stripePayoutsEnabled &&
-        therapistProfile.stripeDetailsSubmitted
-          ? "Yes"
-          : "No",
+      value: isPayoutReady ? "Yes" : "No",
       hint: "Whether Stripe Connect is ready for therapist transfers.",
     },
   ];
@@ -283,7 +280,7 @@ export async function getTherapistDashboardData(userId: string) {
       calendarId: therapistProfile?.googleCalendarId ?? null,
       calendarEmail: therapistProfile?.googleCalendarEmail ?? null,
       isGoogleCalendarConnected: therapistProfile?.isGoogleCalendarConnected ?? false,
-      payoutCountry: therapistProfile?.stripeOnboardingStatus ?? null,
+      isStripePayoutReady: isPayoutReady,
     },
     recentRequests: recentRequests.map((booking) => ({
       id: booking.id,

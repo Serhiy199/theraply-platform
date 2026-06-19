@@ -96,8 +96,7 @@ export function TherapistPayoutForm({
   const stripeReady =
     Boolean(data.profile.stripeAccountId) &&
     data.profile.stripePayoutsEnabled &&
-    data.profile.stripeDetailsSubmitted &&
-    data.profile.stripeOnboardingStatus === "READY";
+    data.profile.stripeDetailsSubmitted;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
