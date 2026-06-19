@@ -1,4 +1,4 @@
-import { BookingStatus, SessionStatus } from "@prisma/client";
+import { BookingStatus, PaymentStatus, SessionStatus } from "@prisma/client";
 import {
   bookingDetailsSelect,
   bookingListSelect,
@@ -31,6 +31,17 @@ const cancellableClientBookingStatuses = [
 
 function isClientCancellableStatus(status: BookingStatus) {
   return cancellableClientBookingStatuses.some((allowedStatus) => allowedStatus === status);
+}
+
+function getAuditPaymentStatusAfterClientCancellation(
+  currentStatus: PaymentStatus | null | undefined,
+  refund: RefundExecutionResult,
+) {
+  if (refund.status === "refunded" || refund.reason === "ALREADY_REFUNDED") {
+    return PaymentStatus.REFUNDED;
+  }
+
+  return currentStatus ?? null;
 }
 
 export class ClientBookingsServiceError extends Error {
@@ -253,7 +264,10 @@ export async function cancelClientBooking(
           cancelledAt: now,
           cancelledByUserId: userId,
           sessionStatus: SessionStatus.CANCELLED,
-          paymentStatus: booking.payment?.paymentStatus ?? null,
+          paymentStatus: getAuditPaymentStatusAfterClientCancellation(
+            booking.payment?.paymentStatus,
+            refund,
+          ),
           refundStatus: refund.status,
           refundReason: refund.reason,
           refundId: refund.refundId,
