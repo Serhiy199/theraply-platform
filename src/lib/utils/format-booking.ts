@@ -68,7 +68,7 @@ export function getCancellationConfirmationMessage(
 ) {
   if (isLateCancellation(startsAt, now)) {
     return hasCapturedPayment
-      ? "This is a late cancellation. The booked time is non-refundable and your captured payment will not be returned."
+      ? "This is a late cancellation. The booked time is non-refundable under platform policy and your captured payment will not be returned."
       : "This is a late cancellation. The booking will be cancelled immediately and any unfinished payment flow will stop, but there is no paid refund to process.";
   }
 

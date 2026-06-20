@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus, SessionStatus } from "@prisma/client";
+import { BookingStatus, PaymentStatus, PaymentTransferStatus, SessionStatus } from "@prisma/client";
 import {
   bookingDetailsSelect,
   bookingListSelect,
@@ -17,6 +17,12 @@ import {
   RefundServiceError,
   type RefundExecutionResult,
 } from "@/server/services/refund.service";
+import {
+  createTherapistTransferForBooking,
+  TherapistTransferServiceError,
+  type TherapistTransferResult,
+} from "@/server/services/therapist-transfer.service";
+import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
 
 const upcomingClientBookingStatuses = [
@@ -63,6 +69,7 @@ export class ClientBookingsServiceError extends Error {
 export type ClientBookingCancellationResult = {
   booking: BookingDetailsItem;
   refund: RefundExecutionResult;
+  transfer: TherapistTransferResult | null;
 };
 
 export type ClientCompensationResolutionResult = {
@@ -74,6 +81,93 @@ export type ClientCompensationResolutionResult = {
 
 function getNow() {
   return new Date();
+}
+
+function shouldSettleLateClientCancellation(
+  paymentStatus: PaymentStatus | null | undefined,
+  refund: RefundExecutionResult,
+) {
+  return paymentStatus === PaymentStatus.PAID && refund.reason === "LATE_CANCELLATION_POLICY";
+}
+
+function getClientCancellationEmailReason(shouldSettleTransfer: boolean) {
+  return shouldSettleTransfer
+    ? "Late client cancellation: payment is non-refundable under policy."
+    : "Cancelled by client.";
+}
+
+async function createLateCancellationTransferBestEffort(
+  bookingId: string,
+  paymentId: string | null,
+  actorUserId: string,
+): Promise<TherapistTransferResult> {
+  try {
+    return await createTherapistTransferForBooking(bookingId, actorUserId);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    logDiagnosticEvent(
+      "client-bookings",
+      "Unable to start late client cancellation therapist transfer.",
+      {
+        bookingId,
+        paymentId,
+        error: reason,
+      },
+    );
+
+    if (paymentId) {
+      try {
+        await prisma.payment.update({
+          where: { id: paymentId },
+          data: {
+            transferStatus: PaymentTransferStatus.FAILED,
+            transferFailedAt: new Date(),
+            transferFailureReason: reason,
+          },
+        });
+      } catch (updateError) {
+        logDiagnosticEvent(
+          "client-bookings",
+          "Unable to mark late client cancellation therapist transfer as failed.",
+          {
+            bookingId,
+            paymentId,
+            error: updateError instanceof Error ? updateError.message : String(updateError),
+          },
+        );
+      }
+    }
+
+    await createAuditLogEntryBestEffort({
+      actorUserId,
+      entityType: "Payment",
+      entityId: paymentId ?? bookingId,
+      action: "LATE_CLIENT_CANCELLATION_TRANSFER_FAILED",
+      after: {
+        bookingId,
+        paymentId,
+        settlementReason: "LATE_CLIENT_CANCELLATION",
+        error: reason,
+      },
+    });
+
+    if (error instanceof TherapistTransferServiceError) {
+      return {
+        status: "failed",
+        bookingId,
+        paymentId,
+        reason: error.message,
+      };
+    }
+
+    return {
+      status: "failed",
+      bookingId,
+      paymentId,
+      reason,
+    };
+  }
 }
 
 export async function getClientUpcomingBookings(userId: string): Promise<BookingListItem[]> {
@@ -224,6 +318,11 @@ export async function cancelClientBooking(
   }
 
   const cancellationResult = await prisma.$transaction(async (tx) => {
+    const shouldSettleTransfer = shouldSettleLateClientCancellation(
+      booking.payment?.paymentStatus,
+      refund,
+    );
+
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -271,6 +370,9 @@ export async function cancelClientBooking(
           refundStatus: refund.status,
           refundReason: refund.reason,
           refundId: refund.refundId,
+          transferExpected: shouldSettleTransfer,
+          transferReason: shouldSettleTransfer ? "LATE_CLIENT_CANCELLATION" : null,
+          transferStatus: shouldSettleTransfer ? "PENDING" : null,
         },
       },
     });
@@ -287,14 +389,31 @@ export async function cancelClientBooking(
     return {
       booking: updatedBooking,
       refund,
+      transfer: null,
     };
   });
 
+  const shouldSettleTransfer = shouldSettleLateClientCancellation(
+    booking.payment?.paymentStatus,
+    refund,
+  );
+
+  const transfer = shouldSettleTransfer
+    ? await createLateCancellationTransferBestEffort(
+        booking.id,
+        booking.payment?.id ?? null,
+        userId,
+      )
+    : null;
+
   await sendBookingCancelledEmailsBestEffort(cancellationResult.booking.id, {
-    reason: "Cancelled by client.",
+    reason: getClientCancellationEmailReason(shouldSettleTransfer),
   });
 
-  return cancellationResult;
+  return {
+    ...cancellationResult,
+    transfer,
+  };
 }
 
 export async function resolveClientCancellationCompensation(

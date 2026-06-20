@@ -158,7 +158,15 @@ function getClientCancellationSuccessMessage(result: ClientBookingCancellationRe
   }
 
   if (result.refund.reason === "LATE_CANCELLATION_POLICY") {
-    return "Booking cancelled successfully. Because this was less than 24 hours before the session, the payment was not refunded.";
+    if (result.transfer?.status === "transferred") {
+      return "Booking cancelled successfully. Because this was less than 24 hours before the session, the payment was not refunded and the therapist settlement has started.";
+    }
+
+    if (result.transfer?.status === "failed") {
+      return "Booking cancelled successfully. Because this was less than 24 hours before the session, the payment was not refunded. Therapist settlement will be retried by the platform.";
+    }
+
+    return "Booking cancelled successfully. Because this was less than 24 hours before the session, the payment was not refunded and therapist settlement is pending.";
   }
 
   return "Booking cancelled successfully.";

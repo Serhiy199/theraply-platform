@@ -16,6 +16,12 @@ import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
 const DEFAULT_TRANSFER_LIMIT = 50;
 const SYSTEM_ACTOR_ID = null;
+const CANCELLATION_POLICY_HOURS = 24;
+
+type TransferSettlementReason =
+  | "SESSION_COMPLETED"
+  | "CLIENT_NO_SHOW"
+  | "LATE_CLIENT_CANCELLATION";
 
 export type TherapistTransferResult =
   | {
@@ -71,9 +77,12 @@ export class TherapistTransferServiceError extends Error {
 const transferBookingSelect = {
   id: true,
   bookingStatus: true,
+  clientId: true,
   therapistId: true,
   startsAt: true,
   endsAt: true,
+  cancelledAt: true,
+  cancelledByUserId: true,
   session: {
     select: {
       id: true,
@@ -132,13 +141,37 @@ function getTransferGroup(bookingId: string) {
   return `theraply_booking_${bookingId}`;
 }
 
-function isSettledSession(booking: TransferBooking) {
-  return (
+function getLateCancellationWindowMs() {
+  return CANCELLATION_POLICY_HOURS * 60 * 60 * 1000;
+}
+
+function getTransferSettlementReason(booking: TransferBooking): TransferSettlementReason | null {
+  if (
     booking.bookingStatus === BookingStatus.COMPLETED &&
-    booking.session?.sessionStatus === SessionStatus.DONE &&
-    (booking.session.outcome === SessionOutcome.COMPLETED ||
-      booking.session.outcome === SessionOutcome.CLIENT_NO_SHOW)
-  );
+    booking.session?.sessionStatus === SessionStatus.DONE
+  ) {
+    if (booking.session.outcome === SessionOutcome.CLIENT_NO_SHOW) {
+      return "CLIENT_NO_SHOW";
+    }
+
+    if (booking.session.outcome === SessionOutcome.COMPLETED) {
+      return "SESSION_COMPLETED";
+    }
+  }
+
+  if (
+    booking.bookingStatus === BookingStatus.CANCELLED &&
+    booking.cancelledAt &&
+    booking.cancelledByUserId === booking.clientId
+  ) {
+    const timeBeforeSession = booking.startsAt.getTime() - booking.cancelledAt.getTime();
+
+    if (timeBeforeSession > 0 && timeBeforeSession < getLateCancellationWindowMs()) {
+      return "LATE_CLIENT_CANCELLATION";
+    }
+  }
+
+  return null;
 }
 
 function buildSkippedResult(
@@ -184,7 +217,7 @@ function evaluateTransferEligibility(
     return buildSkippedResult(booking, "PAYMENT_NOT_PAID");
   }
 
-  if (!isSettledSession(booking)) {
+  if (!getTransferSettlementReason(booking)) {
     return buildSkippedResult(booking, "SESSION_NOT_SETTLED");
   }
 
@@ -230,8 +263,9 @@ export async function createTherapistTransferForBooking(
 
   const payment = booking.payment;
   const stripeAccountId = booking.therapist.therapistProfile?.stripeAccountId;
+  const settlementReason = getTransferSettlementReason(booking);
 
-  if (!payment || !stripeAccountId || !payment.stripeChargeId) {
+  if (!payment || !stripeAccountId || !payment.stripeChargeId || !settlementReason) {
     return buildSkippedResult(booking, "THERAPIST_STRIPE_NOT_READY");
   }
 
@@ -265,6 +299,7 @@ export async function createTherapistTransferForBooking(
           bookingId: booking.id,
           paymentId: payment.id,
           therapistUserId: booking.therapistId,
+          settlementReason,
           sessionOutcome: booking.session?.outcome ?? "",
         },
       },
@@ -296,6 +331,7 @@ export async function createTherapistTransferForBooking(
         amount: therapistAmount,
         currency: payment.currency,
         transferGroup,
+        settlementReason,
       },
     });
 
@@ -334,6 +370,7 @@ export async function createTherapistTransferForBooking(
         stripeAccountId,
         amount: therapistAmount,
         currency: payment.currency,
+        settlementReason,
         error: reason,
       },
     });
@@ -348,17 +385,26 @@ export async function createTherapistTransferForBooking(
 }
 
 async function getTransferCandidates(limit: number) {
-  return prisma.booking.findMany({
+  const candidates = await prisma.booking.findMany({
     where: {
-      bookingStatus: BookingStatus.COMPLETED,
-      session: {
-        is: {
-          sessionStatus: SessionStatus.DONE,
-          outcome: {
-            in: [SessionOutcome.COMPLETED, SessionOutcome.CLIENT_NO_SHOW],
+      OR: [
+        {
+          bookingStatus: BookingStatus.COMPLETED,
+          session: {
+            is: {
+              sessionStatus: SessionStatus.DONE,
+              outcome: {
+                in: [SessionOutcome.COMPLETED, SessionOutcome.CLIENT_NO_SHOW],
+              },
+            },
           },
         },
-      },
+        {
+          bookingStatus: BookingStatus.CANCELLED,
+          cancelledAt: { not: null },
+          cancelledByUserId: { not: null },
+        },
+      ],
       payment: {
         is: {
           paymentStatus: PaymentStatus.PAID,
@@ -369,11 +415,14 @@ async function getTransferCandidates(limit: number) {
       },
     },
     orderBy: [{ endsAt: "asc" }, { createdAt: "asc" }],
-    take: limit,
-    select: {
-      id: true,
-    },
+    take: Math.max(limit * 5, limit),
+    select: transferBookingSelect,
   });
+
+  return candidates
+    .filter((candidate) => getTransferSettlementReason(candidate))
+    .slice(0, limit)
+    .map((candidate) => ({ id: candidate.id }));
 }
 
 function countResults(items: TherapistTransferResult[], status: TherapistTransferResult["status"]) {

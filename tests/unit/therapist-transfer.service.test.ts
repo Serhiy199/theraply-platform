@@ -48,9 +48,12 @@ function buildTransferBooking(overrides: Record<string, unknown> = {}) {
   return {
     id: "booking-id",
     bookingStatus: BookingStatus.COMPLETED,
+    clientId: "client-user-id",
     therapistId: "therapist-user-id",
     startsAt: new Date("2026-06-09T10:00:00Z"),
     endsAt: new Date("2026-06-09T11:00:00Z"),
+    cancelledAt: null,
+    cancelledByUserId: null,
     session: {
       id: "session-id",
       sessionStatus: SessionStatus.DONE,
@@ -149,6 +152,9 @@ describe("therapist transfer service", () => {
         destination: "acct_123",
         source_transaction: "ch_123",
         transfer_group: "theraply_booking_booking-id",
+        metadata: expect.objectContaining({
+          settlementReason: "SESSION_COMPLETED",
+        }),
       }),
       {
         idempotencyKey: "theraply-transfer-payment-id",
@@ -162,5 +168,65 @@ describe("therapist transfer service", () => {
         }),
       }),
     );
+  });
+
+  it("creates a transfer for a paid late client cancellation", async () => {
+    findBookingMock.mockResolvedValue(
+      buildTransferBooking({
+        bookingStatus: BookingStatus.CANCELLED,
+        startsAt: new Date("2026-06-09T10:00:00Z"),
+        cancelledAt: new Date("2026-06-09T08:30:00Z"),
+        cancelledByUserId: "client-user-id",
+        session: {
+          id: "session-id",
+          sessionStatus: SessionStatus.CANCELLED,
+          outcome: null,
+          completedAt: null,
+        },
+      }),
+    );
+
+    const result = await createTherapistTransferForBooking("booking-id", "client-user-id");
+
+    expect(result.status).toBe("transferred");
+    expect(transferCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 9000,
+        metadata: expect.objectContaining({
+          settlementReason: "LATE_CLIENT_CANCELLATION",
+          sessionOutcome: "",
+        }),
+      }),
+      {
+        idempotencyKey: "theraply-transfer-payment-id",
+      },
+    );
+  });
+
+  it("does not create a transfer for therapist-cancelled bookings", async () => {
+    findBookingMock.mockResolvedValue(
+      buildTransferBooking({
+        bookingStatus: BookingStatus.CANCELLED,
+        startsAt: new Date("2026-06-09T10:00:00Z"),
+        cancelledAt: new Date("2026-06-09T08:30:00Z"),
+        cancelledByUserId: "therapist-user-id",
+        session: {
+          id: "session-id",
+          sessionStatus: SessionStatus.CANCELLED,
+          outcome: null,
+          completedAt: null,
+        },
+      }),
+    );
+
+    const result = await createTherapistTransferForBooking("booking-id", "therapist-user-id");
+
+    expect(result).toEqual({
+      status: "skipped",
+      bookingId: "booking-id",
+      paymentId: "payment-id",
+      reason: "SESSION_NOT_SETTLED",
+    });
+    expect(transferCreateMock).not.toHaveBeenCalled();
   });
 });

@@ -452,6 +452,35 @@ async function main() {
       client.id,
       lateCancellationBooking.id,
     );
+    const lateCancellationPaymentAfter = lateCancellationBooking.payment?.id
+      ? await prisma.payment.findUnique({
+          where: { id: lateCancellationBooking.payment.id },
+          select: {
+            paymentStatus: true,
+            transferStatus: true,
+          },
+        })
+      : null;
+    const lateCancellationTransferAudit = lateCancellationBooking.payment?.id
+      ? await prisma.auditLog.findFirst({
+          where: {
+            entityId: {
+              in: [lateCancellationBooking.payment.id, lateCancellationBooking.id],
+            },
+            action: {
+              in: [
+                "STRIPE_TRANSFER_CREATED",
+                "STRIPE_TRANSFER_SKIPPED",
+                "STRIPE_TRANSFER_CREATE_FAILED",
+                "LATE_CLIENT_CANCELLATION_TRANSFER_FAILED",
+              ],
+            },
+          },
+          select: {
+            action: true,
+          },
+        })
+      : null;
 
     const pendingAdminVisibilityBooking = await prisma.booking.create({
       data: {
@@ -569,7 +598,11 @@ async function main() {
         lateCancellationPolicyApplied:
           lateCancellationResult.booking.bookingStatus === BookingStatus.CANCELLED &&
           lateCancellationResult.refund.status === "skipped" &&
-          lateCancellationResult.refund.reason === "LATE_CANCELLATION_POLICY",
+          lateCancellationResult.refund.reason === "LATE_CANCELLATION_POLICY" &&
+          lateCancellationPaymentAfter?.paymentStatus === PaymentStatus.PAID,
+        lateCancellationTransferAttempted:
+          Boolean(lateCancellationResult.transfer) ||
+          Boolean(lateCancellationTransferAudit),
         adminCancelFlowVisible:
           adminCancellationResult.booking.bookingStatus === BookingStatus.CANCELLED &&
           adminCancellationResult.refund.status === "skipped" &&
