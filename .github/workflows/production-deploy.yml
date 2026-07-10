@@ -47,8 +47,13 @@ jobs:
           set -euo pipefail
           rm -rf deploy_artifact
           mkdir -p deploy_artifact
-          cp package.json package-lock.json next.config.ts prisma.config.ts ecosystem.config.js deploy_artifact/
-          cp -R .next public prisma deploy_artifact/
+          cp package.json package-lock.json ecosystem.config.js deploy_artifact/
+          [ -f next.config.ts ] && cp next.config.ts deploy_artifact/
+          [ -f next.config.js ] && cp next.config.js deploy_artifact/
+          [ -f prisma.config.ts ] && cp prisma.config.ts deploy_artifact/
+          [ -d public ] && cp -R public deploy_artifact/
+          [ -d prisma ] && cp -R prisma deploy_artifact/
+          cp -R .next deploy_artifact/
           rm -rf deploy_artifact/.next/cache
 
       - name: Configure SSH
@@ -72,6 +77,10 @@ jobs:
         run: |
           set -euo pipefail
           rsync -az --delete \
+            --exclude='.env' \
+            --exclude='logs/' \
+            --exclude='uploads/' \
+            --exclude='storage/' \
             -e "ssh -i ~/.ssh/deploy_key -p $VPS_PORT" \
             deploy_artifact/ "$VPS_USER@$VPS_HOST:/var/www/theraply/"
 
