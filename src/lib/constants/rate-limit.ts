@@ -6,6 +6,8 @@ export const RATE_LIMIT_SCOPES = {
   authResendVerification: "auth:resend-verification",
   stripeCheckout: "stripe:checkout",
   stripeConnect: "stripe:connect",
+  therapistProfilePhotoUpload: "therapist:profile-photo-upload",
+  therapistProfilePhotoConfirmUpload: "therapist:profile-photo-confirm-upload",
   therapistCertificateUpload: "therapist:certificate-upload",
   therapistCertificateConfirmUpload: "therapist:certificate-confirm-upload",
   googleCalendarConnect: "google-calendar:connect",
@@ -60,6 +62,16 @@ export const RATE_LIMIT_PRESETS = {
     scope: RATE_LIMIT_SCOPES.stripeConnect,
     limit: 10,
     windowMs: 15 * MINUTE,
+  },
+  therapistProfilePhotoUpload: {
+    scope: RATE_LIMIT_SCOPES.therapistProfilePhotoUpload,
+    limit: 10,
+    windowMs: HOUR,
+  },
+  therapistProfilePhotoConfirmUpload: {
+    scope: RATE_LIMIT_SCOPES.therapistProfilePhotoConfirmUpload,
+    limit: 10,
+    windowMs: HOUR,
   },
   therapistCertificateUpload: {
     scope: RATE_LIMIT_SCOPES.therapistCertificateUpload,

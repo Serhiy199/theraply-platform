@@ -53,6 +53,7 @@ export type AdminTherapistListItem = {
   lastName: string | null;
   displayName: string | null;
   specialization: string | null;
+  profilePhotoUrl: string | null;
   approvalStatus: string;
   isApproved: boolean;
   wixSubmissionId: string | null;
@@ -80,6 +81,7 @@ const adminTherapistReviewSelect = {
   displayName: true,
   bio: true,
   specialization: true,
+  profilePhotoUrl: true,
   sessionPricePence: true,
   gender: true,
   contactNumber: true,
@@ -231,6 +233,7 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
       userId: true,
       displayName: true,
       specialization: true,
+      profilePhotoUrl: true,
       approvalStatus: true,
       isApproved: true,
       wixSubmissionId: true,
@@ -282,6 +285,7 @@ export async function getAdminTherapists(): Promise<AdminTherapistListItem[]> {
     lastName: therapist.user.lastName,
     displayName: therapist.displayName,
     specialization: therapist.specialization,
+    profilePhotoUrl: therapist.profilePhotoUrl,
     approvalStatus: therapist.approvalStatus,
     isApproved: therapist.isApproved,
     wixSubmissionId: therapist.wixSubmissionId,

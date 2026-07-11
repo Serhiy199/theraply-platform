@@ -16,6 +16,7 @@ export const bookableTherapistContractSelect = {
       therapyServicesProvided: true,
       yearsOfExperience: true,
       pricePerHour: true,
+      profilePhotoUrl: true,
       sessionPricePence: true,
       googleCalendarId: true,
       googleCalendarEmail: true,

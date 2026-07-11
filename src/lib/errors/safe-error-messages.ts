@@ -1,6 +1,7 @@
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { BOOKING_FLOW_MESSAGES } from "@/lib/constants/booking-flow";
 import { CERTIFICATE_FILE_TOO_LARGE_MESSAGE } from "@/lib/constants/certificate-upload";
+import { THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE_MESSAGE } from "@/lib/constants/therapist-profile-photo";
 
 export const SAFE_ERROR_MESSAGES = {
   permissionDenied: "You do not have permission to perform this action.",
@@ -194,6 +195,27 @@ export function getSafeCertificateStorageErrorMessage(code: string) {
       return "Certificate upload is not configured yet.";
     default:
       return "Something went wrong while uploading certificates.";
+  }
+}
+
+export function getSafeTherapistProfilePhotoErrorMessage(code: string) {
+  switch (code) {
+    case "THERAPIST_PROFILE_NOT_FOUND":
+      return "Therapist profile could not be found.";
+    case "THERAPIST_PROFILE_PHOTO_FILE_REQUIRED":
+      return "Choose a profile photo to upload.";
+    case "THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE":
+      return THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE_MESSAGE;
+    case "THERAPIST_PROFILE_PHOTO_FILE_TYPE_UNSUPPORTED":
+      return "Profile photo must be JPG, JPEG, PNG, or WEBP.";
+    case "THERAPIST_PROFILE_PHOTO_METADATA_INVALID":
+      return "Profile photo upload details are invalid.";
+    case "THERAPIST_PROFILE_PHOTO_ASSET_VERIFICATION_FAILED":
+      return "Could not verify the uploaded profile photo. Please try again.";
+    case "THERAPIST_PROFILE_PHOTO_STORAGE_NOT_CONFIGURED":
+      return "Profile photo upload is not configured yet.";
+    default:
+      return "Something went wrong while uploading the profile photo.";
   }
 }
 

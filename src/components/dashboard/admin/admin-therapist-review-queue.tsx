@@ -45,6 +45,15 @@ function getReviewUserName(review: AdminTherapistReviewItem) {
   return [review.user.firstName, review.user.lastName].filter(Boolean).join(" ").trim() || review.user.email;
 }
 
+function getInitials(name: string) {
+  const parts = name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
+}
+
 function getReadableDraft(profileDraft: unknown): ReviewDraftFields | null {
   const draft = normalizeTherapistOnboardingDraft(profileDraft);
   const readableDraft = {
@@ -260,14 +269,28 @@ export function AdminTherapistReviewQueue({
             return (
               <InsetCard key={review.id} tone="plain">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {getReviewDisplayName(review)}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">{review.user.email}</p>
-                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
-                      Submitted {formatDateTime(review.submittedForReviewAt)}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-4">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-xl font-semibold text-slate-700">
+                      {review.profilePhotoUrl ? (
+                        <span
+                          role="img"
+                          aria-label={`${getReviewDisplayName(review)} profile photo`}
+                          className="block h-full w-full bg-cover bg-center"
+                          style={{ backgroundImage: `url("${review.profilePhotoUrl}")` }}
+                        />
+                      ) : (
+                        <span aria-hidden="true">{getInitials(getReviewDisplayName(review))}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-lg font-semibold text-slate-900">
+                        {getReviewDisplayName(review)}
+                      </p>
+                      <p className="mt-1 break-all text-sm text-slate-600">{review.user.email}</p>
+                      <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
+                        Submitted {formatDateTime(review.submittedForReviewAt)}
+                      </p>
+                    </div>
                   </div>
                   <Badge variant="warning">{review.approvalStatus.replaceAll("_", " ")}</Badge>
                 </div>

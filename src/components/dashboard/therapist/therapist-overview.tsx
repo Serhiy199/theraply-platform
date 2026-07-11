@@ -15,6 +15,15 @@ function getStatValue(data: TherapistDashboardData, label: string) {
   return data.stats.find((item) => item.label === label)?.value ?? 0;
 }
 
+function getInitials(name: string | null | undefined) {
+  const parts = (name ?? "Therapist")
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
+}
+
 export function TherapistOverview({ email, data }: TherapistOverviewProps) {
   const pendingRequests = getStatValue(data, "Pending requests");
   const upcomingSessions = getStatValue(data, "Upcoming sessions");
@@ -88,6 +97,32 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
       <div className="grid gap-4">
         <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Client summary</h3>
+          <div className="mt-5 flex items-center gap-4 rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-xl font-semibold text-slate-700">
+              {data.profileSummary.profilePhotoUrl ? (
+                <span
+                  role="img"
+                  aria-label={`${data.profileSummary.displayName ?? "Therapist"} profile photo`}
+                  className="block h-full w-full bg-cover bg-center"
+                  style={{ backgroundImage: `url("${data.profileSummary.profilePhotoUrl}")` }}
+                />
+              ) : (
+                <span aria-hidden="true">
+                  {getInitials(data.profileSummary.displayName ?? email)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">
+                {data.profileSummary.displayName ?? email ?? "Pending profile"}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {data.profileSummary.profilePhotoUrl
+                  ? "Profile photo is visible on approved client-facing cards."
+                  : "Add a profile photo from onboarding to personalize your client-facing card."}
+              </p>
+            </div>
+          </div>
           <dl className="mt-5 space-y-4 text-sm text-slate-600">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Therapist profile</dt>

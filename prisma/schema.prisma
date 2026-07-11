@@ -152,6 +152,9 @@ model TherapistProfile {
   educationAndCertifications  String?
   specialisation              String?
   pricePerHour                String?
+  profilePhotoUrl             String?
+  profilePhotoPublicId        String?
+  profilePhotoUploadedAt      DateTime?
   approvalStatus              TherapistApprovalStatus       @default(EMAIL_NOT_VERIFIED)
   isApproved                  Boolean                       @default(false)
   onboardingCompleted         Boolean                       @default(false)

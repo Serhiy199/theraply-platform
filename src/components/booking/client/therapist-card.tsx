@@ -93,6 +93,7 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
   const displayName = getDisplayName(therapist);
   const description = getDescription(therapist);
   const canExpandDescription = description.length > DESCRIPTION_EXPAND_THRESHOLD;
+  const profilePhotoUrl = therapist.therapistProfile?.profilePhotoUrl;
 
   return (
     <InsetCard
@@ -100,11 +101,17 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
       tone="plain"
       className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[180px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[230px_minmax(0,1fr)_190px] xl:gap-8"
     >
-      <div
-        className="flex aspect-[4/3] min-h-48 items-center justify-center rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-4xl font-semibold text-slate-700 shadow-inner shadow-white/70 md:min-h-0 md:w-[180px] xl:w-[230px]"
-        aria-label={`Profile image placeholder for ${displayName}`}
-      >
-        <span aria-hidden="true">{getInitials(displayName)}</span>
+      <div className="flex aspect-[4/3] min-h-48 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-4xl font-semibold text-slate-700 shadow-inner shadow-white/70 md:min-h-0 md:w-[180px] xl:w-[230px]">
+        {profilePhotoUrl ? (
+          <span
+            role="img"
+            aria-label={`${displayName} profile photo`}
+            className="block h-full w-full bg-cover bg-center"
+            style={{ backgroundImage: `url("${profilePhotoUrl}")` }}
+          />
+        ) : (
+          <span aria-hidden="true">{getInitials(displayName)}</span>
+        )}
       </div>
 
       <div className="min-w-0">

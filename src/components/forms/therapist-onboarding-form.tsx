@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveTherapistOnboardingDraftAction,
   submitTherapistOnboardingForReviewAction,
@@ -16,6 +16,13 @@ import {
   CERTIFICATE_MAX_FILE_SIZE_BYTES,
   CERTIFICATE_MAX_FILE_SIZE_LABEL,
 } from "@/lib/constants/certificate-upload";
+import {
+  THERAPIST_PROFILE_PHOTO_ALLOWED_FORMATS,
+  THERAPIST_PROFILE_PHOTO_ALLOWED_MIME_TYPES,
+  THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE_MESSAGE,
+  THERAPIST_PROFILE_PHOTO_MAX_FILE_SIZE_BYTES,
+  THERAPIST_PROFILE_PHOTO_MAX_FILE_SIZE_LABEL,
+} from "@/lib/constants/therapist-profile-photo";
 
 const genderOptions = ["Female", "Male", "Other", "Prefer not to say"] as const;
 
@@ -40,6 +47,7 @@ type TherapistOnboardingFormValues = {
   educationAndCertifications: string;
   specialisation: string;
   pricePerHour: string;
+  profilePhotoUrl: string | null;
   certificates: TherapistCertificateListItem[];
   displayName: string;
   bio: string;
@@ -62,7 +70,27 @@ type CertificateUploadState = {
   };
 };
 
+type ProfilePhotoUploadState = {
+  status: "idle" | "success" | "error";
+  message?: string;
+  fieldErrors?: {
+    profilePhoto?: string[];
+  };
+};
+
 type CertificateUploadSignatureResponse = {
+  success: true;
+  upload: {
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    publicId: string;
+    allowedFormats: string;
+    uploadUrl: string;
+  };
+};
+
+type ProfilePhotoUploadSignatureResponse = {
   success: true;
   upload: {
     apiKey: string;
@@ -82,6 +110,10 @@ type CloudinaryDirectUploadResponse = {
 };
 
 const initialUploadState: CertificateUploadState = {
+  status: "idle",
+};
+
+const initialProfilePhotoUploadState: ProfilePhotoUploadState = {
   status: "idle",
 };
 
@@ -153,6 +185,15 @@ function hasAllowedCertificateFileType(file: File) {
   return CERTIFICATE_ALLOWED_FORMATS.some((extension) => extension === getFileExtension(file.name));
 }
 
+function hasAllowedProfilePhotoFileType(file: File) {
+  const extension = getFileExtension(file.name);
+
+  return (
+    THERAPIST_PROFILE_PHOTO_ALLOWED_FORMATS.some((format) => format === extension) &&
+    THERAPIST_PROFILE_PHOTO_ALLOWED_MIME_TYPES.some((mimeType) => mimeType === file.type)
+  );
+}
+
 function getCertificateMimeType(file: File) {
   if (file.type.trim()) {
     return file.type;
@@ -177,6 +218,254 @@ function getCertificateMimeType(file: File) {
     default:
       return "";
   }
+}
+
+function getProfilePhotoMimeType(file: File) {
+  if (file.type.trim()) {
+    return file.type;
+  }
+
+  switch (getFileExtension(file.name)) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    default:
+      return "";
+  }
+}
+
+function getInitials(name: string) {
+  const parts = name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
+}
+
+function ProfilePhotoBlock({
+  currentPhotoUrl,
+  displayName,
+  fieldErrors,
+  pending,
+  uploadPending,
+  setUploadPending,
+  setUploadState,
+}: {
+  currentPhotoUrl: string | null;
+  displayName: string;
+  fieldErrors?: string[];
+  pending: boolean;
+  uploadPending: boolean;
+  setUploadPending: (pending: boolean) => void;
+  setUploadState: (state: ProfilePhotoUploadState) => void;
+}) {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentPhotoUrl);
+  const [objectPreviewUrl, setObjectPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!objectPreviewUrl) {
+      setPreviewUrl(currentPhotoUrl);
+      return;
+    }
+
+    return () => URL.revokeObjectURL(objectPreviewUrl);
+  }, [currentPhotoUrl, objectPreviewUrl]);
+
+  function handleFileChange() {
+    const file = fileInputRef.current?.files?.[0];
+
+    setUploadState({ status: "idle" });
+
+    if (!file) {
+      setObjectPreviewUrl(null);
+      setPreviewUrl(currentPhotoUrl);
+      return;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(file);
+    setObjectPreviewUrl(nextPreviewUrl);
+    setPreviewUrl(nextPreviewUrl);
+  }
+
+  async function handleUpload() {
+    const file = fileInputRef.current?.files?.[0];
+
+    if (!file) {
+      const message = "Choose a profile photo to upload.";
+
+      setUploadState({
+        status: "error",
+        message,
+        fieldErrors: { profilePhoto: [message] },
+      });
+      return;
+    }
+
+    if (file.size > THERAPIST_PROFILE_PHOTO_MAX_FILE_SIZE_BYTES) {
+      setUploadState({
+        status: "error",
+        message: THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE_MESSAGE,
+        fieldErrors: { profilePhoto: [THERAPIST_PROFILE_PHOTO_FILE_TOO_LARGE_MESSAGE] },
+      });
+      return;
+    }
+
+    if (!hasAllowedProfilePhotoFileType(file)) {
+      const message = "Profile photo must be JPG, JPEG, PNG, or WEBP.";
+
+      setUploadState({
+        status: "error",
+        message,
+        fieldErrors: { profilePhoto: [message] },
+      });
+      return;
+    }
+
+    setUploadPending(true);
+    setUploadState({ status: "idle" });
+
+    try {
+      const signatureResponse = await fetch("/api/therapist/profile-photo/upload-signature", {
+        method: "POST",
+      });
+
+      if (!signatureResponse.ok) {
+        throw new Error(
+          await getUploadResponseError(
+            signatureResponse,
+            "Could not prepare profile photo upload. Please try again.",
+          ),
+        );
+      }
+
+      const signaturePayload = (await signatureResponse.json()) as ProfilePhotoUploadSignatureResponse;
+      const cloudinaryPayload = new FormData();
+
+      cloudinaryPayload.append("file", file);
+      cloudinaryPayload.append("api_key", signaturePayload.upload.apiKey);
+      cloudinaryPayload.append("timestamp", String(signaturePayload.upload.timestamp));
+      cloudinaryPayload.append("public_id", signaturePayload.upload.publicId);
+      cloudinaryPayload.append("allowed_formats", signaturePayload.upload.allowedFormats);
+      cloudinaryPayload.append("signature", signaturePayload.upload.signature);
+
+      const cloudinaryResponse = await fetch(signaturePayload.upload.uploadUrl, {
+        method: "POST",
+        body: cloudinaryPayload,
+      });
+
+      if (!cloudinaryResponse.ok) {
+        throw new Error("Profile photo upload failed. Please try again.");
+      }
+
+      const cloudinaryResult =
+        (await cloudinaryResponse.json()) as CloudinaryDirectUploadResponse;
+
+      if (
+        typeof cloudinaryResult.public_id !== "string" ||
+        typeof cloudinaryResult.version !== "number" ||
+        typeof cloudinaryResult.signature !== "string" ||
+        cloudinaryResult.resource_type !== "image"
+      ) {
+        throw new Error("Could not verify the uploaded profile photo. Please try again.");
+      }
+
+      const confirmResponse = await fetch("/api/therapist/profile-photo/confirm-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: getProfilePhotoMimeType(file),
+          publicId: cloudinaryResult.public_id,
+          version: cloudinaryResult.version,
+          signature: cloudinaryResult.signature,
+          resourceType: "image",
+        }),
+      });
+
+      if (!confirmResponse.ok) {
+        throw new Error(
+          await getUploadResponseError(
+            confirmResponse,
+            "Could not confirm profile photo upload. Please try again.",
+          ),
+        );
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setUploadState({
+        status: "success",
+        message: "Profile photo updated successfully.",
+      });
+      router.refresh();
+    } catch (error) {
+      setUploadState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while uploading the profile photo.",
+      });
+    } finally {
+      setUploadPending(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="grid gap-5 md:grid-cols-[120px_minmax(0,1fr)] md:items-center">
+        <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-2xl font-semibold text-slate-700 shadow-inner shadow-white/70">
+          {previewUrl ? (
+            <span
+              role="img"
+              aria-label={`${displayName || "Therapist"} profile preview`}
+              className="block h-full w-full bg-cover bg-center"
+              style={{ backgroundImage: `url("${previewUrl}")` }}
+            />
+          ) : (
+            <span aria-hidden="true">{getInitials(displayName)}</span>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">Profile photo</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Upload a clear professional photo. JPG, PNG or WEBP up to{" "}
+            {THERAPIST_PROFILE_PHOTO_MAX_FILE_SIZE_LABEL}.
+          </p>
+          <input
+            ref={fileInputRef}
+            id="profilePhoto"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            disabled={pending}
+            onChange={handleFileChange}
+            className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-900 file:ring-1 file:ring-slate-300 hover:file:bg-white"
+          />
+          <FieldError messages={fieldErrors} />
+          <Button
+            type="button"
+            variant="secondary"
+            loading={uploadPending}
+            disabled={pending}
+            onClick={handleUpload}
+            className="mt-4"
+          >
+            {currentPhotoUrl ? "Replace photo" : "Upload photo"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CertificatesBlock({
@@ -405,19 +694,33 @@ export function TherapistOnboardingForm({
   >(submitTherapistOnboardingForReviewAction, initialActionState);
   const [uploadState, setUploadState] = useState<CertificateUploadState>(initialUploadState);
   const [uploadPending, setUploadPending] = useState(false);
+  const [profilePhotoUploadState, setProfilePhotoUploadState] =
+    useState<ProfilePhotoUploadState>(initialProfilePhotoUploadState);
+  const [profilePhotoUploadPending, setProfilePhotoUploadPending] = useState(false);
   const fieldErrors =
     submitState.status === "error" && submitState.fieldErrors
       ? submitState.fieldErrors
       : saveState.fieldErrors;
-  const pending = savePending || submitPending || uploadPending;
+  const pending = savePending || submitPending || uploadPending || profilePhotoUploadPending;
 
   return (
     <form className="mt-6 space-y-6">
       <div className="grid gap-3">
         {getStatusAlert(saveState)}
         {getStatusAlert(submitState)}
+        {getStatusAlert(profilePhotoUploadState)}
         {getStatusAlert(uploadState)}
       </div>
+
+      <ProfilePhotoBlock
+        currentPhotoUrl={initialValues.profilePhotoUrl}
+        displayName={initialValues.displayName || initialValues.nameAndSurname}
+        fieldErrors={profilePhotoUploadState.fieldErrors?.profilePhoto}
+        pending={pending}
+        uploadPending={profilePhotoUploadPending}
+        setUploadPending={setProfilePhotoUploadPending}
+        setUploadState={setProfilePhotoUploadState}
+      />
 
       <div className="grid gap-5 xl:grid-cols-2">
         <div>

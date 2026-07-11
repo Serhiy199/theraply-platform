@@ -129,6 +129,7 @@ function getOnboardingInitialValues(
           educationAndCertifications: string | null;
           specialisation: string | null;
           pricePerHour: string | null;
+          profilePhotoUrl: string | null;
           profileDraft: unknown;
           certificates: {
             id: string;
@@ -167,6 +168,7 @@ function getOnboardingInitialValues(
     ),
     specialisation,
     pricePerHour: getStringValue(draft?.pricePerHour ?? profile?.pricePerHour),
+    profilePhotoUrl: profile?.profilePhotoUrl ?? null,
     certificates: profile?.certificates ?? [],
     displayName: getStringValue(draft?.displayName ?? profile?.displayName ?? userName),
     bio: therapyServicesProvided,
@@ -202,6 +204,7 @@ export default async function TherapistOnboardingPage() {
           educationAndCertifications: true,
           specialisation: true,
           pricePerHour: true,
+          profilePhotoUrl: true,
           profileDraft: true,
           reviewNotes: {
             where: {

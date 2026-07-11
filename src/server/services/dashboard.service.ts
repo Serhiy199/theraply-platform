@@ -186,6 +186,7 @@ export async function getTherapistDashboardData(userId: string) {
         select: {
           displayName: true,
           specialization: true,
+          profilePhotoUrl: true,
           approvalStatus: true,
           isApproved: true,
           googleCalendarId: true,
@@ -276,6 +277,7 @@ export async function getTherapistDashboardData(userId: string) {
     profileSummary: {
       displayName: therapistProfile?.displayName ?? null,
       specialization: therapistProfile?.specialization ?? null,
+      profilePhotoUrl: therapistProfile?.profilePhotoUrl ?? null,
       approvalStatus: therapistProfile?.approvalStatus ?? null,
       calendarId: therapistProfile?.googleCalendarId ?? null,
       calendarEmail: therapistProfile?.googleCalendarEmail ?? null,

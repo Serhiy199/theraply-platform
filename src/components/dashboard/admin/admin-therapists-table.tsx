@@ -23,6 +23,15 @@ function getTherapistDisplayName(therapist: AdminTherapistListItem) {
   );
 }
 
+function getInitials(name: string) {
+  const parts = name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
+}
+
 function getShortWixSyncError(error: string | null) {
   if (!error) {
     return "Synchronization failed.";
@@ -171,13 +180,29 @@ export function AdminTherapistsTable({
               {therapists.map((therapist) => (
                 <tr key={therapist.id} className="align-top">
                   <td className="px-5 py-4">
-                    <p className="font-semibold text-slate-900">
-                      {getTherapistDisplayName(therapist)}
-                    </p>
-                    <p className="mt-1 text-slate-600">{therapist.email}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
-                      User {therapist.userId}
-                    </p>
+                    <div className="flex min-w-64 items-start gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-sm font-semibold text-slate-700">
+                        {therapist.profilePhotoUrl ? (
+                          <span
+                            role="img"
+                            aria-label={`${getTherapistDisplayName(therapist)} profile photo`}
+                            className="block h-full w-full bg-cover bg-center"
+                            style={{ backgroundImage: `url("${therapist.profilePhotoUrl}")` }}
+                          />
+                        ) : (
+                          <span aria-hidden="true">{getInitials(getTherapistDisplayName(therapist))}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900">
+                          {getTherapistDisplayName(therapist)}
+                        </p>
+                        <p className="mt-1 break-all text-slate-600">{therapist.email}</p>
+                        <p className="mt-1 break-all text-xs uppercase tracking-[0.14em] text-slate-500">
+                          User {therapist.userId}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex flex-col gap-2">

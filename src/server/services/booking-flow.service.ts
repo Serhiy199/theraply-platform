@@ -64,6 +64,7 @@ const bookableTherapistSelect = {
       therapyServicesProvided: true,
       yearsOfExperience: true,
       pricePerHour: true,
+      profilePhotoUrl: true,
       sessionPricePence: true,
       googleCalendarId: true,
       googleCalendarEmail: true,
