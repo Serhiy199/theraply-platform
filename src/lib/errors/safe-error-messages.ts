@@ -135,6 +135,8 @@ export function getSafeGoogleAvailabilityErrorMessage(code: string) {
       return BOOKING_FLOW_MESSAGES.invalidRange;
     case "GOOGLE_CALENDAR_NOT_CONNECTED":
       return "This therapist has not connected Google Calendar yet.";
+    case "GOOGLE_CALENDAR_UNAVAILABLE":
+      return "This therapist's calendar is currently unavailable. Please choose another therapist or try again later.";
     case "GOOGLE_CALENDAR_TARGET_MISSING":
       return "This therapist has not selected a booking calendar yet.";
     default:

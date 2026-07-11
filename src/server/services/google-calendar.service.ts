@@ -87,6 +87,7 @@ export class GoogleCalendarServiceError extends Error {
       | "THERAPIST_PROFILE_NOT_FOUND"
       | "GOOGLE_CALENDAR_NOT_CONNECTED"
       | "GOOGLE_REFRESH_TOKEN_MISSING"
+      | "GOOGLE_CALENDAR_REAUTH_REQUIRED"
       | "GOOGLE_CALENDAR_SELECTION_INVALID"
       | "GOOGLE_CALENDAR_TARGET_MISSING"
       | "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
@@ -116,6 +117,30 @@ function isGoogleCalendarUniqueConstraintError(error: unknown) {
     error.code === "P2002" &&
     Array.isArray(error.meta?.target) &&
     error.meta.target.includes("googleCalendarId")
+  );
+}
+
+function isGoogleInvalidGrantError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const googleError = error as {
+    code?: string | number;
+    message?: string;
+    response?: {
+      data?: {
+        error?: string;
+        error_description?: string;
+      };
+    };
+  };
+
+  return (
+    googleError.code === "invalid_grant" ||
+    googleError.response?.data?.error === "invalid_grant" ||
+    Boolean(googleError.message?.includes("invalid_grant")) ||
+    Boolean(googleError.response?.data?.error_description?.includes("invalid_grant"))
   );
 }
 
@@ -361,6 +386,40 @@ export async function refreshTherapistGoogleCalendarAccessToken(therapistUserId:
         error: error instanceof Error ? error.message : String(error),
       },
     );
+
+    if (isGoogleInvalidGrantError(error)) {
+      await prisma.therapistProfile.update({
+        where: { userId: therapistUserId },
+        data: {
+          googleAccessToken: null,
+          googleRefreshToken: null,
+          googleTokenExpiresAt: null,
+          googleCalendarConnectedAt: null,
+          isGoogleCalendarConnected: false,
+        },
+      });
+
+      await logGoogleCalendarAudit(
+        therapistUserId,
+        connection.id,
+        "GOOGLE_CALENDAR_REAUTH_REQUIRED",
+        {
+          googleCalendarId: connection.googleCalendarId,
+          googleCalendarEmail: connection.googleCalendarEmail,
+          isGoogleCalendarConnected: connection.isGoogleCalendarConnected,
+        },
+        {
+          googleCalendarId: connection.googleCalendarId,
+          googleCalendarEmail: connection.googleCalendarEmail,
+          isGoogleCalendarConnected: false,
+        },
+      );
+
+      throw new GoogleCalendarServiceError(
+        "Google Calendar authorization expired or was revoked. The therapist needs to reconnect Google Calendar.",
+        "GOOGLE_CALENDAR_REAUTH_REQUIRED",
+      );
+    }
 
     throw error;
   }

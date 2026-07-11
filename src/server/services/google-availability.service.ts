@@ -39,6 +39,7 @@ export class GoogleAvailabilityServiceError extends Error {
     public readonly code:
       | "INVALID_DATE_RANGE"
       | "GOOGLE_CALENDAR_NOT_CONNECTED"
+      | "GOOGLE_CALENDAR_UNAVAILABLE"
       | "GOOGLE_CALENDAR_TARGET_MISSING",
   ) {
     super(message);
@@ -212,6 +213,28 @@ async function getGoogleCalendarBusyRanges(
         throw new GoogleAvailabilityServiceError(
           error.message,
           "GOOGLE_CALENDAR_NOT_CONNECTED",
+        );
+      }
+
+      if (
+        error.code === "GOOGLE_REFRESH_TOKEN_MISSING" ||
+        error.code === "GOOGLE_CALENDAR_REAUTH_REQUIRED"
+      ) {
+        await createAuditLogEntryBestEffort({
+          actorUserId: therapistId,
+          entityType: "GoogleCalendarIntegration",
+          entityId: therapistId,
+          action: "GOOGLE_CALENDAR_AVAILABILITY_UNAVAILABLE",
+          after: {
+            from: from.toISOString(),
+            to: to.toISOString(),
+            reason: error.code,
+          },
+        });
+
+        throw new GoogleAvailabilityServiceError(
+          error.message,
+          "GOOGLE_CALENDAR_UNAVAILABLE",
         );
       }
     }

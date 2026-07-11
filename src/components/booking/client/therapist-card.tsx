@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { InsetCard } from "@/components/ui/card";
 
 function getDisplayName(therapist: TherapistListItem) {
@@ -69,6 +69,8 @@ type TherapistCardProps = {
   therapist: TherapistListItem;
 };
 
+const DESCRIPTION_EXPAND_THRESHOLD = 260;
+
 function formatCurrency(value: number | null | undefined) {
   if (typeof value !== "number") {
     return "Price will be confirmed later";
@@ -90,7 +92,7 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const displayName = getDisplayName(therapist);
   const description = getDescription(therapist);
-  const firstName = displayName.split(" ").filter(Boolean)[0] ?? displayName;
+  const canExpandDescription = description.length > DESCRIPTION_EXPAND_THRESHOLD;
 
   return (
     <InsetCard
@@ -119,7 +121,7 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
         <p
           className={[
             "mt-8 max-w-3xl text-sm leading-6 text-slate-800",
-            isExpanded
+            isExpanded || !canExpandDescription
               ? ""
               : "overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]",
           ].join(" ")}
@@ -127,13 +129,15 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
           {description}
         </p>
 
-        <button
-          type="button"
-          onClick={() => setIsExpanded((current) => !current)}
-          className="mt-2 inline-flex text-sm font-semibold text-slate-950 underline decoration-slate-400 underline-offset-2 transition hover:text-sky-700 hover:decoration-sky-600"
-        >
-          {isExpanded ? "Show less" : "Read more"}
-        </button>
+        {canExpandDescription ? (
+          <button
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+            className="mt-2 inline-flex text-sm font-semibold text-slate-950 underline decoration-slate-400 underline-offset-2 transition hover:text-sky-700 hover:decoration-sky-600"
+          >
+            {isExpanded ? "Read less" : "Read more"}
+          </button>
+        ) : null}
       </div>
 
       <div className="flex min-w-0 flex-col gap-3 md:col-start-2 md:flex-row md:items-start xl:col-start-auto xl:w-[190px] xl:flex-col">
@@ -145,19 +149,6 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
         >
           Book session
         </ButtonLink>
-        <Button
-          type="button"
-          variant="secondary"
-          fullWidth
-          onClick={() => setIsExpanded((current) => !current)}
-          className="!border-sky-600 hover:!bg-sky-50"
-          style={{
-            color: "#0369a1",
-            WebkitTextFillColor: "#0369a1",
-          }}
-        >
-          More about {firstName}
-        </Button>
       </div>
     </InsetCard>
   );
