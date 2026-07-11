@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
+import { TherapistProfilePhoto } from "@/components/booking/client/therapist-profile-photo";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard } from "@/components/ui/card";
 
@@ -42,15 +43,6 @@ function getDescription(therapist: TherapistListItem) {
   }
 
   return `${specialisation}. ${profileSummary}`;
-}
-
-function getInitials(name: string) {
-  const parts = name
-    .split(" ")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
 }
 
 function getExperienceLabel(therapist: TherapistListItem) {
@@ -99,20 +91,13 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
     <InsetCard
       as="article"
       tone="plain"
-      className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[180px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[230px_minmax(0,1fr)_190px] xl:gap-8"
+      className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[210px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[255px_minmax(0,1fr)_180px] xl:gap-8"
     >
-      <div className="flex aspect-[4/3] min-h-48 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-4xl font-semibold text-slate-700 shadow-inner shadow-white/70 md:min-h-0 md:w-[180px] xl:w-[230px]">
-        {profilePhotoUrl ? (
-          <span
-            role="img"
-            aria-label={`${displayName} profile photo`}
-            className="block h-full w-full bg-cover bg-center"
-            style={{ backgroundImage: `url("${profilePhotoUrl}")` }}
-          />
-        ) : (
-          <span aria-hidden="true">{getInitials(displayName)}</span>
-        )}
-      </div>
+      <TherapistProfilePhoto
+        displayName={displayName}
+        profilePhotoUrl={profilePhotoUrl}
+        className="aspect-[4/3] min-h-56 w-full text-5xl md:min-h-0 md:w-[210px] xl:w-[255px]"
+      />
 
       <div className="min-w-0">
         <h3 className="text-2xl font-semibold leading-tight text-slate-950">

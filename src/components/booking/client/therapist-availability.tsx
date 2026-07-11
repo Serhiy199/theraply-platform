@@ -5,6 +5,7 @@ import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.s
 import { SlotCard } from "@/components/booking/client/slot-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
 import { BookingStatusAlert } from "@/components/booking/client/booking-status-alert";
+import { TherapistProfilePhoto } from "@/components/booking/client/therapist-profile-photo";
 import { ButtonLink } from "@/components/ui/button";
 import { InsetCard, SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
@@ -41,6 +42,24 @@ function formatCurrency(value: number | null | undefined) {
     style: "currency",
     currency: "GBP",
   }).format(value / 100);
+}
+
+function formatHourlyRate(value: number | null | undefined) {
+  const formatted = formatCurrency(value);
+
+  return formatted.startsWith("Price") ? formatted : `${formatted}/hour`;
+}
+
+function getExperienceLabel(therapist: TherapistListItem) {
+  const yearsOfExperience = therapist.therapistProfile?.yearsOfExperience?.trim();
+
+  if (!yearsOfExperience) {
+    return null;
+  }
+
+  const hasYearText = /year|yr/i.test(yearsOfExperience);
+
+  return hasYearText ? yearsOfExperience : `${yearsOfExperience} years of experience`;
 }
 
 function formatDayLabel(date: Date, timeZone: string) {
@@ -98,6 +117,9 @@ export function TherapistAvailability({
     therapist.therapistProfile?.isGoogleCalendarConnected &&
       therapist.therapistProfile?.googleCalendarId,
   );
+  const displayName = getDisplayName(therapist);
+  const experienceLabel = getExperienceLabel(therapist);
+  const profilePhotoUrl = therapist.therapistProfile?.profilePhotoUrl;
 
   return (
     <div className="grid gap-6">
@@ -105,7 +127,7 @@ export function TherapistAvailability({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <SectionEyebrow>Client booking flow</SectionEyebrow>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-900">Available slots for {getDisplayName(therapist)}</h2>
+            <h2 className="mt-3 text-3xl font-semibold text-slate-900">Available slots for {displayName}</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
               Pick a time that works for you. The booking request will be sent to the therapist and remain pending until they confirm it.
             </p>
@@ -122,27 +144,32 @@ export function TherapistAvailability({
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <InsetCard tone="soft">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Therapist profile</p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-900">{getDisplayName(therapist)}</h3>
-            <dl className="mt-5 grid gap-4 text-sm text-slate-600">
-              <div>
-                <dt className="font-medium text-slate-700">Specialisation</dt>
-                <dd className="mt-1">{getSpecialisation(therapist)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-slate-700">Session price</dt>
-                <dd className="mt-1">{formatCurrency(therapist.therapistProfile?.sessionPricePence)}</dd>
-                {therapist.therapistProfile?.pricePerHour ? (
-                  <dd className="mt-1 text-xs text-slate-500">
-                    Profile rate: {therapist.therapistProfile.pricePerHour}
-                  </dd>
+            <div className="grid gap-5 sm:grid-cols-[170px_minmax(0,1fr)] sm:items-start">
+              <TherapistProfilePhoto
+                displayName={displayName}
+                profilePhotoUrl={profilePhotoUrl}
+                className="aspect-[4/3] min-h-52 w-full text-5xl sm:min-h-0 sm:w-[170px]"
+              />
+
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Therapist profile
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-900">{displayName}</h3>
+                {experienceLabel ? (
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{experienceLabel}</p>
                 ) : null}
+                <p className="mt-3 text-base font-semibold leading-6 text-sky-700">
+                  {formatHourlyRate(therapist.therapistProfile?.sessionPricePence)}
+                </p>
+                <p className="mt-5 text-sm font-semibold text-slate-800">
+                  {getSpecialisation(therapist)}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {getProfileSummary(therapist)}
+                </p>
               </div>
-              <div>
-                <dt className="font-medium text-slate-700">Profile summary</dt>
-                <dd className="mt-1 leading-6">{getProfileSummary(therapist)}</dd>
-              </div>
-            </dl>
+            </div>
           </InsetCard>
 
           <InsetCard tone="soft">
