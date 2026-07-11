@@ -35,11 +35,11 @@ export function TherapistPicker({ therapists }: TherapistPickerProps) {
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid gap-5">
           {therapists.length ? (
             therapists.map((therapist) => <TherapistCard key={therapist.id} therapist={therapist} />)
           ) : (
-            <div className="md:col-span-2 xl:col-span-3">
+            <div>
               <BookingEmptyState
                 title="No therapists available right now"
                 description={BOOKING_FLOW_MESSAGES.noTherapists}

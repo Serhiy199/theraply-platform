@@ -1,13 +1,15 @@
+"use client";
+
+import { useState } from "react";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
-import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { InsetCard } from "@/components/ui/card";
 
 function getDisplayName(therapist: TherapistListItem) {
   return (
     therapist.therapistProfile?.displayName ||
     [therapist.firstName, therapist.lastName].filter(Boolean).join(" ") ||
-    therapist.email
+    "Therapist"
   );
 }
 
@@ -27,6 +29,42 @@ function getProfileSummary(therapist: TherapistListItem) {
   );
 }
 
+function getDescription(therapist: TherapistListItem) {
+  const specialisation = getSpecialisation(therapist);
+  const profileSummary = getProfileSummary(therapist);
+
+  if (
+    specialisation &&
+    profileSummary &&
+    profileSummary.toLowerCase().includes(specialisation.toLowerCase())
+  ) {
+    return profileSummary;
+  }
+
+  return `${specialisation}. ${profileSummary}`;
+}
+
+function getInitials(name: string) {
+  const parts = name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "T") + (parts[1]?.[0] ?? "");
+}
+
+function getExperienceLabel(therapist: TherapistListItem) {
+  const yearsOfExperience = therapist.therapistProfile?.yearsOfExperience?.trim();
+
+  if (!yearsOfExperience) {
+    return "Experience shared during onboarding";
+  }
+
+  const hasYearText = /year|yr/i.test(yearsOfExperience);
+
+  return hasYearText ? yearsOfExperience : `${yearsOfExperience} years of experience`;
+}
+
 type TherapistCardProps = {
   therapist: TherapistListItem;
 };
@@ -42,62 +80,84 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value / 100);
 }
 
+function formatHourlyRate(value: number | null | undefined) {
+  const formatted = formatCurrency(value);
+
+  return formatted.startsWith("Price") ? formatted : `${formatted}/hour`;
+}
+
 export function TherapistCard({ therapist }: TherapistCardProps) {
-  const hasCalendarConnection = Boolean(
-    therapist.therapistProfile?.isGoogleCalendarConnected &&
-      therapist.therapistProfile?.googleCalendarId,
-  );
+  const [isExpanded, setIsExpanded] = useState(false);
+  const displayName = getDisplayName(therapist);
+  const description = getDescription(therapist);
+  const firstName = displayName.split(" ").filter(Boolean)[0] ?? displayName;
 
   return (
-    <InsetCard as="article" tone="soft" className="flex h-full flex-col">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Approved therapist
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold text-slate-900">
-            {getDisplayName(therapist)}
-          </h3>
-          <p className="mt-2 text-sm text-slate-600">{therapist.email}</p>
-        </div>
-        <Badge variant={hasCalendarConnection ? "success" : "warning"}>
-          {hasCalendarConnection ? "Calendar ready" : "Calendar setup pending"}
-        </Badge>
+    <InsetCard
+      as="article"
+      tone="plain"
+      className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[180px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[230px_minmax(0,1fr)_190px] xl:gap-8"
+    >
+      <div
+        className="flex aspect-[4/3] min-h-48 items-center justify-center rounded-[1.25rem] bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-50 text-4xl font-semibold text-slate-700 shadow-inner shadow-white/70 md:min-h-0 md:w-[180px] xl:w-[230px]"
+        aria-label={`Profile image placeholder for ${displayName}`}
+      >
+        <span aria-hidden="true">{getInitials(displayName)}</span>
       </div>
 
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600">
-        <div>
-          <dt className="font-medium text-slate-700">Specialisation</dt>
-          <dd className="mt-1">{getSpecialisation(therapist)}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-slate-700">Session price</dt>
-          <dd className="mt-1">
-            {formatCurrency(therapist.therapistProfile?.sessionPricePence)}
-          </dd>
-          {therapist.therapistProfile?.pricePerHour ? (
-            <dd className="mt-1 text-xs text-slate-500">
-              Profile rate: {therapist.therapistProfile.pricePerHour}
-            </dd>
-          ) : null}
-        </div>
-        <div>
-          <dt className="font-medium text-slate-700">Profile summary</dt>
-          <dd className="mt-1 leading-6">{getProfileSummary(therapist)}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-slate-700">Calendar connection</dt>
-          <dd className="mt-1">
-            {therapist.therapistProfile?.googleCalendarEmail ??
-              "Calendar sync will be shown once connected."}
-          </dd>
-        </div>
-      </dl>
+      <div className="min-w-0">
+        <h3 className="text-2xl font-semibold leading-tight text-slate-950">
+          {displayName}
+        </h3>
+        <p className="mt-1 text-base leading-6 text-slate-700">
+          {getExperienceLabel(therapist)}
+        </p>
+        <p className="mt-4 text-base font-semibold leading-6 text-sky-700">
+          {formatHourlyRate(therapist.therapistProfile?.sessionPricePence)}
+        </p>
 
-      <div className="mt-6 flex flex-1 items-end">
-        <ButtonLink href={`/client/book/${therapist.id}`} variant="secondary">
-          View available slots
+        <p
+          className={[
+            "mt-8 max-w-3xl text-sm leading-6 text-slate-800",
+            isExpanded
+              ? ""
+              : "overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]",
+          ].join(" ")}
+        >
+          {description}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
+          className="mt-2 inline-flex text-sm font-semibold text-slate-950 underline decoration-slate-400 underline-offset-2 transition hover:text-sky-700 hover:decoration-sky-600"
+        >
+          {isExpanded ? "Show less" : "Read more"}
+        </button>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-3 md:col-start-2 md:flex-row md:items-start xl:col-start-auto xl:w-[190px] xl:flex-col">
+        <ButtonLink
+          href={`/client/book/${therapist.id}`}
+          variant="primary"
+          fullWidth
+          className="!bg-sky-600 shadow-sm shadow-slate-950/10 hover:!bg-sky-700"
+        >
+          Book session
         </ButtonLink>
+        <Button
+          type="button"
+          variant="secondary"
+          fullWidth
+          onClick={() => setIsExpanded((current) => !current)}
+          className="!border-sky-600 hover:!bg-sky-50"
+          style={{
+            color: "#0369a1",
+            WebkitTextFillColor: "#0369a1",
+          }}
+        >
+          More about {firstName}
+        </Button>
       </div>
     </InsetCard>
   );
