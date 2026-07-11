@@ -91,15 +91,15 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
     <InsetCard
       as="article"
       tone="plain"
-      className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[210px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[255px_minmax(0,1fr)_180px] xl:gap-8"
+      className="grid grid-cols-1 gap-5 overflow-hidden rounded-[1.5rem] border-slate-100 bg-white/90 p-4 shadow-sm shadow-slate-950/5 sm:p-5 md:grid-cols-[230px_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[250px_minmax(0,1fr)_190px] xl:gap-8"
     >
       <TherapistProfilePhoto
         displayName={displayName}
         profilePhotoUrl={profilePhotoUrl}
-        className="aspect-[4/3] min-h-56 w-full text-5xl md:min-h-0 md:w-[210px] xl:w-[255px]"
+        className="h-[230px] min-h-[230px] w-full text-5xl md:w-[230px] xl:h-[250px] xl:w-[250px]"
       />
 
-      <div className="min-w-0">
+      <div className="min-w-0 [overflow-wrap:anywhere]">
         <h3 className="text-2xl font-semibold leading-tight text-slate-950">
           {displayName}
         </h3>
@@ -112,7 +112,7 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
 
         <p
           className={[
-            "mt-8 max-w-3xl text-sm leading-6 text-slate-800",
+            "mt-8 max-w-3xl text-sm leading-6 text-slate-800 [overflow-wrap:anywhere]",
             isExpanded || !canExpandDescription
               ? ""
               : "overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]",

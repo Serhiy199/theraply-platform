@@ -144,14 +144,14 @@ export function TherapistAvailability({
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <InsetCard tone="soft">
-            <div className="grid gap-5 sm:grid-cols-[170px_minmax(0,1fr)] sm:items-start">
+            <div className="grid gap-5 sm:grid-cols-[230px_minmax(0,1fr)] sm:items-start">
               <TherapistProfilePhoto
                 displayName={displayName}
                 profilePhotoUrl={profilePhotoUrl}
-                className="aspect-[4/3] min-h-52 w-full text-5xl sm:min-h-0 sm:w-[170px]"
+                className="h-[230px] min-h-[230px] w-full text-5xl sm:w-[230px]"
               />
 
-              <div className="min-w-0">
+              <div className="min-w-0 [overflow-wrap:anywhere]">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Therapist profile
                 </p>
@@ -162,10 +162,10 @@ export function TherapistAvailability({
                 <p className="mt-3 text-base font-semibold leading-6 text-sky-700">
                   {formatHourlyRate(therapist.therapistProfile?.sessionPricePence)}
                 </p>
-                <p className="mt-5 text-sm font-semibold text-slate-800">
+                <p className="mt-5 text-sm font-semibold text-slate-800 [overflow-wrap:anywhere]">
                   {getSpecialisation(therapist)}
                 </p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <p className="mt-3 text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">
                   {getProfileSummary(therapist)}
                 </p>
               </div>
