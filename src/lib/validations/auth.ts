@@ -53,7 +53,23 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, PASSWORD_MESSAGES.required),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, PASSWORD_MESSAGES.required),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: PASSWORD_MESSAGES.mismatch,
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.password !== data.currentPassword, {
+    message: PASSWORD_MESSAGES.sameAsCurrent,
+    path: ["password"],
+  });
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

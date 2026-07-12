@@ -454,7 +454,7 @@ model AuditLog {
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
-  token     String    @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())

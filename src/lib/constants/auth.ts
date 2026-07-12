@@ -2,6 +2,7 @@ export const AUTH_ROUTES = {
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
+  changePassword: "/change-password",
   resetPasswordBase: "/reset-password",
   verifyEmailBase: "/verify-email",
 } as const;
@@ -24,7 +25,7 @@ export const PASSWORD_RULES = {
 } as const;
 
 export const PASSWORD_RESET_RULES = {
-  tokenTtlHours: 2,
+  tokenTtlHours: 1,
 } as const;
 
 export const EMAIL_VERIFICATION_RULES = {
@@ -43,6 +44,7 @@ export const EMAIL_TEMPLATES = {
   bookingCancelled: "BOOKING_CANCELLED",
   paymentSuccessful: "PAYMENT_SUCCESSFUL",
   paymentFailed: "PAYMENT_FAILED",
+  passwordReset: "PASSWORD_RESET",
 } as const;
 
 export const PASSWORD_MESSAGES = {
@@ -54,6 +56,7 @@ export const PASSWORD_MESSAGES = {
   number: "Password must include at least one number.",
   special: "Password must include at least one special character.",
   mismatch: "Passwords do not match.",
+  sameAsCurrent: "New password must be different from your current password.",
 } as const;
 
 export const AUTH_MESSAGES = {
@@ -83,10 +86,13 @@ export const AUTH_MESSAGES = {
   emailVerificationResendGenericError: "Unable to resend verification email right now.",
   emailVerificationGenericError: "Unable to verify your email right now.",
   forgotPasswordSuccess:
-    "If an account with that email exists, we have generated a password reset link.",
+    "If an account with that email exists, we will send password reset instructions.",
   forgotPasswordGenericError: "Unable to start password recovery right now.",
   resetPasswordSuccess: "Password updated successfully. You can now sign in.",
   resetPasswordInvalidToken: "This reset link is invalid or has expired.",
   resetPasswordGenericError: "Unable to reset your password right now.",
+  changePasswordSuccess: "Password changed successfully.",
+  changePasswordInvalidCurrent: "Unable to change password with the provided details.",
+  changePasswordGenericError: "Unable to change your password right now.",
   rateLimited: "Too many attempts. Please wait a little and try again.",
 } as const;

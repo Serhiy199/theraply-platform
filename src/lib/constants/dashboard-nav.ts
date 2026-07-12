@@ -58,6 +58,12 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       label: "Payments",
       description: "Review payment status and checkout history.",
     },
+    {
+      key: "client-change-password",
+      href: "/change-password",
+      label: "Password",
+      description: "Change your account password securely.",
+    },
   ],
   THERAPIST: [
     {
@@ -83,6 +89,12 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       href: "/therapist/payout-details",
       label: "Payout details",
       description: "Manage payout setup and banking information.",
+    },
+    {
+      key: "therapist-change-password",
+      href: "/change-password",
+      label: "Password",
+      description: "Change your account password securely.",
     },
   ],
   ADMIN: [
@@ -115,6 +127,12 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       href: "/admin/payments",
       label: "Payments",
       description: "Track payment state, refunds, and payout visibility.",
+    },
+    {
+      key: "admin-change-password",
+      href: "/change-password",
+      label: "Password",
+      description: "Change your account password securely.",
     },
   ],
 };

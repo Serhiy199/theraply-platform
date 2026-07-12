@@ -159,9 +159,9 @@ export async function getClientDashboardData(userId: string) {
         description: "Check payment state and resolve open billing items.",
       },
       {
-        label: "Reset password",
-        href: "/forgot-password",
-        description: "Start a password reset flow if account access needs refreshing.",
+        label: "Change password",
+        href: "/change-password",
+        description: "Update your account password securely.",
       },
     ],
     recentBookings: recentBookings.map((booking) => ({

@@ -24,6 +24,10 @@ export function getSafeAuthErrorMessage(code: string) {
       return AUTH_MESSAGES.forgotPasswordGenericError;
     case "PASSWORD_RESET_FAILED":
       return AUTH_MESSAGES.resetPasswordGenericError;
+    case "PASSWORD_CHANGE_INVALID_CURRENT":
+      return AUTH_MESSAGES.changePasswordInvalidCurrent;
+    case "PASSWORD_CHANGE_FAILED":
+      return AUTH_MESSAGES.changePasswordGenericError;
     case "CREATE_FAILED":
     default:
       return AUTH_MESSAGES.registerGenericError;

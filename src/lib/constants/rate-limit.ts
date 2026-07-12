@@ -3,6 +3,7 @@ export const RATE_LIMIT_SCOPES = {
   authRegister: "auth:register",
   authForgotPassword: "auth:forgot-password",
   authResetPassword: "auth:reset-password",
+  authChangePassword: "auth:change-password",
   authResendVerification: "auth:resend-verification",
   stripeCheckout: "stripe:checkout",
   stripeConnect: "stripe:connect",
@@ -45,6 +46,11 @@ export const RATE_LIMIT_PRESETS = {
   },
   authResetPassword: {
     scope: RATE_LIMIT_SCOPES.authResetPassword,
+    limit: 5,
+    windowMs: 15 * MINUTE,
+  },
+  authChangePassword: {
+    scope: RATE_LIMIT_SCOPES.authChangePassword,
     limit: 5,
     windowMs: 15 * MINUTE,
   },

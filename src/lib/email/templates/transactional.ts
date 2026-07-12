@@ -43,6 +43,12 @@ type PaymentEmailInput = BookingEmailInput & {
   failedReason?: string | null;
 };
 
+type PasswordResetEmailInput = {
+  recipientName?: string | null;
+  resetUrl: string;
+  expiresAt: Date;
+};
+
 function normalizeText(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed || null;
@@ -374,5 +380,41 @@ export function buildPaymentFailedEmail(input: PaymentEmailInput): EmailTemplate
       actionLabel: "Review payment",
     }),
     actionUrl,
+  };
+}
+
+export function buildPasswordResetEmail(
+  input: PasswordResetEmailInput,
+): EmailTemplateOutput {
+  const intro =
+    "We received a request to reset the password for your Theraply account.";
+  const details = [
+    ["Reset link expires", formatAppDateTime(input.expiresAt)],
+    [
+      "Security note",
+      "If you did not request this, you can ignore this email and your password will stay unchanged.",
+    ],
+  ] satisfies Array<[string, string | null | undefined]>;
+
+  return {
+    template: EMAIL_TEMPLATES.passwordReset,
+    subject: "Reset your Theraply password",
+    text: buildTextEmail({
+      greetingName: input.recipientName,
+      intro,
+      details,
+      actionUrl: input.resetUrl,
+      footer: "Theraply Support",
+    }),
+    html: buildHtmlEmail({
+      title: "Reset your password",
+      greetingName: input.recipientName,
+      intro,
+      details,
+      actionUrl: input.resetUrl,
+      actionLabel: "Reset password",
+      footer: "Theraply Support",
+    }),
+    actionUrl: input.resetUrl,
   };
 }
