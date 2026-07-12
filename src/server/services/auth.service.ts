@@ -44,7 +44,13 @@ function getPasswordResetExpiryDate() {
 }
 
 function getPasswordResetBaseUrl() {
-  return process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return baseUrl.replace(/\/+$/, "");
+}
+
+function buildAppUrl(path: string) {
+  const normalizedPath = `/${path.replace(/^\/+/, "")}`;
+  return `${getPasswordResetBaseUrl()}${normalizedPath}`;
 }
 
 function hashPasswordResetToken(token: string) {
@@ -187,7 +193,7 @@ export async function requestPasswordReset(input: ForgotPasswordInput) {
   const tokenHash = hashPasswordResetToken(token);
   const expiresAt = getPasswordResetExpiryDate();
   const now = new Date();
-  const resetLink = `${getPasswordResetBaseUrl()}${AUTH_ROUTES.resetPasswordBase}/${token}`;
+  const resetLink = buildAppUrl(`${AUTH_ROUTES.resetPasswordBase}/${token}`);
 
   try {
     await prisma.$transaction(async (tx) => {

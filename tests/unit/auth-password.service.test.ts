@@ -1,5 +1,5 @@
 import { EmailStatus } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changePasswordForUser,
   requestPasswordReset,
@@ -71,6 +71,10 @@ describe("auth password recovery and change service", () => {
     });
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("does not disclose missing users during forgot password", async () => {
     userFindUniqueMock.mockResolvedValue(null);
 
@@ -102,6 +106,24 @@ describe("auth password recovery and change service", () => {
         actionUrl: expect.stringContaining("/reset-password/"),
       }),
     );
+  });
+
+  it("normalizes password reset email links when APP_URL has a trailing slash", async () => {
+    vi.stubEnv("APP_URL", "https://theraply-platform.vercel.app/");
+    userFindUniqueMock.mockResolvedValue({
+      id: "user-id",
+      email: "client@example.com",
+      firstName: "Client",
+      isActive: true,
+    });
+
+    await requestPasswordReset({ email: "client@example.com" });
+
+    const emailArgs = sendTransactionalEmailMock.mock.calls[0][0];
+    expect(emailArgs.actionUrl).toMatch(
+      /^https:\/\/theraply-platform\.vercel\.app\/reset-password\/[a-f0-9]{64}$/,
+    );
+    expect(emailArgs.actionUrl).not.toContain("app//reset-password");
   });
 
   it("rejects expired reset tokens", async () => {
