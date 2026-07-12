@@ -1,29 +1,9 @@
 import { UserRole } from "@prisma/client";
-import { Card, Layout, Space, Typography } from "antd";
-import { ChangePasswordForm } from "@/components/forms/change-password-form";
+import { ChangePasswordPanel } from "@/components/forms/change-password-panel";
 import { requireRole } from "@/lib/permissions";
-
-const { Content } = Layout;
-const { Paragraph, Title } = Typography;
 
 export default async function ChangePasswordPage() {
   const user = await requireRole([UserRole.CLIENT, UserRole.THERAPIST, UserRole.ADMIN]);
 
-  return (
-    <Layout className="site-shell">
-      <Content className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-6 py-16 md:px-10">
-        <Card className="soft-card w-full max-w-md" bordered={false}>
-          <Space direction="vertical" size="large" className="w-full">
-            <div>
-              <Title level={2}>Change Password</Title>
-              <Paragraph type="secondary">
-                Update the password for your Theraply account.
-              </Paragraph>
-            </div>
-            <ChangePasswordForm role={user.role} />
-          </Space>
-        </Card>
-      </Content>
-    </Layout>
-  );
+  return <ChangePasswordPanel role={user.role} />;
 }

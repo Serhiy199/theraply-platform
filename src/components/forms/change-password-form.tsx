@@ -8,7 +8,6 @@ import {
   initialChangePasswordActionState,
   type ChangePasswordActionState,
 } from "@/app/change-password/state";
-import { getDashboardRouteForRole } from "@/lib/auth/redirects";
 
 const { Paragraph } = Typography;
 
@@ -24,12 +23,24 @@ function SubmitButton({ pending }: { pending: boolean }) {
   );
 }
 
+function getDashboardHref(role?: string | null) {
+  switch (role) {
+    case "THERAPIST":
+      return "/therapist/dashboard";
+    case "ADMIN":
+      return "/admin/dashboard";
+    case "CLIENT":
+    default:
+      return "/client/dashboard";
+  }
+}
+
 export function ChangePasswordForm({ role }: ChangePasswordFormProps) {
   const [state, formAction, pending] = useActionState<
     ChangePasswordActionState,
     FormData
   >(changePasswordAction, initialChangePasswordActionState);
-  const dashboardHref = getDashboardRouteForRole(role ?? undefined);
+  const dashboardHref = getDashboardHref(role);
 
   return (
     <Space direction="vertical" size="large" className="w-full">
