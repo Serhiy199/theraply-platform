@@ -46,7 +46,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       </Paragraph>
       <form action={formAction} className="w-full">
         <input type="hidden" name="token" value={token} />
-        <Form layout="vertical" requiredMark={false}>
+        <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="New password"
             validateStatus={state.fieldErrors?.password ? "error" : undefined}

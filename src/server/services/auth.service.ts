@@ -31,6 +31,7 @@ export class AuthServiceError extends Error {
       | "PASSWORD_RESET_INVALID_TOKEN"
       | "PASSWORD_RESET_FAILED"
       | "PASSWORD_CHANGE_INVALID_CURRENT"
+      | "PASSWORD_CHANGE_SAME_AS_CURRENT"
       | "PASSWORD_CHANGE_FAILED",
   ) {
     super(message);
@@ -337,8 +338,8 @@ export async function changePasswordForUser(userId: string, input: ChangePasswor
 
   if (samePassword) {
     throw new AuthServiceError(
-      AUTH_MESSAGES.changePasswordInvalidCurrent,
-      "PASSWORD_CHANGE_INVALID_CURRENT",
+      AUTH_MESSAGES.changePasswordSameAsCurrent,
+      "PASSWORD_CHANGE_SAME_AS_CURRENT",
     );
   }
 

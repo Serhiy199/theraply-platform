@@ -56,7 +56,7 @@ export function ChangePasswordForm({ role }: ChangePasswordFormProps) {
         <Link href={dashboardHref}>Back to dashboard.</Link>
       </Paragraph>
       <form action={formAction} className="w-full">
-        <Form layout="vertical" requiredMark={false}>
+        <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="Current password"
             validateStatus={state.fieldErrors?.currentPassword ? "error" : undefined}

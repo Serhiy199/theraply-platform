@@ -43,7 +43,7 @@ export function ForgotPasswordForm() {
         </>
       </Paragraph>
       <form action={formAction} className="w-full">
-        <Form layout="vertical" requiredMark={false}>
+        <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="Email address"
             validateStatus={state.fieldErrors?.email ? "error" : undefined}

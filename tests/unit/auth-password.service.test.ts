@@ -200,7 +200,7 @@ describe("auth password recovery and change service", () => {
         confirmPassword: "OldPassword1!",
       }),
     ).rejects.toMatchObject({
-      code: "PASSWORD_CHANGE_INVALID_CURRENT",
+      code: "PASSWORD_CHANGE_SAME_AS_CURRENT",
     });
     expect(userUpdateMock).not.toHaveBeenCalled();
   });

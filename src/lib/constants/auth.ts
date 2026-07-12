@@ -92,7 +92,8 @@ export const AUTH_MESSAGES = {
   resetPasswordInvalidToken: "This reset link is invalid or has expired.",
   resetPasswordGenericError: "Unable to reset your password right now.",
   changePasswordSuccess: "Password changed successfully.",
-  changePasswordInvalidCurrent: "Unable to change password with the provided details.",
+  changePasswordInvalidCurrent: "Current password is incorrect.",
+  changePasswordSameAsCurrent: PASSWORD_MESSAGES.sameAsCurrent,
   changePasswordGenericError: "Unable to change your password right now.",
   rateLimited: "Too many attempts. Please wait a little and try again.",
 } as const;

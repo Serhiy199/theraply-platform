@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 import { Alert, Button, Form, Input, Space, Typography } from "antd";
 import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
-import { AUTH_MESSAGES } from "@/lib/constants/auth";
+import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { loginSchema } from "@/lib/validations/auth";
 
 const { Paragraph } = Typography;
@@ -87,6 +88,9 @@ export function LoginForm({ callbackUrl = "/" }: LoginFormProps) {
             size="large"
           />
         </Form.Item>
+        <Paragraph className="!-mt-2 !mb-4 text-right text-sm">
+          <Link href={AUTH_ROUTES.forgotPassword}>Forgot password?</Link>
+        </Paragraph>
         <Button type="primary" htmlType="submit" block size="large" loading={isPending}>
           Continue
         </Button>
