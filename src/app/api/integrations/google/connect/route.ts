@@ -5,6 +5,7 @@ import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { getSafeGoogleCalendarErrorMessage } from "@/lib/errors/safe-error-messages";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import {
   GoogleCalendarServiceError,
@@ -19,20 +20,16 @@ import {
   checkRateLimitPreset,
 } from "@/server/services/rate-limit.service";
 
-function buildAppUrl(request: NextRequest, pathname: string) {
-  return new URL(pathname, request.url);
-}
-
 function normalizeReturnTo(value: string | null) {
-  if (!value || !value.startsWith("/")) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/therapist/payout-details";
   }
 
   return value;
 }
 
-function buildTherapistRedirect(request: NextRequest, status: "success" | "error", message: string) {
-  const redirectUrl = buildAppUrl(request, "/therapist/payout-details");
+function buildTherapistRedirect(status: "success" | "error", message: string) {
+  const redirectUrl = buildCanonicalAppUrl("/therapist/payout-details");
   redirectUrl.searchParams.set("gc_status", status);
   redirectUrl.searchParams.set("gc_message", message);
   return redirectUrl;
@@ -42,11 +39,11 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.redirect(buildAppUrl(request, AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildAppUrl(request, "/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
   }
 
   let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
@@ -55,7 +52,7 @@ export async function GET(request: NextRequest) {
     activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
     }
 
     throw error;
@@ -67,7 +64,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!rateLimit.allowed) {
-    return NextResponse.redirect(buildTherapistRedirect(request, "error", AUTH_MESSAGES.rateLimited));
+    return NextResponse.redirect(buildTherapistRedirect("error", AUTH_MESSAGES.rateLimited));
   }
 
   const returnTo = normalizeReturnTo(request.nextUrl.searchParams.get("returnTo"));
@@ -94,12 +91,12 @@ export async function GET(request: NextRequest) {
 
     if (error instanceof GoogleCalendarServiceError) {
       return NextResponse.redirect(
-        buildTherapistRedirect(request, "error", getSafeGoogleCalendarErrorMessage(error.code)),
+        buildTherapistRedirect("error", getSafeGoogleCalendarErrorMessage(error.code)),
       );
     }
 
     return NextResponse.redirect(
-      buildTherapistRedirect(request, "error", "Unable to start Google Calendar connection."),
+      buildTherapistRedirect("error", "Unable to start Google Calendar connection."),
     );
   }
 }
