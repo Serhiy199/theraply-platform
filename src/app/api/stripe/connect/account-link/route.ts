@@ -1,10 +1,11 @@
 import { UserRole } from "@prisma/client";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   createTherapistStripeAccountLink,
   StripeConnectServiceError,
@@ -17,26 +18,22 @@ import {
 
 export const runtime = "nodejs";
 
-function buildAppUrl(request: NextRequest, pathname: string) {
-  return new URL(pathname, request.url);
-}
-
-function buildStripeRedirect(request: NextRequest, status: "success" | "error", message: string) {
-  const redirectUrl = buildAppUrl(request, "/therapist/payout-details");
+function buildStripeRedirect(status: "success" | "error", message: string) {
+  const redirectUrl = buildCanonicalAppUrl("/therapist/payout-details");
   redirectUrl.searchParams.set("stripe_status", status);
   redirectUrl.searchParams.set("stripe_message", message);
   return redirectUrl;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.redirect(buildAppUrl(request, AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildAppUrl(request, "/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
   }
 
   let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
@@ -45,7 +42,7 @@ export async function GET(request: NextRequest) {
     activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
     }
 
     throw error;
@@ -57,7 +54,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!rateLimit.allowed) {
-    return NextResponse.redirect(buildStripeRedirect(request, "error", AUTH_MESSAGES.rateLimited));
+    return NextResponse.redirect(buildStripeRedirect("error", AUTH_MESSAGES.rateLimited));
   }
 
   try {
@@ -83,6 +80,6 @@ export async function GET(request: NextRequest) {
         ? "Stripe Connect is not configured yet."
         : "Something went wrong while starting Stripe onboarding.";
 
-    return NextResponse.redirect(buildStripeRedirect(request, "error", message));
+    return NextResponse.redirect(buildStripeRedirect("error", message));
   }
 }

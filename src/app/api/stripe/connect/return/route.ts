@@ -1,9 +1,10 @@
 import { UserRole } from "@prisma/client";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   syncTherapistStripeAccountStatus,
   StripeConnectServiceError,
@@ -11,26 +12,22 @@ import {
 
 export const runtime = "nodejs";
 
-function buildAppUrl(request: NextRequest, pathname: string) {
-  return new URL(pathname, request.url);
-}
-
-function buildStripeRedirect(request: NextRequest, status: "success" | "error", message: string) {
-  const redirectUrl = buildAppUrl(request, "/therapist/payout-details");
+function buildStripeRedirect(status: "success" | "error", message: string) {
+  const redirectUrl = buildCanonicalAppUrl("/therapist/payout-details");
   redirectUrl.searchParams.set("stripe_status", status);
   redirectUrl.searchParams.set("stripe_message", message);
   return redirectUrl;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.redirect(buildAppUrl(request, AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildAppUrl(request, "/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
   }
 
   try {
@@ -40,10 +37,10 @@ export async function GET(request: NextRequest) {
       ? "Stripe account is connected and ready for paid sessions."
       : "Stripe onboarding was saved. Stripe may still require additional details before paid sessions are enabled.";
 
-    return NextResponse.redirect(buildStripeRedirect(request, "success", message));
+    return NextResponse.redirect(buildStripeRedirect("success", message));
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
     }
 
     const message =
@@ -51,6 +48,6 @@ export async function GET(request: NextRequest) {
         ? "Stripe Connect is not configured yet."
         : "Unable to refresh Stripe account status.";
 
-    return NextResponse.redirect(buildStripeRedirect(request, "error", message));
+    return NextResponse.redirect(buildStripeRedirect("error", message));
   }
 }
