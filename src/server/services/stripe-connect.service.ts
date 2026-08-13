@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 
 export class StripeConnectServiceError extends Error {
@@ -40,15 +41,6 @@ function assertStripeConfigured() {
       "STRIPE_NOT_CONFIGURED",
     );
   }
-}
-
-function buildAppUrl(path: string) {
-  const baseUrl =
-    process.env.APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  return new URL(path, baseUrl).toString();
 }
 
 function getAccountDisabledReason(account: Stripe.Account) {
@@ -287,8 +279,8 @@ export async function createTherapistStripeAccountLink(therapistUserId: string) 
   try {
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: buildAppUrl("/api/stripe/connect/refresh"),
-      return_url: buildAppUrl("/api/stripe/connect/return"),
+      refresh_url: buildCanonicalAppUrl("/api/stripe/connect/refresh").toString(),
+      return_url: buildCanonicalAppUrl("/api/stripe/connect/return").toString(),
       type: "account_onboarding",
     });
 
