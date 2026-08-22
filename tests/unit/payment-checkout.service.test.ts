@@ -150,6 +150,7 @@ describe("payment checkout settlement", () => {
         create: expect.objectContaining({
           paymentStatus: PaymentStatus.PAID,
           amount: 10000,
+          promoDiscountPercent: null,
           therapistAmount: 9000,
           platformFeeAmount: 1000,
           creditAppliedAmount: 10000,
@@ -159,7 +160,7 @@ describe("payment checkout settlement", () => {
   });
 
   it("creates partial-credit Checkout with a versioned idempotency key", async () => {
-    configureTransaction(2500);
+    const tx = configureTransaction(2500);
 
     const result = await createClientStripeCheckoutSession("client-id", checkoutInput);
 
@@ -178,6 +179,12 @@ describe("payment checkout settlement", () => {
       }),
       expect.objectContaining({
         idempotencyKey: expect.stringMatching(/^theraply-checkout-payment-id-\d+$/),
+      }),
+    );
+    expect(tx.payment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ promoDiscountPercent: null }),
+        create: expect.objectContaining({ promoDiscountPercent: null }),
       }),
     );
     expect(lockMock).toHaveBeenCalledTimes(2);
