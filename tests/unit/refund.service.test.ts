@@ -54,6 +54,13 @@ function buildBooking(paymentOverrides: Record<string, unknown> = {}) {
       stripeRefundId: null,
       refundedAmount: null,
       creditAppliedAmount: 0,
+      promoCodeSnapshot: null,
+      promoDiscountPercent: null,
+      promoDiscountAmount: null,
+      clientPayableAmount: null,
+      stripeChargeAmount: null,
+      platformFeeAmount: null,
+      therapistAmount: null,
       transferStatus: PaymentTransferStatus.NOT_ELIGIBLE,
       ...paymentOverrides,
     },
@@ -165,5 +172,77 @@ describe("refund service financial settlement", () => {
     expect(auditMock).toHaveBeenCalledWith(
       expect.objectContaining({ action: "REFUND_TRANSFER_RECONCILIATION_REQUIRED" }),
     );
+  });
+
+  it("refunds only the captured Stripe amount for a promo payment", async () => {
+    findBookingMock.mockResolvedValue(
+      buildBooking({
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountPercent: 5,
+        promoDiscountAmount: 500,
+        clientPayableAmount: 9500,
+        stripeChargeAmount: 9500,
+        platformFeeAmount: 500,
+        therapistAmount: 9000,
+      }),
+    );
+    refundCreateMock.mockResolvedValue({ id: "re_promo", amount: 9500 });
+
+    await refundPlatformCancellationIfEligible(refundInput);
+
+    expect(markRefundedMock).toHaveBeenCalledWith("booking-id", {
+      refundId: "re_promo",
+      refundedAmount: 9500,
+      refundReason: refundInput.businessReason,
+    });
+  });
+
+  it("refunds Stripe and restores credit without restoring promo value", async () => {
+    findBookingMock.mockResolvedValue(
+      buildBooking({
+        creditAppliedAmount: 2000,
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountPercent: 5,
+        promoDiscountAmount: 500,
+        clientPayableAmount: 9500,
+        stripeChargeAmount: 7500,
+        platformFeeAmount: 500,
+        therapistAmount: 9000,
+      }),
+    );
+    refundCreateMock.mockResolvedValue({ id: "re_promo_credit", amount: 7500 });
+
+    await refundPlatformCancellationIfEligible(refundInput);
+
+    expect(markRefundedMock).toHaveBeenCalledWith("booking-id", {
+      refundId: "re_promo_credit",
+      refundedAmount: 7500,
+      refundReason: refundInput.businessReason,
+    });
+  });
+
+  it("restores only client credit for a full-credit promo payment", async () => {
+    findBookingMock.mockResolvedValue(
+      buildBooking({
+        stripePaymentIntentId: null,
+        creditAppliedAmount: 9500,
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountPercent: 5,
+        promoDiscountAmount: 500,
+        clientPayableAmount: 9500,
+        stripeChargeAmount: 0,
+        platformFeeAmount: 500,
+        therapistAmount: 9000,
+      }),
+    );
+
+    await refundPlatformCancellationIfEligible(refundInput);
+
+    expect(refundCreateMock).not.toHaveBeenCalled();
+    expect(markRefundedMock).toHaveBeenCalledWith("booking-id", {
+      refundId: null,
+      refundedAmount: 0,
+      refundReason: refundInput.businessReason,
+    });
   });
 });

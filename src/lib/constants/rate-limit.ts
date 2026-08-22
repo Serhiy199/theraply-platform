@@ -6,6 +6,7 @@ export const RATE_LIMIT_SCOPES = {
   authChangePassword: "auth:change-password",
   authResendVerification: "auth:resend-verification",
   stripeCheckout: "stripe:checkout",
+  promoCodePreview: "promo-code:preview",
   stripeConnect: "stripe:connect",
   therapistProfilePhotoUpload: "therapist:profile-photo-upload",
   therapistProfilePhotoConfirmUpload: "therapist:profile-photo-confirm-upload",
@@ -62,6 +63,11 @@ export const RATE_LIMIT_PRESETS = {
   stripeCheckout: {
     scope: RATE_LIMIT_SCOPES.stripeCheckout,
     limit: 10,
+    windowMs: 5 * MINUTE,
+  },
+  promoCodePreview: {
+    scope: RATE_LIMIT_SCOPES.promoCodePreview,
+    limit: 20,
     windowMs: 5 * MINUTE,
   },
   stripeConnect: {

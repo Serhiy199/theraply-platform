@@ -142,4 +142,35 @@ describe("payment refund reconciliation", () => {
       expect.objectContaining({ action: "REFUND_TRANSFER_RECONCILIATION_REQUIRED" }),
     );
   });
+
+  it("restores only the frozen client credit for a full-credit promo payment", async () => {
+    const { tx, getPayment } = configureRefund({
+      creditAppliedAmount: 9500,
+      promoCodeSnapshot: "SAVE5",
+      promoDiscountPercent: 5,
+      promoDiscountAmount: 500,
+      clientPayableAmount: 9500,
+      stripeChargeAmount: 0,
+      platformFeeAmount: 500,
+    });
+    issueCreditMock.mockResolvedValue({ amount: 9500, issuedNow: true });
+
+    await markStripeChargeRefunded("booking-id", {
+      refundId: null,
+      refundedAmount: 0,
+      refundReason: "Booking cancelled.",
+    });
+
+    expect(issueCreditMock).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ amount: 9500 }),
+    );
+    expect(getPayment()).toEqual(
+      expect.objectContaining({
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountAmount: 500,
+        creditAppliedAmount: 9500,
+      }),
+    );
+  });
 });

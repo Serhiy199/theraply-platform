@@ -45,6 +45,11 @@ function resetPayment() {
     paymentStatus: PaymentStatus.PENDING,
     paidAt: null,
     creditAppliedAmount: 2500,
+    promoCodeSnapshot: null,
+    promoDiscountPercent: null,
+    promoDiscountAmount: null,
+    clientPayableAmount: null,
+    stripeChargeAmount: null,
     stripeCheckoutSessionId: null,
     stripeChargeId: null,
     stripeRefundId: null,
@@ -157,5 +162,61 @@ describe("payment snapshot reconciliation", () => {
     ).rejects.toMatchObject({
       code: "PAYMENT_RECORD_NOT_FOUND",
     } satisfies Partial<PaymentFlowServiceError>);
+  });
+
+  it("reconciles a frozen promo snapshot without reading the current PromoCode", async () => {
+    payment = {
+      ...payment,
+      promoCodeSnapshot: "SAVE5",
+      promoDiscountPercent: 5,
+      promoDiscountAmount: 500,
+      clientPayableAmount: 9500,
+      stripeChargeAmount: 7000,
+      platformFeeAmount: 500,
+    };
+
+    await markStripePaymentIntentSucceeded("booking-id", {
+      ...intentSuccess,
+      amount: 7000,
+      metadata: {
+        paymentId: "payment-id",
+        promoCode: "SAVE5",
+        promoDiscountPercent: "5",
+        promoDiscountAmount: "500",
+        clientPayableAmount: "9500",
+        creditAppliedAmount: "2500",
+        stripeChargeAmount: "7000",
+      },
+    });
+
+    expect(payment).toEqual(
+      expect.objectContaining({
+        paymentStatus: PaymentStatus.PAID,
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountAmount: 500,
+        stripeChargeAmount: 7000,
+      }),
+    );
+  });
+
+  it("fails closed when Stripe promo metadata conflicts with the snapshot", async () => {
+    payment = {
+      ...payment,
+      promoCodeSnapshot: "SAVE5",
+      promoDiscountPercent: 5,
+      promoDiscountAmount: 500,
+      clientPayableAmount: 9500,
+      stripeChargeAmount: 7000,
+      platformFeeAmount: 500,
+    };
+
+    await expect(
+      markStripePaymentIntentSucceeded("booking-id", {
+        ...intentSuccess,
+        amount: 7000,
+        metadata: { promoDiscountAmount: "501" },
+      }),
+    ).rejects.toMatchObject({ code: "PAYMENT_SNAPSHOT_MISMATCH" });
+    expect(updatePaymentMock).not.toHaveBeenCalled();
   });
 });

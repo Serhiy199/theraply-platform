@@ -79,7 +79,13 @@ function buildTransferBooking(overrides: Record<string, unknown> = {}) {
       stripeTransferGroup: "theraply_booking_booking-id",
       stripeTransferId: null,
       therapistAmount: 9000,
+      platformFeeAmount: 1000,
       creditAppliedAmount: 0,
+      promoCodeSnapshot: null,
+      promoDiscountPercent: null,
+      promoDiscountAmount: null,
+      clientPayableAmount: null,
+      stripeChargeAmount: null,
       transferredAt: null,
       transferAttemptCount: 0,
     },
@@ -230,6 +236,60 @@ describe("therapist transfer service", () => {
 
     expect(result.status).toBe("transferred");
     expect(transferCreateMock.mock.calls[0]?.[0]).not.toHaveProperty("source_transaction");
+  });
+
+  it("keeps SAVE5 plus £5 credit source-bound at the therapist threshold", async () => {
+    findBookingMock.mockResolvedValue(
+      buildTransferBooking({
+        payment: {
+          ...buildTransferBooking().payment,
+          creditAppliedAmount: 500,
+          promoCodeSnapshot: "SAVE5",
+          promoDiscountPercent: 5,
+          promoDiscountAmount: 500,
+          clientPayableAmount: 9500,
+          stripeChargeAmount: 9000,
+          platformFeeAmount: 500,
+        },
+      }),
+    );
+
+    await createTherapistTransferForBooking("booking-id", "admin-id");
+
+    expect(transferCreateMock.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        amount: 9000,
+        source_transaction: "ch_123",
+      }),
+    );
+  });
+
+  it("uses platform balance for SAVE5 plus £20 credit", async () => {
+    findBookingMock.mockResolvedValue(
+      buildTransferBooking({
+        payment: {
+          ...buildTransferBooking().payment,
+          creditAppliedAmount: 2000,
+          promoCodeSnapshot: "SAVE5",
+          promoDiscountPercent: 5,
+          promoDiscountAmount: 500,
+          clientPayableAmount: 9500,
+          stripeChargeAmount: 7500,
+          platformFeeAmount: 500,
+        },
+      }),
+    );
+
+    await createTherapistTransferForBooking("booking-id", "admin-id");
+
+    const transferParams = transferCreateMock.mock.calls[0]?.[0];
+    expect(transferParams).toEqual(
+      expect.objectContaining({
+        amount: 9000,
+        metadata: expect.objectContaining({ fundingSource: "PLATFORM_BALANCE" }),
+      }),
+    );
+    expect(transferParams).not.toHaveProperty("source_transaction");
   });
 
   it("stores a safe failure and can retry a platform-funded transfer", async () => {

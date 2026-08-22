@@ -221,21 +221,39 @@ export function buildPromoPaymentSnapshot({
 export function resolvePaymentFinancialSnapshot(
   payment: PaymentFinancialSnapshotSource,
 ): ResolvedPaymentFinancialSnapshot {
-  const snapshotValues = [
-    payment.promoCodeSnapshot,
+  const numericSnapshotValues = [
     payment.promoDiscountPercent,
     payment.promoDiscountAmount,
     payment.clientPayableAmount,
     payment.stripeChargeAmount,
   ];
-  const hasSnapshotValue = snapshotValues.some((value) => value !== null);
-  const hasCompleteSnapshot = snapshotValues.every((value) => value !== null);
+  const hasSnapshotValue =
+    payment.promoCodeSnapshot !== null ||
+    numericSnapshotValues.some((value) => value !== null);
+  const hasCompleteNumericSnapshot = numericSnapshotValues.every(
+    (value) => value !== null,
+  );
 
-  if (hasSnapshotValue && !hasCompleteSnapshot) {
+  if (hasSnapshotValue && !hasCompleteNumericSnapshot) {
     throw new PromoCodeValidationError(
       "INCOMPLETE_PAYMENT_SNAPSHOT",
       "Payment promo snapshot is incomplete.",
     );
+  }
+
+  if (hasCompleteNumericSnapshot) {
+    const discountPercent = payment.promoDiscountPercent!;
+    const discountAmount = payment.promoDiscountAmount!;
+
+    if (payment.promoCodeSnapshot) {
+      validatePromoCodeFormat(payment.promoCodeSnapshot);
+      validatePromoDiscountPercent(discountPercent);
+    } else if (discountPercent !== 0 || discountAmount !== 0) {
+      throw new PromoCodeValidationError(
+        "INCOMPLETE_PAYMENT_SNAPSHOT",
+        "Payment promo identity is missing from a discounted snapshot.",
+      );
+    }
   }
 
   const calculated = calculatePaymentBreakdown({
@@ -244,7 +262,7 @@ export function resolvePaymentFinancialSnapshot(
     availableClientCredit: payment.creditAppliedAmount ?? 0,
   });
 
-  if (!hasCompleteSnapshot) {
+  if (!hasCompleteNumericSnapshot) {
     return Object.freeze({
       ...calculated,
       therapistAmount: payment.therapistAmount ?? calculated.therapistAmount,
@@ -254,13 +272,23 @@ export function resolvePaymentFinancialSnapshot(
     });
   }
 
+  if (
+    payment.promoDiscountAmount !== calculated.promoDiscountAmount ||
+    payment.clientPayableAmount !== calculated.clientPayableAmount ||
+    payment.stripeChargeAmount !== calculated.stripeChargeAmount ||
+    (payment.therapistAmount !== null &&
+      payment.therapistAmount !== calculated.therapistAmount) ||
+    (payment.platformFeeAmount !== null &&
+      payment.platformFeeAmount !== calculated.platformFeeAmount)
+  ) {
+    throw new PromoCodeValidationError(
+      "INCOMPLETE_PAYMENT_SNAPSHOT",
+      "Payment financial snapshot does not match the canonical breakdown.",
+    );
+  }
+
   return Object.freeze({
     ...calculated,
-    therapistAmount: payment.therapistAmount ?? calculated.therapistAmount,
-    platformFeeAmount: payment.platformFeeAmount ?? calculated.platformFeeAmount,
-    promoDiscountAmount: payment.promoDiscountAmount!,
-    clientPayableAmount: payment.clientPayableAmount!,
-    stripeChargeAmount: payment.stripeChargeAmount!,
     promoCodeSnapshot: payment.promoCodeSnapshot,
   });
 }

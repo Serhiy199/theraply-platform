@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { CANCELLATION_POLICY_HOURS } from "@/lib/constants/bookings";
-import { calculatePaymentBreakdown } from "@/lib/payment-breakdown";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { markStripeChargeRefunded } from "@/server/services/payment-flow.service";
 
@@ -86,6 +86,13 @@ async function getBookingPaymentContextOrThrow(bookingId: string) {
           stripeRefundId: true,
           refundedAmount: true,
           creditAppliedAmount: true,
+          promoCodeSnapshot: true,
+          promoDiscountPercent: true,
+          promoDiscountAmount: true,
+          clientPayableAmount: true,
+          stripeChargeAmount: true,
+          platformFeeAmount: true,
+          therapistAmount: true,
           transferStatus: true,
         },
       },
@@ -330,10 +337,16 @@ async function requestStripeRefundForBooking(input: {
     );
   }
 
-  const snapshot = calculatePaymentBreakdown({
-    grossAmount: payment.amount,
-    availableClientCredit: payment.creditAppliedAmount ?? 0,
-  });
+  let snapshot;
+
+  try {
+    snapshot = resolvePaymentFinancialSnapshot(payment);
+  } catch {
+    throw new RefundServiceError(
+      "The authoritative Payment snapshot is incomplete, so the refund cannot be reconciled safely.",
+      "REFUND_CREATE_FAILED",
+    );
+  }
 
   if (!payment.stripePaymentIntentId) {
     if (snapshot.stripeChargeAmount === 0 && snapshot.creditAppliedAmount > 0) {
@@ -395,7 +408,7 @@ async function requestStripeRefundForBooking(input: {
 
     await markStripeChargeRefunded(booking.id, {
       refundId: refund.id,
-      refundedAmount: refund.amount ?? payment.amount,
+      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
       refundReason: input.businessReason,
     });
 
@@ -411,7 +424,7 @@ async function requestStripeRefundForBooking(input: {
       after: {
         bookingId: booking.id,
         refundId: refund.id,
-        refundedAmount: refund.amount ?? payment.amount,
+        refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
         trigger: input.trigger,
         businessReason: input.businessReason,
       },
@@ -421,7 +434,7 @@ async function requestStripeRefundForBooking(input: {
       status: "refunded",
       reason: "REFUNDED",
       refundId: refund.id,
-      refundedAmount: refund.amount ?? payment.amount,
+      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
     };
   } catch (error) {
     logDiagnosticEvent("refund-service", "Unable to create Stripe refund.", {

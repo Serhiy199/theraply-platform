@@ -169,6 +169,8 @@ export function getSafePaymentFlowErrorMessage(code: string) {
       return "Stripe Checkout could not be started right now.";
     case "PAYMENT_RECORD_NOT_FOUND":
       return "Payment record could not be found.";
+    case "PROMO_CODE_INVALID":
+      return "This promo code is invalid or unavailable.";
     default:
       return SAFE_ERROR_MESSAGES.genericPayment;
   }

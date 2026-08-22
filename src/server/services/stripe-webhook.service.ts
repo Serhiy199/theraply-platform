@@ -148,6 +148,7 @@ async function markCheckoutCompleted(session: Stripe.Checkout.Session) {
     paymentIntentId,
     amount: amountTotal,
     currency,
+    metadata: session.metadata,
   });
 
   await createAuditLogEntryBestEffort({
@@ -181,6 +182,7 @@ async function markPaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     amount: paymentIntent.amount,
     currency: paymentIntent.currency ?? "gbp",
     failedReason,
+    metadata: paymentIntent.metadata,
   });
 
   await createAuditLogEntryBestEffort({
@@ -211,6 +213,7 @@ async function markPaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     chargeId: getPaymentIntentChargeId(paymentIntent),
     amount: paymentIntent.amount_received || paymentIntent.amount,
     currency: paymentIntent.currency ?? "gbp",
+    metadata: paymentIntent.metadata,
   });
 
   await createAuditLogEntryBestEffort({
@@ -246,6 +249,7 @@ async function markCheckoutExpired(session: Stripe.Checkout.Session) {
         ? new Date(session.expires_at * 1000)
         : null,
     failedReason,
+    metadata: session.metadata,
   });
 
   await createAuditLogEntryBestEffort({

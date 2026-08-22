@@ -235,4 +235,43 @@ describe("promo code domain", () => {
       expect.objectContaining({ code: "INCOMPLETE_PAYMENT_SNAPSHOT" }),
     );
   });
+
+  it("accepts a complete modern no-promo snapshot", () => {
+    expect(
+      resolvePaymentFinancialSnapshot({
+        amount: 10000,
+        therapistAmount: 9000,
+        platformFeeAmount: 1000,
+        creditAppliedAmount: 2000,
+        promoCodeSnapshot: null,
+        promoDiscountPercent: 0,
+        promoDiscountAmount: 0,
+        clientPayableAmount: 10000,
+        stripeChargeAmount: 8000,
+      }),
+    ).toMatchObject({
+      promoCodeSnapshot: null,
+      promoDiscountAmount: 0,
+      clientPayableAmount: 10000,
+      stripeChargeAmount: 8000,
+    });
+  });
+
+  it("fails closed when stored promo arithmetic differs from canonical values", () => {
+    expect(() =>
+      resolvePaymentFinancialSnapshot({
+        amount: 10000,
+        therapistAmount: 9000,
+        platformFeeAmount: 500,
+        creditAppliedAmount: 2000,
+        promoCodeSnapshot: "SAVE5",
+        promoDiscountPercent: 5,
+        promoDiscountAmount: 501,
+        clientPayableAmount: 9499,
+        stripeChargeAmount: 7499,
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "INCOMPLETE_PAYMENT_SNAPSHOT" }),
+    );
+  });
 });

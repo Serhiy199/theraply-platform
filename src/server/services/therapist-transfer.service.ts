@@ -10,7 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
-import { calculatePaymentBreakdown } from "@/lib/payment-breakdown";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
@@ -115,7 +115,13 @@ const transferBookingSelect = {
       stripeTransferGroup: true,
       stripeTransferId: true,
       therapistAmount: true,
+      platformFeeAmount: true,
       creditAppliedAmount: true,
+      promoCodeSnapshot: true,
+      promoDiscountPercent: true,
+      promoDiscountAmount: true,
+      clientPayableAmount: true,
+      stripeChargeAmount: true,
       transferredAt: true,
       transferAttemptCount: true,
     },
@@ -183,6 +189,17 @@ function buildSkippedResult(
   };
 }
 
+function getTransferPaymentSnapshot(payment: NonNullable<TransferBooking["payment"]>) {
+  try {
+    return resolvePaymentFinancialSnapshot(payment);
+  } catch (error) {
+    throw new TherapistTransferServiceError(
+      error instanceof Error ? error.message : "Payment snapshot is invalid.",
+      "TRANSFER_CREATE_FAILED",
+    );
+  }
+}
+
 async function getTransferBookingOrThrow(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -218,10 +235,7 @@ function evaluateTransferEligibility(
     return buildSkippedResult(booking, "SESSION_NOT_SETTLED");
   }
 
-  const snapshot = calculatePaymentBreakdown({
-    grossAmount: booking.payment.amount,
-    availableClientCredit: booking.payment.creditAppliedAmount ?? 0,
-  });
+  const snapshot = getTransferPaymentSnapshot(booking.payment);
 
   if (
     snapshot.stripeChargeAmount >=
@@ -275,10 +289,7 @@ export async function createTherapistTransferForBooking(
     return buildSkippedResult(booking, "THERAPIST_STRIPE_NOT_READY");
   }
 
-  const snapshot = calculatePaymentBreakdown({
-    grossAmount: payment.amount,
-    availableClientCredit: payment.creditAppliedAmount ?? 0,
-  });
+  const snapshot = getTransferPaymentSnapshot(payment);
   const therapistAmount = payment.therapistAmount ?? snapshot.therapistAmount;
   const sourceBound =
     snapshot.stripeChargeAmount >= therapistAmount &&

@@ -9,6 +9,7 @@ const checkoutExpireMock = vi.hoisted(() => vi.fn());
 const lockMock = vi.hoisted(() => vi.fn());
 const applyCreditMock = vi.hoisted(() => vi.fn());
 const reverseCreditMock = vi.hoisted(() => vi.fn());
+const auditMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -46,7 +47,7 @@ vi.mock("@/server/services/client-credit.service", () => ({
 }));
 
 vi.mock("@/server/services/audit-log.service", () => ({
-  createAuditLogEntryBestEffort: vi.fn(),
+  createAuditLogEntryBestEffort: auditMock,
 }));
 
 vi.mock("@/server/services/transactional-email-events.service", () => ({
@@ -99,6 +100,9 @@ function configureTransaction(creditBalance: number) {
     payment: {
       upsert: vi.fn().mockResolvedValue({ id: "payment-id" }),
     },
+    promoCode: {
+      findUnique: vi.fn(),
+    },
   };
 
   transactionMock.mockImplementation(async (callback) => callback(tx));
@@ -119,6 +123,7 @@ beforeEach(() => {
     payment_intent: "pi_123",
   });
   checkoutExpireMock.mockResolvedValue({});
+  auditMock.mockResolvedValue(undefined);
 });
 
 const checkoutInput = {
@@ -197,5 +202,111 @@ describe("payment checkout settlement", () => {
         }),
       }),
     );
+  });
+
+  it.each([
+    { percent: 1, charge: 9900, platform: 900 },
+    { percent: 5, charge: 9500, platform: 500 },
+    { percent: 10, charge: 9000, platform: 0 },
+  ])("freezes a canonical $percent% promo snapshot", async (expected) => {
+    const tx = configureTransaction(0);
+    tx.promoCode.findUnique.mockResolvedValue({
+      id: "promo-id",
+      code: `SAVE${expected.percent}`,
+      discountPercent: expected.percent,
+      isActive: true,
+      expiresAt: null,
+    });
+
+    const result = await createClientStripeCheckoutSession("client-id", {
+      ...checkoutInput,
+      promoCode: ` save${expected.percent} `,
+    });
+
+    expect(result.chargeAmount).toBe(expected.charge);
+    expect(tx.payment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          promoCodeId: "promo-id",
+          promoCodeSnapshot: `SAVE${expected.percent}`,
+          promoDiscountPercent: expected.percent,
+          promoDiscountAmount: 10000 - expected.charge,
+          clientPayableAmount: expected.charge,
+          stripeChargeAmount: expected.charge,
+          therapistAmount: 9000,
+          platformFeeAmount: expected.platform,
+        }),
+      }),
+    );
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "PROMO_CODE_APPLIED" }),
+    );
+  });
+
+  it.each([
+    { credit: 500, applied: 500, stripe: 9000 },
+    { credit: 2000, applied: 2000, stripe: 7500 },
+    { credit: 10000, applied: 9500, stripe: 0 },
+  ])("applies client credit after the promo for %#", async (expected) => {
+    const tx = configureTransaction(expected.credit);
+    tx.promoCode.findUnique.mockResolvedValue({
+      id: "promo-id",
+      code: "SAVE5",
+      discountPercent: 5,
+      isActive: true,
+      expiresAt: null,
+    });
+
+    const result = await createClientStripeCheckoutSession("client-id", {
+      ...checkoutInput,
+      promoCode: "SAVE5",
+    });
+
+    expect(result).toMatchObject({
+      creditAppliedAmount: expected.applied,
+      chargeAmount: expected.stripe,
+      clientPayableAmount: 9500,
+      promoDiscountAmount: 500,
+    });
+    expect(tx.payment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          creditAppliedAmount: expected.applied,
+          stripeChargeAmount: expected.stripe,
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ["inactive", { id: "promo-id", code: "SAVE5", discountPercent: 5, isActive: false, expiresAt: null }],
+    ["expired", { id: "promo-id", code: "SAVE5", discountPercent: 5, isActive: true, expiresAt: new Date("2020-01-01T00:00:00Z") }],
+    ["invalid-discount", { id: "promo-id", code: "SAVE5", discountPercent: 11, isActive: true, expiresAt: null }],
+    ["unknown", null],
+  ])("rejects an %s promo before creating a Payment", async (_label, promo) => {
+    const tx = configureTransaction(0);
+    tx.promoCode.findUnique.mockResolvedValue(promo);
+
+    await expect(
+      createClientStripeCheckoutSession("client-id", {
+        ...checkoutInput,
+        promoCode: "SAVE5",
+      }),
+    ).rejects.toMatchObject({ code: "PROMO_CODE_INVALID" });
+    expect(tx.payment.upsert).not.toHaveBeenCalled();
+    expect(checkoutCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed promo before querying campaign data", async () => {
+    const tx = configureTransaction(0);
+
+    await expect(
+      createClientStripeCheckoutSession("client-id", {
+        ...checkoutInput,
+        promoCode: "SAVE 5",
+      }),
+    ).rejects.toMatchObject({ code: "PROMO_CODE_INVALID" });
+    expect(tx.promoCode.findUnique).not.toHaveBeenCalled();
+    expect(tx.payment.upsert).not.toHaveBeenCalled();
   });
 });
