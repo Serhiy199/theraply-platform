@@ -24,7 +24,13 @@ export async function acquireFinancialTransactionLock(
   tx: CreditDbClient,
   lockKey: string,
 ) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`theraply:${lockKey}`}))`;
+  await tx.$queryRaw`
+    WITH financial_lock AS (
+      SELECT pg_advisory_xact_lock(hashtext(${`theraply:${lockKey}`}))
+    )
+    SELECT 1::integer AS acquired
+    FROM financial_lock
+  `;
 }
 
 export type ClientCreditTransactionItem = {

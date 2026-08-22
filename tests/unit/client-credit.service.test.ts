@@ -1,6 +1,7 @@
 import { ClientCreditTransactionType } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  acquireFinancialTransactionLock,
   applyClientCreditToPayment,
   ClientCreditServiceError,
   reverseClientCreditApplication,
@@ -94,6 +95,16 @@ beforeEach(() => {
 });
 
 describe("client credit application", () => {
+  it("projects a supported scalar after acquiring the PostgreSQL advisory lock", async () => {
+    const queryRaw = tx.$queryRaw as ReturnType<typeof vi.fn>;
+
+    await acquireFinancialTransactionLock(tx as never, "client-credit:client-id");
+
+    const sql = (queryRaw.mock.calls[0]?.[0] as TemplateStringsArray).join("?");
+    expect(sql).toContain("WITH financial_lock AS");
+    expect(sql).toContain("SELECT 1::integer AS acquired");
+  });
+
   it("applies the exact requested amount", async () => {
     await expect(applyClientCreditToPayment(creditInput)).resolves.toBe(2000);
 
