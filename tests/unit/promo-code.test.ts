@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertPromoCodeUsable,
   buildPromoPaymentSnapshot,
+  getPromoCodeLifecycleStatus,
   isPromoCodeCurrentlyValid,
   normalizePromoCode,
   PromoCodeValidationError,
@@ -92,6 +93,26 @@ describe("promo code domain", () => {
         now,
       ),
     ).toThrowError(expect.objectContaining({ code: "EXPIRED" }));
+  });
+
+  it("computes ACTIVE, INACTIVE, and EXPIRED lifecycle states", () => {
+    const now = new Date("2026-08-22T12:00:00.000Z");
+
+    expect(
+      getPromoCodeLifecycleStatus({ isActive: true, expiresAt: null }, now),
+    ).toBe("ACTIVE");
+    expect(
+      getPromoCodeLifecycleStatus(
+        { isActive: false, expiresAt: new Date("2026-08-23T12:00:00.000Z") },
+        now,
+      ),
+    ).toBe("INACTIVE");
+    expect(
+      getPromoCodeLifecycleStatus(
+        { isActive: true, expiresAt: new Date("2026-08-22T12:00:00.000Z") },
+        now,
+      ),
+    ).toBe("EXPIRED");
   });
 
   it.each([

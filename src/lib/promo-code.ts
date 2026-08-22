@@ -18,6 +18,8 @@ export type PromoCodeDefinition = {
   expiresAt: Date | null;
 };
 
+export type PromoCodeLifecycleStatus = "ACTIVE" | "INACTIVE" | "EXPIRED";
+
 export type PromoPaymentSnapshot = Readonly<{
   promoCodeId: string;
   promoCodeSnapshot: string;
@@ -163,6 +165,21 @@ export function isPromoCodeCurrentlyValid(
 
     throw error;
   }
+}
+
+export function getPromoCodeLifecycleStatus(
+  promoCode: Pick<PromoCodeDefinition, "isActive" | "expiresAt">,
+  now: Date = new Date(),
+): PromoCodeLifecycleStatus {
+  if (!promoCode.isActive) {
+    return "INACTIVE";
+  }
+
+  if (promoCode.expiresAt && now.getTime() >= promoCode.expiresAt.getTime()) {
+    return "EXPIRED";
+  }
+
+  return "ACTIVE";
 }
 
 export function buildPromoPaymentSnapshot({

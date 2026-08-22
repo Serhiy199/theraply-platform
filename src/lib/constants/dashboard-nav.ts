@@ -129,6 +129,12 @@ export const dashboardNavByRole: Record<UserRole, DashboardNavItem[]> = {
       description: "Track payment state, refunds, and payout visibility.",
     },
     {
+      key: "admin-promocodes",
+      href: "/admin/promocodes",
+      label: "Promo Codes",
+      description: "Create and manage platform-funded promo campaigns.",
+    },
+    {
       key: "admin-change-password",
       href: "/change-password",
       label: "Password",

@@ -98,3 +98,9 @@ fields null and use the no-promo calculation fallback.
 
 This phase adds persistence and domain primitives only. It does not apply promo
 codes to checkout, Stripe webhooks, refunds, transfers, or application UI.
+
+Admin promo management uses `/admin/promocodes`. Codes are immutable after
+creation and are never hard-deleted. Discount percentage can be edited only
+until the first Payment references the PromoCode; expiry and active state remain
+editable afterward. The admin `Uses` count is the number of associated Payment
+records, regardless of their final payment status.
