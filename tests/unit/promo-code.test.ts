@@ -244,7 +244,7 @@ describe("promo code domain", () => {
         platformFeeAmount: 1000,
         creditAppliedAmount: 2000,
         promoCodeSnapshot: null,
-        promoDiscountPercent: 0,
+        promoDiscountPercent: null,
         promoDiscountAmount: 0,
         clientPayableAmount: 10000,
         stripeChargeAmount: 8000,

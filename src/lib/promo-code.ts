@@ -221,18 +221,18 @@ export function buildPromoPaymentSnapshot({
 export function resolvePaymentFinancialSnapshot(
   payment: PaymentFinancialSnapshotSource,
 ): ResolvedPaymentFinancialSnapshot {
-  const numericSnapshotValues = [
-    payment.promoDiscountPercent,
+  const financialSnapshotValues = [
     payment.promoDiscountAmount,
     payment.clientPayableAmount,
     payment.stripeChargeAmount,
   ];
   const hasSnapshotValue =
     payment.promoCodeSnapshot !== null ||
-    numericSnapshotValues.some((value) => value !== null);
-  const hasCompleteNumericSnapshot = numericSnapshotValues.every(
+    payment.promoDiscountPercent !== null ||
+    financialSnapshotValues.some((value) => value !== null);
+  const hasCompleteNumericSnapshot = financialSnapshotValues.every(
     (value) => value !== null,
-  );
+  ) && (payment.promoCodeSnapshot === null || payment.promoDiscountPercent !== null);
 
   if (hasSnapshotValue && !hasCompleteNumericSnapshot) {
     throw new PromoCodeValidationError(
@@ -242,13 +242,16 @@ export function resolvePaymentFinancialSnapshot(
   }
 
   if (hasCompleteNumericSnapshot) {
-    const discountPercent = payment.promoDiscountPercent!;
+    const discountPercent = payment.promoDiscountPercent ?? 0;
     const discountAmount = payment.promoDiscountAmount!;
 
     if (payment.promoCodeSnapshot) {
       validatePromoCodeFormat(payment.promoCodeSnapshot);
       validatePromoDiscountPercent(discountPercent);
-    } else if (discountPercent !== 0 || discountAmount !== 0) {
+    } else if (
+      (payment.promoDiscountPercent !== null && discountPercent !== 0) ||
+      discountAmount !== 0
+    ) {
       throw new PromoCodeValidationError(
         "INCOMPLETE_PAYMENT_SNAPSHOT",
         "Payment promo identity is missing from a discounted snapshot.",
