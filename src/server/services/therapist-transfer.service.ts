@@ -10,7 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
-import { THERAPIST_SHARE_PERCENT } from "@/lib/constants/payments";
+import { calculatePaymentBreakdown } from "@/lib/payment-breakdown";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
@@ -115,6 +115,7 @@ const transferBookingSelect = {
       stripeTransferGroup: true,
       stripeTransferId: true,
       therapistAmount: true,
+      creditAppliedAmount: true,
       transferredAt: true,
       transferAttemptCount: true,
     },
@@ -131,10 +132,6 @@ function normalizeLimit(limit?: number) {
   }
 
   return Math.max(1, Math.min(Math.trunc(limit), 250));
-}
-
-function getTherapistAmount(amount: number) {
-  return Math.round((amount * THERAPIST_SHARE_PERCENT) / 100);
 }
 
 function getTransferGroup(bookingId: string) {
@@ -221,7 +218,16 @@ function evaluateTransferEligibility(
     return buildSkippedResult(booking, "SESSION_NOT_SETTLED");
   }
 
-  if (!booking.payment.stripeChargeId) {
+  const snapshot = calculatePaymentBreakdown({
+    grossAmount: booking.payment.amount,
+    availableClientCredit: booking.payment.creditAppliedAmount ?? 0,
+  });
+
+  if (
+    snapshot.stripeChargeAmount >=
+      (booking.payment.therapistAmount ?? snapshot.therapistAmount) &&
+    !booking.payment.stripeChargeId
+  ) {
     return buildSkippedResult(booking, "CHARGE_MISSING");
   }
 
@@ -265,11 +271,18 @@ export async function createTherapistTransferForBooking(
   const stripeAccountId = booking.therapist.therapistProfile?.stripeAccountId;
   const settlementReason = getTransferSettlementReason(booking);
 
-  if (!payment || !stripeAccountId || !payment.stripeChargeId || !settlementReason) {
+  if (!payment || !stripeAccountId || !settlementReason) {
     return buildSkippedResult(booking, "THERAPIST_STRIPE_NOT_READY");
   }
 
-  const therapistAmount = payment.therapistAmount ?? getTherapistAmount(payment.amount);
+  const snapshot = calculatePaymentBreakdown({
+    grossAmount: payment.amount,
+    availableClientCredit: payment.creditAppliedAmount ?? 0,
+  });
+  const therapistAmount = payment.therapistAmount ?? snapshot.therapistAmount;
+  const sourceBound =
+    snapshot.stripeChargeAmount >= therapistAmount &&
+    snapshot.stripeChargeAmount > 0;
   const transferGroup = payment.stripeTransferGroup ?? getTransferGroup(booking.id);
   const stripe = getStripeClient();
 
@@ -293,7 +306,9 @@ export async function createTherapistTransferForBooking(
         amount: therapistAmount,
         currency: payment.currency,
         destination: stripeAccountId,
-        source_transaction: payment.stripeChargeId,
+        ...(sourceBound && payment.stripeChargeId
+          ? { source_transaction: payment.stripeChargeId }
+          : {}),
         transfer_group: transferGroup,
         metadata: {
           bookingId: booking.id,
@@ -301,6 +316,7 @@ export async function createTherapistTransferForBooking(
           therapistUserId: booking.therapistId,
           settlementReason,
           sessionOutcome: booking.session?.outcome ?? "",
+          fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
         },
       },
       {
@@ -332,6 +348,7 @@ export async function createTherapistTransferForBooking(
         currency: payment.currency,
         transferGroup,
         settlementReason,
+        fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
       },
     });
 
@@ -342,13 +359,21 @@ export async function createTherapistTransferForBooking(
       stripeTransferId: transfer.id,
     };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const stripeErrorCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : null;
+    const reason =
+      stripeErrorCode === "balance_insufficient" ||
+      stripeErrorCode === "insufficient_funds"
+        ? "The Stripe platform balance is insufficient for this therapist transfer."
+        : "Stripe could not complete the therapist transfer.";
 
     logDiagnosticEvent("therapist-transfer", "Unable to create therapist transfer.", {
       bookingId: booking.id,
       paymentId: payment.id,
       stripeAccountId,
-      error: reason,
+      stripeErrorCode,
     });
 
     await prisma.payment.update({
@@ -371,7 +396,9 @@ export async function createTherapistTransferForBooking(
         amount: therapistAmount,
         currency: payment.currency,
         settlementReason,
+        fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
         error: reason,
+        stripeErrorCode,
       },
     });
 

@@ -8,6 +8,25 @@ import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.servi
 
 type CreditDbClient = Prisma.TransactionClient;
 
+export class ClientCreditServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly code:
+      | "INSUFFICIENT_CLIENT_CREDIT"
+      | "CREDIT_APPLICATION_MISMATCH",
+  ) {
+    super(message);
+    this.name = "ClientCreditServiceError";
+  }
+}
+
+export async function acquireFinancialTransactionLock(
+  tx: CreditDbClient,
+  lockKey: string,
+) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`theraply:${lockKey}`}))`;
+}
+
 export type ClientCreditTransactionItem = {
   id: string;
   type: ClientCreditTransactionType;
@@ -82,53 +101,118 @@ export async function getClientCreditSummary(clientId: string): Promise<ClientCr
   };
 }
 
-export async function applyClientCreditToPayment(input: {
+export type ApplyClientCreditInput = {
   clientId: string;
   bookingId: string;
   paymentId: string;
   amount: number;
   currency?: string;
   notes?: string | null;
-}) {
+};
+
+export async function applyClientCreditToPaymentInTransaction(
+  tx: CreditDbClient,
+  input: ApplyClientCreditInput,
+) {
   if (input.amount <= 0) {
-    return 0;
+    return { amount: 0, appliedNow: false };
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const balance = await ensureClientCreditBalance(tx, input.clientId, input.currency ?? "gbp");
-    const applicableAmount = Math.min(balance.balance, input.amount);
+  await acquireFinancialTransactionLock(tx, `client-credit:${input.clientId}`);
 
-    if (applicableAmount <= 0) {
-      return 0;
+  const applicationEntries = await tx.clientCreditTransaction.findMany({
+    where: {
+      paymentId: input.paymentId,
+      type: {
+        in: [
+          ClientCreditTransactionType.APPLIED,
+          ClientCreditTransactionType.REVERSED,
+        ],
+      },
+    },
+    select: {
+      amount: true,
+      type: true,
+    },
+  });
+  const activeAppliedAmount = applicationEntries.reduce(
+    (total, entry) =>
+      total +
+      (entry.type === ClientCreditTransactionType.APPLIED
+        ? entry.amount
+        : -entry.amount),
+    0,
+  );
+
+  if (activeAppliedAmount > 0) {
+    if (activeAppliedAmount !== input.amount) {
+      throw new ClientCreditServiceError(
+        "The existing client credit application does not match the payment snapshot.",
+        "CREDIT_APPLICATION_MISMATCH",
+      );
     }
 
-    await tx.clientCreditBalance.update({
-      where: {
-        clientId: input.clientId,
-      },
-      data: {
-        balance: {
-          decrement: applicableAmount,
-        },
-      },
-    });
+    return { amount: activeAppliedAmount, appliedNow: false };
+  }
 
-    await tx.clientCreditTransaction.create({
-      data: {
-        clientId: input.clientId,
-        bookingId: input.bookingId,
-        paymentId: input.paymentId,
-        type: ClientCreditTransactionType.APPLIED,
-        amount: applicableAmount,
-        currency: input.currency ?? balance.currency,
-        notes: input.notes ?? "Applied toward a confirmed session payment.",
-      },
-    });
+  if (activeAppliedAmount < 0) {
+    throw new ClientCreditServiceError(
+      "The client credit ledger contains more reversals than applications.",
+      "CREDIT_APPLICATION_MISMATCH",
+    );
+  }
 
-    return applicableAmount;
+  const balance = await ensureClientCreditBalance(tx, input.clientId, input.currency ?? "gbp");
+
+  if (balance.balance < input.amount) {
+    throw new ClientCreditServiceError(
+      "The available client credit is lower than the payment snapshot requires.",
+      "INSUFFICIENT_CLIENT_CREDIT",
+    );
+  }
+
+  const updated = await tx.clientCreditBalance.updateMany({
+    where: {
+      clientId: input.clientId,
+      balance: {
+        gte: input.amount,
+      },
+    },
+    data: {
+      balance: {
+        decrement: input.amount,
+      },
+    },
   });
 
-  if (result > 0) {
+  if (updated.count !== 1) {
+    throw new ClientCreditServiceError(
+      "The available client credit changed before it could be applied.",
+      "INSUFFICIENT_CLIENT_CREDIT",
+    );
+  }
+
+  await tx.clientCreditTransaction.create({
+    data: {
+      clientId: input.clientId,
+      bookingId: input.bookingId,
+      paymentId: input.paymentId,
+      type: ClientCreditTransactionType.APPLIED,
+      amount: input.amount,
+      currency: input.currency ?? balance.currency,
+      notes: input.notes ?? "Applied toward a confirmed session payment.",
+    },
+  });
+
+  return { amount: input.amount, appliedNow: true };
+}
+
+export async function applyClientCreditToPayment(input: ApplyClientCreditInput) {
+  const result = await prisma.$transaction((tx) =>
+    applyClientCreditToPaymentInTransaction(tx, input),
+  );
+
+  if (result.appliedNow) {
     await createAuditLogEntryBestEffort({
       actorUserId: input.clientId,
       entityType: "ClientCreditBalance",
@@ -137,12 +221,12 @@ export async function applyClientCreditToPayment(input: {
       after: {
         bookingId: input.bookingId,
         paymentId: input.paymentId,
-        appliedAmount: result,
+        appliedAmount: result.amount,
       },
     });
   }
 
-  return result;
+  return result.amount;
 }
 
 export async function reverseClientCreditApplication(input: {
@@ -158,18 +242,41 @@ export async function reverseClientCreditApplication(input: {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const existingReversal = await tx.clientCreditTransaction.findFirst({
+    await acquireFinancialTransactionLock(tx, `client-credit:${input.clientId}`);
+
+    const applicationEntries = await tx.clientCreditTransaction.findMany({
       where: {
         paymentId: input.paymentId,
-        type: ClientCreditTransactionType.REVERSED,
+        type: {
+          in: [
+            ClientCreditTransactionType.APPLIED,
+            ClientCreditTransactionType.REVERSED,
+          ],
+        },
       },
       select: {
         amount: true,
+        type: true,
       },
     });
+    const activeAppliedAmount = applicationEntries.reduce(
+      (total, entry) =>
+        total +
+        (entry.type === ClientCreditTransactionType.APPLIED
+          ? entry.amount
+          : -entry.amount),
+      0,
+    );
 
-    if (existingReversal) {
-      return existingReversal.amount;
+    if (activeAppliedAmount === 0) {
+      return input.amount;
+    }
+
+    if (activeAppliedAmount !== input.amount) {
+      throw new ClientCreditServiceError(
+        "The client credit reversal does not match the original application.",
+        "CREDIT_APPLICATION_MISMATCH",
+      );
     }
 
     const balance = await ensureClientCreditBalance(tx, input.clientId, input.currency ?? "gbp");
@@ -230,53 +337,11 @@ export async function issueClientCredit(input: {
     return 0;
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const existingIssue =
-      input.paymentId
-        ? await tx.clientCreditTransaction.findFirst({
-            where: {
-              paymentId: input.paymentId,
-              type: ClientCreditTransactionType.ISSUED,
-            },
-            select: {
-              amount: true,
-            },
-          })
-        : null;
+  const result = await prisma.$transaction((tx) =>
+    issueClientCreditInTransaction(tx, input),
+  );
 
-    if (existingIssue) {
-      return existingIssue.amount;
-    }
-
-    const balance = await ensureClientCreditBalance(tx, input.clientId, input.currency ?? "gbp");
-
-    await tx.clientCreditBalance.update({
-      where: {
-        clientId: input.clientId,
-      },
-      data: {
-        balance: {
-          increment: input.amount,
-        },
-      },
-    });
-
-    await tx.clientCreditTransaction.create({
-      data: {
-        clientId: input.clientId,
-        bookingId: input.bookingId ?? null,
-        paymentId: input.paymentId ?? null,
-        type: ClientCreditTransactionType.ISSUED,
-        amount: input.amount,
-        currency: input.currency ?? balance.currency,
-        notes: input.notes ?? "Platform credit was issued.",
-      },
-    });
-
-    return input.amount;
-  });
-
-  if (result > 0) {
+  if (result.issuedNow) {
     await createAuditLogEntryBestEffort({
       actorUserId: input.actorUserId ?? null,
       entityType: "ClientCreditBalance",
@@ -285,10 +350,78 @@ export async function issueClientCredit(input: {
       after: {
         bookingId: input.bookingId ?? null,
         paymentId: input.paymentId ?? null,
-        issuedAmount: result,
+        issuedAmount: result.amount,
       },
     });
   }
 
-  return result;
+  return result.amount;
+}
+
+export async function issueClientCreditInTransaction(
+  tx: CreditDbClient,
+  input: {
+    clientId: string;
+    bookingId?: string | null;
+    paymentId?: string | null;
+    amount: number;
+    currency?: string;
+    notes?: string | null;
+  },
+) {
+  if (input.amount <= 0) {
+    return { amount: 0, issuedNow: false };
+  }
+
+  await acquireFinancialTransactionLock(tx, `client-credit:${input.clientId}`);
+
+  const existingIssue = input.paymentId
+    ? await tx.clientCreditTransaction.findFirst({
+        where: {
+          paymentId: input.paymentId,
+          type: ClientCreditTransactionType.ISSUED,
+        },
+        select: {
+          amount: true,
+        },
+      })
+    : null;
+
+  if (existingIssue) {
+    if (existingIssue.amount !== input.amount) {
+      throw new ClientCreditServiceError(
+        "The existing client credit issue does not match the requested amount.",
+        "CREDIT_APPLICATION_MISMATCH",
+      );
+    }
+
+    return { amount: existingIssue.amount, issuedNow: false };
+  }
+
+  const balance = await ensureClientCreditBalance(tx, input.clientId, input.currency ?? "gbp");
+
+  await tx.clientCreditBalance.update({
+    where: {
+      clientId: input.clientId,
+    },
+    data: {
+      balance: {
+        increment: input.amount,
+      },
+    },
+  });
+
+  await tx.clientCreditTransaction.create({
+    data: {
+      clientId: input.clientId,
+      bookingId: input.bookingId ?? null,
+      paymentId: input.paymentId ?? null,
+      type: ClientCreditTransactionType.ISSUED,
+      amount: input.amount,
+      currency: input.currency ?? balance.currency,
+      notes: input.notes ?? "Platform credit was issued.",
+    },
+  });
+
+  return { amount: input.amount, issuedNow: true };
 }
