@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Booking identifier is missing or invalid.",
+        error: "Checkout request is missing or invalid.",
         details: parsed.error.flatten(),
       },
       { status: 400 },
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
   try {
     const checkoutSession = await createClientStripeCheckoutSession(user.id, {
       bookingId: parsed.data.bookingId,
+      promoCode: parsed.data.promoCode,
       successUrl: buildSuccessUrl(request, parsed.data.bookingId),
       cancelUrl: buildCancelUrl(request, parsed.data.bookingId),
     });
@@ -108,6 +109,10 @@ export async function POST(request: NextRequest) {
         amount: checkoutSession.amount,
         chargeAmount: checkoutSession.chargeAmount,
         creditAppliedAmount: checkoutSession.creditAppliedAmount,
+        promoCode: checkoutSession.promoCode,
+        promoDiscountPercent: checkoutSession.promoDiscountPercent,
+        promoDiscountAmount: checkoutSession.promoDiscountAmount,
+        clientPayableAmount: checkoutSession.clientPayableAmount,
         currency: checkoutSession.currency,
         expiresAt: checkoutSession.expiresAt?.toISOString() ?? null,
         completedFromCredit: checkoutSession.completedFromCredit,
@@ -127,6 +132,8 @@ export async function POST(request: NextRequest) {
             ? 503
             : error.code === "CHECKOUT_SESSION_CREATE_FAILED"
               ? 502
+              : error.code === "PROMO_CODE_INVALID"
+                ? 422
               : 409;
 
       return NextResponse.json(

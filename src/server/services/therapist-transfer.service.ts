@@ -10,7 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
-import { THERAPIST_SHARE_PERCENT } from "@/lib/constants/payments";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { isStripeConnectReady } from "@/server/services/stripe-connect.service";
 
@@ -115,6 +115,13 @@ const transferBookingSelect = {
       stripeTransferGroup: true,
       stripeTransferId: true,
       therapistAmount: true,
+      platformFeeAmount: true,
+      creditAppliedAmount: true,
+      promoCodeSnapshot: true,
+      promoDiscountPercent: true,
+      promoDiscountAmount: true,
+      clientPayableAmount: true,
+      stripeChargeAmount: true,
       transferredAt: true,
       transferAttemptCount: true,
     },
@@ -131,10 +138,6 @@ function normalizeLimit(limit?: number) {
   }
 
   return Math.max(1, Math.min(Math.trunc(limit), 250));
-}
-
-function getTherapistAmount(amount: number) {
-  return Math.round((amount * THERAPIST_SHARE_PERCENT) / 100);
 }
 
 function getTransferGroup(bookingId: string) {
@@ -186,6 +189,17 @@ function buildSkippedResult(
   };
 }
 
+function getTransferPaymentSnapshot(payment: NonNullable<TransferBooking["payment"]>) {
+  try {
+    return resolvePaymentFinancialSnapshot(payment);
+  } catch (error) {
+    throw new TherapistTransferServiceError(
+      error instanceof Error ? error.message : "Payment snapshot is invalid.",
+      "TRANSFER_CREATE_FAILED",
+    );
+  }
+}
+
 async function getTransferBookingOrThrow(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -221,7 +235,13 @@ function evaluateTransferEligibility(
     return buildSkippedResult(booking, "SESSION_NOT_SETTLED");
   }
 
-  if (!booking.payment.stripeChargeId) {
+  const snapshot = getTransferPaymentSnapshot(booking.payment);
+
+  if (
+    snapshot.stripeChargeAmount >=
+      (booking.payment.therapistAmount ?? snapshot.therapistAmount) &&
+    !booking.payment.stripeChargeId
+  ) {
     return buildSkippedResult(booking, "CHARGE_MISSING");
   }
 
@@ -265,12 +285,21 @@ export async function createTherapistTransferForBooking(
   const stripeAccountId = booking.therapist.therapistProfile?.stripeAccountId;
   const settlementReason = getTransferSettlementReason(booking);
 
-  if (!payment || !stripeAccountId || !payment.stripeChargeId || !settlementReason) {
+  if (!payment || !stripeAccountId || !settlementReason) {
     return buildSkippedResult(booking, "THERAPIST_STRIPE_NOT_READY");
   }
 
-  const therapistAmount = payment.therapistAmount ?? getTherapistAmount(payment.amount);
+  const snapshot = getTransferPaymentSnapshot(payment);
+  const therapistAmount = payment.therapistAmount ?? snapshot.therapistAmount;
+  const sourceBound =
+    snapshot.stripeChargeAmount >= therapistAmount &&
+    snapshot.stripeChargeAmount > 0;
   const transferGroup = payment.stripeTransferGroup ?? getTransferGroup(booking.id);
+  const transferAttemptNumber =
+    payment.transferStatus === PaymentTransferStatus.PENDING &&
+    payment.transferAttemptCount > 0
+      ? payment.transferAttemptCount
+      : payment.transferAttemptCount + 1;
   const stripe = getStripeClient();
 
   await prisma.payment.update({
@@ -281,9 +310,7 @@ export async function createTherapistTransferForBooking(
       stripeTransferGroup: transferGroup,
       transferFailureReason: null,
       transferFailedAt: null,
-      transferAttemptCount: {
-        increment: 1,
-      },
+      transferAttemptCount: transferAttemptNumber,
     },
   });
 
@@ -293,7 +320,9 @@ export async function createTherapistTransferForBooking(
         amount: therapistAmount,
         currency: payment.currency,
         destination: stripeAccountId,
-        source_transaction: payment.stripeChargeId,
+        ...(sourceBound && payment.stripeChargeId
+          ? { source_transaction: payment.stripeChargeId }
+          : {}),
         transfer_group: transferGroup,
         metadata: {
           bookingId: booking.id,
@@ -301,10 +330,11 @@ export async function createTherapistTransferForBooking(
           therapistUserId: booking.therapistId,
           settlementReason,
           sessionOutcome: booking.session?.outcome ?? "",
+          fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
         },
       },
       {
-        idempotencyKey: `theraply-transfer-${payment.id}`,
+        idempotencyKey: `theraply-transfer-${payment.id}-attempt-${transferAttemptNumber}`,
       },
     );
 
@@ -332,6 +362,7 @@ export async function createTherapistTransferForBooking(
         currency: payment.currency,
         transferGroup,
         settlementReason,
+        fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
       },
     });
 
@@ -342,13 +373,21 @@ export async function createTherapistTransferForBooking(
       stripeTransferId: transfer.id,
     };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const stripeErrorCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : null;
+    const reason =
+      stripeErrorCode === "balance_insufficient" ||
+      stripeErrorCode === "insufficient_funds"
+        ? "The Stripe platform balance is insufficient for this therapist transfer."
+        : "Stripe could not complete the therapist transfer.";
 
     logDiagnosticEvent("therapist-transfer", "Unable to create therapist transfer.", {
       bookingId: booking.id,
       paymentId: payment.id,
       stripeAccountId,
-      error: reason,
+      stripeErrorCode,
     });
 
     await prisma.payment.update({
@@ -371,7 +410,9 @@ export async function createTherapistTransferForBooking(
         amount: therapistAmount,
         currency: payment.currency,
         settlementReason,
+        fundingSource: sourceBound ? "SOURCE_CHARGE" : "PLATFORM_BALANCE",
         error: reason,
+        stripeErrorCode,
       },
     });
 

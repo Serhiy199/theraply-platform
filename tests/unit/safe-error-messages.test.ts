@@ -21,6 +21,12 @@ describe("safe error messages", () => {
     );
   });
 
+  it("does not reveal promo campaign state", () => {
+    expect(getSafePaymentFlowErrorMessage("PROMO_CODE_INVALID")).toBe(
+      "This promo code is invalid or unavailable.",
+    );
+  });
+
   it("returns a specific safe certificate upload validation message", () => {
     expect(getSafeCertificateStorageErrorMessage("THERAPIST_CERTIFICATE_FILE_TOO_LARGE")).toBe(
       "Certificate files must be 10MB or smaller.",
