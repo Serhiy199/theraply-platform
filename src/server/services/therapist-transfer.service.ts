@@ -284,6 +284,11 @@ export async function createTherapistTransferForBooking(
     snapshot.stripeChargeAmount >= therapistAmount &&
     snapshot.stripeChargeAmount > 0;
   const transferGroup = payment.stripeTransferGroup ?? getTransferGroup(booking.id);
+  const transferAttemptNumber =
+    payment.transferStatus === PaymentTransferStatus.PENDING &&
+    payment.transferAttemptCount > 0
+      ? payment.transferAttemptCount
+      : payment.transferAttemptCount + 1;
   const stripe = getStripeClient();
 
   await prisma.payment.update({
@@ -294,9 +299,7 @@ export async function createTherapistTransferForBooking(
       stripeTransferGroup: transferGroup,
       transferFailureReason: null,
       transferFailedAt: null,
-      transferAttemptCount: {
-        increment: 1,
-      },
+      transferAttemptCount: transferAttemptNumber,
     },
   });
 
@@ -320,7 +323,7 @@ export async function createTherapistTransferForBooking(
         },
       },
       {
-        idempotencyKey: `theraply-transfer-${payment.id}`,
+        idempotencyKey: `theraply-transfer-${payment.id}-attempt-${transferAttemptNumber}`,
       },
     );
 

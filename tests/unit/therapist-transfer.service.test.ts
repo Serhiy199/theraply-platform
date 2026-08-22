@@ -158,7 +158,7 @@ describe("therapist transfer service", () => {
         }),
       }),
       {
-        idempotencyKey: "theraply-transfer-payment-id",
+        idempotencyKey: "theraply-transfer-payment-id-attempt-1",
       },
     );
     expect(updatePaymentMock).toHaveBeenCalledWith(
@@ -188,7 +188,7 @@ describe("therapist transfer service", () => {
         amount: 9000,
         source_transaction: "ch_123",
       }),
-      { idempotencyKey: "theraply-transfer-payment-id" },
+      { idempotencyKey: "theraply-transfer-payment-id-attempt-1" },
     );
   });
 
@@ -233,15 +233,23 @@ describe("therapist transfer service", () => {
   });
 
   it("stores a safe failure and can retry a platform-funded transfer", async () => {
-    findBookingMock.mockResolvedValue(
-      buildTransferBooking({
-        payment: {
-          ...buildTransferBooking().payment,
-          stripeChargeId: null,
-          creditAppliedAmount: 10000,
-        },
-      }),
-    );
+    const initialBooking = buildTransferBooking({
+      payment: {
+        ...buildTransferBooking().payment,
+        stripeChargeId: null,
+        creditAppliedAmount: 10000,
+      },
+    });
+    const failedBooking = buildTransferBooking({
+      payment: {
+        ...initialBooking.payment,
+        transferStatus: PaymentTransferStatus.FAILED,
+        transferAttemptCount: 1,
+      },
+    });
+    findBookingMock
+      .mockResolvedValueOnce(initialBooking)
+      .mockResolvedValueOnce(failedBooking);
     transferCreateMock
       .mockRejectedValueOnce(Object.assign(new Error("sensitive Stripe detail"), {
         code: "balance_insufficient",
@@ -259,10 +267,10 @@ describe("therapist transfer service", () => {
     );
     expect(retried).toEqual(expect.objectContaining({ status: "transferred" }));
     expect(transferCreateMock.mock.calls[0]?.[1]).toEqual({
-      idempotencyKey: "theraply-transfer-payment-id",
+      idempotencyKey: "theraply-transfer-payment-id-attempt-1",
     });
     expect(transferCreateMock.mock.calls[1]?.[1]).toEqual({
-      idempotencyKey: "theraply-transfer-payment-id",
+      idempotencyKey: "theraply-transfer-payment-id-attempt-2",
     });
     expect(updatePaymentMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -271,6 +279,30 @@ describe("therapist transfer service", () => {
           transferFailureReason:
             "The Stripe platform balance is insufficient for this therapist transfer.",
         }),
+      }),
+    );
+  });
+
+  it("reuses the current attempt key while recovering a pending transfer", async () => {
+    findBookingMock.mockResolvedValue(
+      buildTransferBooking({
+        payment: {
+          ...buildTransferBooking().payment,
+          transferStatus: PaymentTransferStatus.PENDING,
+          transferAttemptCount: 2,
+        },
+      }),
+    );
+
+    await createTherapistTransferForBooking("booking-id", "admin-id");
+
+    expect(transferCreateMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { idempotencyKey: "theraply-transfer-payment-id-attempt-2" },
+    );
+    expect(updatePaymentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ transferAttemptCount: 2 }),
       }),
     );
   });
@@ -303,7 +335,7 @@ describe("therapist transfer service", () => {
         }),
       }),
       {
-        idempotencyKey: "theraply-transfer-payment-id",
+        idempotencyKey: "theraply-transfer-payment-id-attempt-1",
       },
     );
   });
