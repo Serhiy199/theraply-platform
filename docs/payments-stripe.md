@@ -81,3 +81,20 @@ Real behavior depends on live Stripe keys, active Stripe Connect capability, web
 - Late client cancellation transfer.
 - `account.updated` readiness sync.
 - Failed transfer retry through cron route.
+
+## Promo Snapshot Foundation
+
+Promo codes are normalized with `trim().toUpperCase()` and are valid only when
+they contain 3-32 characters from `A-Z`, `0-9`, `-`, and `_`. Discounts are
+integer percentages from 1 through 10 and are funded entirely from Theraply's
+platform share. A therapist's gross-based payout does not decrease.
+
+`Payment.amount` remains the original gross booking amount. When promo checkout
+integration is added, the nullable promo fields will preserve the code,
+percentage, discount amount, client payable amount, and Stripe charge amount as
+an immutable payment-time snapshot. `platformFeeAmount` represents final
+platform revenue after the promo discount. Existing payments keep these new
+fields null and use the no-promo calculation fallback.
+
+This phase adds persistence and domain primitives only. It does not apply promo
+codes to checkout, Stripe webhooks, refunds, transfers, or application UI.
