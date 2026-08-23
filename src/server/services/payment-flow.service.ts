@@ -1186,6 +1186,8 @@ export async function syncClientStripeCheckoutSuccess(
   }
 
   if (booking.payment?.paymentStatus === PaymentStatus.PAID) {
+    await sendPaymentSuccessfulEmailBestEffort(booking.id);
+
     return {
       status: "paid",
       paymentId: booking.payment.id,
@@ -1327,8 +1329,6 @@ export async function markStripeCheckoutSessionCompleted(
     input.currency,
     input.metadata,
   );
-  const wasPaid = existingPayment.paymentStatus === PaymentStatus.PAID;
-
   const payment = await prisma.payment.update({
     where: {
       id: existingPayment.id,
@@ -1372,9 +1372,7 @@ export async function markStripeCheckoutSessionCompleted(
     });
   }
 
-  if (!wasPaid) {
-    await sendPaymentSuccessfulEmailBestEffort(payment.bookingId);
-  }
+  await sendPaymentSuccessfulEmailBestEffort(payment.bookingId);
 
   return {
     paymentId: payment.id,
@@ -1513,6 +1511,8 @@ export async function markStripePaymentIntentSucceeded(
       paymentStatus: true,
     },
   });
+
+  await sendPaymentSuccessfulEmailBestEffort(payment.bookingId);
 
   return {
     paymentId: payment.id,

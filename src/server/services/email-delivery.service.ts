@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 
 export type TransactionalEmailInput = {
+  idempotencyKey?: string | null;
   userId?: string | null;
   email: string;
   template: string;
@@ -10,6 +11,10 @@ export type TransactionalEmailInput = {
   text: string;
   html?: string | null;
   actionUrl?: string | null;
+};
+
+type EmailDeliveryReservation = TransactionalEmailResult & {
+  shouldSend: boolean;
 };
 
 export type TransactionalEmailResult = {
@@ -100,6 +105,107 @@ function formatEmailError(error: unknown) {
   return "Unknown email delivery error.";
 }
 
+function isUniqueConstraintError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
+async function reserveEmailDelivery(
+  input: TransactionalEmailInput,
+): Promise<EmailDeliveryReservation> {
+  const idempotencyKey = input.idempotencyKey?.trim() || null;
+
+  try {
+    const pendingLog = await prisma.emailLog.create({
+      data: {
+        ...(idempotencyKey ? { id: idempotencyKey } : {}),
+        userId: input.userId ?? null,
+        email: input.email,
+        template: input.template,
+        subject: input.subject,
+        status: EmailStatus.PENDING,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return {
+      emailLogId: pendingLog.id,
+      status: pendingLog.status,
+      shouldSend: true,
+    };
+  } catch (error) {
+    if (!idempotencyKey || !isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const existingLog = await prisma.emailLog.findUnique({
+      where: {
+        id: idempotencyKey,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!existingLog) {
+      throw error;
+    }
+
+    if (existingLog.status !== EmailStatus.FAILED) {
+      return {
+        emailLogId: existingLog.id,
+        status: existingLog.status,
+        shouldSend: false,
+      };
+    }
+
+    const retryClaim = await prisma.emailLog.updateMany({
+      where: {
+        id: idempotencyKey,
+        status: EmailStatus.FAILED,
+      },
+      data: {
+        status: EmailStatus.PENDING,
+        sentAt: null,
+        failedAt: null,
+        errorMessage: null,
+      },
+    });
+
+    if (retryClaim.count === 1) {
+      return {
+        emailLogId: idempotencyKey,
+        status: EmailStatus.PENDING,
+        shouldSend: true,
+      };
+    }
+
+    const claimedLog = await prisma.emailLog.findUniqueOrThrow({
+      where: {
+        id: idempotencyKey,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return {
+      emailLogId: claimedLog.id,
+      status: claimedLog.status,
+      shouldSend: false,
+    };
+  }
+}
+
 async function markEmailSent(emailLogId: string) {
   return prisma.emailLog.update({
     where: {
@@ -138,29 +244,27 @@ async function markEmailFailed(emailLogId: string, errorMessage: string) {
 export async function sendTransactionalEmail(
   input: TransactionalEmailInput,
 ): Promise<TransactionalEmailResult> {
-  const pendingLog = await prisma.emailLog.create({
-    data: {
-      userId: input.userId ?? null,
-      email: input.email,
-      template: input.template,
-      subject: input.subject,
-      status: EmailStatus.PENDING,
-    },
-    select: {
-      id: true,
-    },
-  });
+  const reservation = await reserveEmailDelivery(input);
+
+  if (!reservation.shouldSend) {
+    return {
+      emailLogId: reservation.emailLogId,
+      status: reservation.status,
+    };
+  }
+
+  const emailLogId = reservation.emailLogId;
 
   if (canUseConsoleDelivery()) {
     console.info("[email] console-delivery-enabled", {
       template: input.template,
       email: input.email,
       userId: input.userId ?? null,
-      emailLogId: pendingLog.id,
+      emailLogId,
     });
     console.info(formatConsoleEmail(input));
 
-    const sentLog = await markEmailSent(pendingLog.id);
+    const sentLog = await markEmailSent(emailLogId);
 
     return {
       emailLogId: sentLog.id,
@@ -172,7 +276,7 @@ export async function sendTransactionalEmail(
 
   if (!smtpConfig) {
     const failedLog = await markEmailFailed(
-      pendingLog.id,
+      emailLogId,
       "SMTP email provider is not fully configured.",
     );
 
@@ -199,14 +303,14 @@ export async function sendTransactionalEmail(
       html: input.html ?? undefined,
     });
 
-    const sentLog = await markEmailSent(pendingLog.id);
+    const sentLog = await markEmailSent(emailLogId);
 
     return {
       emailLogId: sentLog.id,
       status: sentLog.status,
     };
   } catch (error) {
-    const failedLog = await markEmailFailed(pendingLog.id, formatEmailError(error));
+    const failedLog = await markEmailFailed(emailLogId, formatEmailError(error));
 
     return {
       emailLogId: failedLog.id,
