@@ -193,6 +193,31 @@ describe("payment checkout settlement", () => {
     expect(lockMock).toHaveBeenCalledTimes(2);
   });
 
+  it.each(["UTC", "Europe/Kyiv", "America/New_York"])(
+    "formats the Checkout session description in explicit UK time under runtime TZ %s",
+    async (runtimeTimeZone) => {
+      vi.stubEnv("TZ", runtimeTimeZone);
+      configureTransaction(0);
+
+      await createClientStripeCheckoutSession("client-id", checkoutInput);
+
+      expect(checkoutCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [
+            expect.objectContaining({
+              price_data: expect.objectContaining({
+                product_data: expect.objectContaining({
+                  description: "Confirmed session starting 2 Sept 2027, 11:00",
+                }),
+              }),
+            }),
+          ],
+        }),
+        expect.anything(),
+      );
+    },
+  );
+
   it("reverses reserved credit and marks Payment failed when Checkout creation fails", async () => {
     configureTransaction(2500);
     checkoutCreateMock.mockRejectedValue(new Error("Stripe unavailable"));
