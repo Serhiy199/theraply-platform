@@ -10,6 +10,7 @@ const lockMock = vi.hoisted(() => vi.fn());
 const applyCreditMock = vi.hoisted(() => vi.fn());
 const reverseCreditMock = vi.hoisted(() => vi.fn());
 const auditMock = vi.hoisted(() => vi.fn());
+const successEmailMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -51,7 +52,7 @@ vi.mock("@/server/services/audit-log.service", () => ({
 }));
 
 vi.mock("@/server/services/transactional-email-events.service", () => ({
-  sendPaymentSuccessfulEmailBestEffort: vi.fn(),
+  sendPaymentSuccessfulEmailBestEffort: successEmailMock,
   sendPaymentFailedEmailBestEffort: vi.fn(),
 }));
 
@@ -145,6 +146,8 @@ describe("payment checkout settlement", () => {
       chargeAmount: 0,
     }));
     expect(checkoutCreateMock).not.toHaveBeenCalled();
+    expect(successEmailMock).toHaveBeenCalledOnce();
+    expect(successEmailMock).toHaveBeenCalledWith("booking-id");
     expect(tx.payment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({

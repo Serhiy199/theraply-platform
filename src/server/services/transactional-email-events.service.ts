@@ -57,6 +57,7 @@ const transactionalEmailBookingSelect = {
     select: {
       id: true,
       amount: true,
+      clientPayableAmount: true,
       currency: true,
       paymentStatus: true,
       failedReason: true,
@@ -76,6 +77,7 @@ type EmailRecipient = {
 };
 
 type SendEmailTemplateInput = {
+  idempotencyKey?: string | null;
   recipient: EmailRecipient;
   email: ReturnType<
     | typeof buildBookingRequestCreatedEmail
@@ -162,14 +164,17 @@ function getBookingTemplateInput(
 function getPaymentTemplateInput(
   booking: TransactionalEmailBooking,
   recipient: EmailRecipient,
-  options?: BookingEventOptions,
+  options?: BookingEventOptions & { useClientPayableAmount?: boolean },
 ) {
   return {
     ...getBookingTemplateInput(booking, recipient),
     paymentStatus: booking.payment?.paymentStatus ?? null,
     amount: booking.payment
       ? {
-          amountMinor: booking.payment.amount,
+          amountMinor:
+            options?.useClientPayableAmount
+              ? booking.payment.clientPayableAmount ?? booking.payment.amount
+              : booking.payment.amount,
           currency: booking.payment.currency,
         }
       : null,
@@ -189,6 +194,7 @@ async function getBookingForTransactionalEmail(bookingId: string) {
 async function sendEmailTemplateBestEffort(input: SendEmailTemplateInput) {
   try {
     await sendTransactionalEmail({
+      idempotencyKey: input.idempotencyKey,
       userId: input.recipient.userId,
       email: input.recipient.email,
       template: input.email.template,
@@ -314,11 +320,23 @@ export async function sendBookingCancelledEmailsBestEffort(
 
 export async function sendPaymentSuccessfulEmailBestEffort(bookingId: string) {
   await sendBookingEmailsBestEffort(bookingId, async (booking) => {
+    if (!booking.payment) {
+      logDiagnosticEvent(
+        "transactional-email-events",
+        "Payment not found for successful payment email event.",
+        { bookingId },
+      );
+      return;
+    }
+
     const client = getClientRecipient(booking);
 
     await sendEmailTemplateBestEffort({
+      idempotencyKey: `payment-success:${booking.payment.id}`,
       recipient: client,
-      email: buildPaymentSuccessfulEmail(getPaymentTemplateInput(booking, client)),
+      email: buildPaymentSuccessfulEmail(
+        getPaymentTemplateInput(booking, client, { useClientPayableAmount: true }),
+      ),
     });
   });
 }
