@@ -9,6 +9,7 @@ import {
 } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireCurrentActionRole } from "@/lib/permissions";
 import { StripeConfigError } from "@/lib/stripe/stripe-config";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import { paymentCheckoutRequestSchema } from "@/lib/validations/payments";
 import {
   createClientStripeCheckoutSession,
@@ -22,17 +23,16 @@ import {
 
 export const runtime = "nodejs";
 
-function buildSuccessUrl(request: NextRequest, bookingId: string) {
-  const requestUrl = new URL(request.url);
-  const origin = requestUrl.origin;
-  const encodedBookingId = encodeURIComponent(bookingId);
+function buildSuccessUrl(bookingId: string) {
+  const url = buildCanonicalAppUrl("/client/payments/success");
+  url.searchParams.set("bookingId", bookingId);
 
   // Keep Stripe's template token raw so Checkout can replace it with a real session id.
-  return `${origin}/client/payments/success?bookingId=${encodedBookingId}&session_id={CHECKOUT_SESSION_ID}`;
+  return `${url.toString()}&session_id={CHECKOUT_SESSION_ID}`;
 }
 
-function buildCancelUrl(request: NextRequest, bookingId: string) {
-  const url = new URL("/client/payments/failed", request.url);
+function buildCancelUrl(bookingId: string) {
+  const url = buildCanonicalAppUrl("/client/payments/failed");
   url.searchParams.set("bookingId", bookingId);
   url.searchParams.set("reason", "cancelled");
   return url.toString();
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
     const checkoutSession = await createClientStripeCheckoutSession(user.id, {
       bookingId: parsed.data.bookingId,
       promoCode: parsed.data.promoCode,
-      successUrl: buildSuccessUrl(request, parsed.data.bookingId),
-      cancelUrl: buildCancelUrl(request, parsed.data.bookingId),
+      successUrl: buildSuccessUrl(parsed.data.bookingId),
+      cancelUrl: buildCancelUrl(parsed.data.bookingId),
     });
 
     return NextResponse.json(
