@@ -1,4 +1,5 @@
 import { formatDateKeyInTimeZone } from "@/lib/google/google-time-zone";
+import { DEFAULT_APP_TIME_ZONE } from "@/lib/time-zone";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
@@ -112,7 +113,7 @@ export function TherapistAvailability({
   const conflictBlockedCount = slots.filter(
     (slot) => !slot.isAvailable && slot.unavailableReason === "conflict",
   ).length;
-  const displayTimeZone = slots[0]?.timeZone ?? "Europe/London";
+  const displayTimeZone = slots[0]?.timeZone ?? DEFAULT_APP_TIME_ZONE;
   const hasCalendarConnection = Boolean(
     therapist.therapistProfile?.isGoogleCalendarConnected &&
       therapist.therapistProfile?.googleCalendarId,
@@ -185,7 +186,8 @@ export function TherapistAvailability({
               Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
             </div>
             <div className="mt-3 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
-              Times shown in: <span className="font-semibold text-slate-900">{displayTimeZone}</span>
+              All times are shown in UK time.
+              <span className="ml-1 font-semibold text-slate-900">({displayTimeZone})</span>
             </div>
             {!hasCalendarConnection ? (
               <div className="mt-4">

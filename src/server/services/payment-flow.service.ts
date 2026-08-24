@@ -17,6 +17,8 @@ import {
 } from "@/lib/promo-code";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
+import { DEFAULT_APP_TIME_ZONE } from "@/lib/time-zone";
+import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
   acquireFinancialTransactionLock,
   applyClientCreditToPaymentInTransaction,
@@ -489,10 +491,9 @@ function getProjectedCreditAmounts(totalAmount: number | null, availableCreditAm
 
 function buildCheckoutLineItem(booking: StripeCheckoutBooking, unitAmountOverride?: number) {
   const therapistName = getTherapistCheckoutName(booking);
-  const sessionDate = new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(booking.startsAt);
+  const sessionDate = formatAppDateTime(booking.startsAt, {
+    timeZone: DEFAULT_APP_TIME_ZONE,
+  });
   const unitAmount = unitAmountOverride ?? booking.therapist.therapistProfile?.sessionPricePence;
 
   if (!unitAmount) {

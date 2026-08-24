@@ -1,5 +1,3 @@
-export const DEFAULT_THERAPIST_TIME_ZONE = "Europe/London";
-
 type TimeZoneDateParts = {
   year: number;
   month: number;

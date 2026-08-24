@@ -9,7 +9,7 @@ import {
   getGooglePrimaryCalendar,
   refreshGoogleAccessToken,
 } from "@/lib/google/google-calendar";
-import { DEFAULT_THERAPIST_TIME_ZONE } from "@/lib/google/google-time-zone";
+import { DEFAULT_APP_TIME_ZONE, resolveTimeZone } from "@/lib/time-zone";
 import {
   buildGoogleOAuthConsentUrl,
   createGoogleOAuthClient,
@@ -533,16 +533,16 @@ export async function getTherapistSelectedGoogleCalendarTimeZone(therapistUserId
   const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
 
   if (!connection.googleCalendarId) {
-    return DEFAULT_THERAPIST_TIME_ZONE;
+    return DEFAULT_APP_TIME_ZONE;
   }
 
   try {
     const calendars = await getTherapistSelectableGoogleCalendars(therapistUserId);
     const selectedCalendar = calendars.find((calendar) => calendar.id === connection.googleCalendarId);
 
-    return selectedCalendar?.timeZone?.trim() || DEFAULT_THERAPIST_TIME_ZONE;
+    return resolveTimeZone(selectedCalendar?.timeZone);
   } catch {
-    return DEFAULT_THERAPIST_TIME_ZONE;
+    return DEFAULT_APP_TIME_ZONE;
   }
 }
 
