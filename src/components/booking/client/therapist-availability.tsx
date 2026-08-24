@@ -186,7 +186,8 @@ export function TherapistAvailability({
               Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
             </div>
             <div className="mt-3 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
-              Times shown in: <span className="font-semibold text-slate-900">{displayTimeZone}</span>
+              All times are shown in UK time.
+              <span className="ml-1 font-semibold text-slate-900">({displayTimeZone})</span>
             </div>
             {!hasCalendarConnection ? (
               <div className="mt-4">
