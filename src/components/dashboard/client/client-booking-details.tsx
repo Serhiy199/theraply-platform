@@ -2,6 +2,8 @@
 
 import { useActionState, useState, useTransition } from "react";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
+import type { PromoCodePreview } from "@/lib/contracts/payments";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import type { PaymentEligibility } from "@/server/services/payment-flow.service";
 import {
   getCancellationConfirmationMessage,
@@ -122,17 +124,106 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
   );
 }
 
-type PaymentCheckoutButtonProps = {
-  bookingId: string;
+type PaymentCheckoutPanelProps = {
+  booking: BookingDetailsItem;
   paymentEligibility: PaymentEligibility;
 };
 
-function PaymentCheckoutButton({
-  bookingId,
+function PaymentCheckoutPanel({
+  booking,
   paymentEligibility,
-}: PaymentCheckoutButtonProps) {
+}: PaymentCheckoutPanelProps) {
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [promoPreview, setPromoPreview] = useState<PromoCodePreview | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [isPreviewPending, startPreviewTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
+  const payment = booking.payment;
+  const hasFrozenPayment =
+    payment?.paymentStatus === "PENDING" ||
+    payment?.paymentStatus === "PAID" ||
+    payment?.paymentStatus === "REFUNDED";
+  let frozenSnapshot: ReturnType<typeof resolvePaymentFinancialSnapshot> | null = null;
+
+  if (hasFrozenPayment && payment) {
+    try {
+      frozenSnapshot = resolvePaymentFinancialSnapshot(payment);
+    } catch {
+      frozenSnapshot = null;
+    }
+  }
+
+  const breakdown = frozenSnapshot
+    ? {
+        grossAmount: frozenSnapshot.grossAmount,
+        promoCode: frozenSnapshot.promoCodeSnapshot,
+        promoDiscountAmount: frozenSnapshot.promoDiscountAmount,
+        clientPayableAmount: frozenSnapshot.clientPayableAmount,
+        creditAppliedAmount: frozenSnapshot.creditAppliedAmount,
+        stripeChargeAmount: frozenSnapshot.stripeChargeAmount,
+        currency: payment?.currency ?? paymentEligibility.currency,
+      }
+    : promoPreview
+      ? {
+          grossAmount: promoPreview.grossAmount,
+          promoCode: promoPreview.normalizedCode,
+          promoDiscountAmount: promoPreview.promoDiscountAmount,
+          clientPayableAmount: promoPreview.clientPayableAmount,
+          creditAppliedAmount: promoPreview.projectedCreditAppliedAmount,
+          stripeChargeAmount: promoPreview.projectedStripeChargeAmount,
+          currency: promoPreview.currency,
+        }
+      : {
+          grossAmount: paymentEligibility.amount,
+          promoCode: null,
+          promoDiscountAmount: 0,
+          clientPayableAmount: paymentEligibility.amount,
+          creditAppliedAmount: paymentEligibility.projectedCreditAppliedAmount,
+          stripeChargeAmount: paymentEligibility.projectedStripeChargeAmount,
+          currency: paymentEligibility.currency,
+        };
+
+  function handleApplyPromo() {
+    setPromoError(null);
+    setCheckoutError(null);
+
+    startPreviewTransition(async () => {
+      try {
+        const response = await fetch("/api/promocodes/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: booking.id,
+            promoCode: promoCodeInput,
+          }),
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | (PromoCodePreview & { error?: string })
+          | { error?: string }
+          | null;
+
+        if (!response.ok || !payload || !("valid" in payload)) {
+          setPromoPreview(null);
+          setPromoError(payload?.error || "Unable to apply this promo code.");
+          return;
+        }
+
+        setPromoPreview(payload);
+        setPromoCodeInput(payload.normalizedCode);
+      } catch {
+        setPromoPreview(null);
+        setPromoError("Unable to check this promo code right now.");
+      }
+    });
+  }
+
+  function handleRemovePromo() {
+    setPromoPreview(null);
+    setPromoCodeInput("");
+    setPromoError(null);
+    setCheckoutError(null);
+  }
 
   function handleCheckout() {
     setCheckoutError(null);
@@ -144,7 +235,12 @@ function PaymentCheckoutButton({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ bookingId }),
+          body: JSON.stringify({
+            bookingId: booking.id,
+            ...(promoPreview
+              ? { promoCode: promoPreview.normalizedCode }
+              : {}),
+          }),
         });
 
         const payload = (await response.json().catch(() => null)) as
@@ -172,6 +268,88 @@ function PaymentCheckoutButton({
 
   return (
     <div className="mt-5 grid gap-4">
+      {!hasFrozenPayment && paymentEligibility.canPay ? (
+        <div className="grid gap-3">
+          <label htmlFor="promo-code" className="text-sm font-medium text-slate-700">
+            Promo code
+          </label>
+          {promoPreview ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-y border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              <span className="font-semibold">
+                Promo {promoPreview.normalizedCode} applied
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={handleRemovePromo}>
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                id="promo-code"
+                value={promoCodeInput}
+                onChange={(event) => setPromoCodeInput(event.target.value)}
+                autoComplete="off"
+                maxLength={32}
+                placeholder="SAVE5"
+                className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-600 focus:ring-2 focus:ring-slate-200"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleApplyPromo}
+                disabled={!promoCodeInput.trim()}
+                loading={isPreviewPending}
+                loadingText="Checking..."
+              >
+                Apply
+              </Button>
+            </div>
+          )}
+          {promoError ? (
+            <DashboardStatusAlert tone="error">{promoError}</DashboardStatusAlert>
+          ) : null}
+        </div>
+      ) : null}
+
+      <dl className="grid gap-2 border-y border-slate-200 py-4 text-sm text-slate-600">
+        <div className="flex items-center justify-between gap-4">
+          <dt>Session price</dt>
+          <dd className="font-medium text-slate-900">
+            {formatAmount(breakdown.grossAmount, breakdown.currency)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt>{breakdown.promoCode ? `Promo ${breakdown.promoCode}` : "Promo discount"}</dt>
+          <dd className="font-medium text-slate-900">
+            -{formatAmount(breakdown.promoDiscountAmount, breakdown.currency)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt>Client payable</dt>
+          <dd className="font-medium text-slate-900">
+            {formatAmount(breakdown.clientPayableAmount, breakdown.currency)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt>Client credit</dt>
+          <dd className="font-medium text-slate-900">
+            -{formatAmount(breakdown.creditAppliedAmount, breakdown.currency)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4 text-base">
+          <dt className="font-semibold text-slate-900">Amount to pay by card</dt>
+          <dd className="font-semibold text-slate-900">
+            {formatAmount(breakdown.stripeChargeAmount, breakdown.currency)}
+          </dd>
+        </div>
+      </dl>
+
+      {hasFrozenPayment && payment?.promoCodeSnapshot ? (
+        <DashboardStatusAlert tone="info">
+          Promo {payment.promoCodeSnapshot} is frozen for this payment attempt.
+        </DashboardStatusAlert>
+      ) : null}
+
       {checkoutError ? (
         <DashboardStatusAlert tone="error" title="Checkout could not be started">
           {checkoutError}
@@ -181,17 +359,17 @@ function PaymentCheckoutButton({
       <Button
         type="button"
         onClick={handleCheckout}
-        disabled={!paymentEligibility.canPay}
+        disabled={!paymentEligibility.canPay || hasFrozenPayment}
         loading={isPending}
         loadingText="Preparing settlement..."
       >
-        {paymentEligibility.projectedStripeChargeAmount === 0
+        {breakdown.stripeChargeAmount === 0
           ? "Apply credit and settle"
           : "Pay now"}
       </Button>
 
       <p className="text-xs leading-5 text-slate-500">
-        {paymentEligibility.projectedStripeChargeAmount === 0
+        {breakdown.stripeChargeAmount === 0
           ? "Your available client credit can fully settle this session without leaving the platform."
           : "You will be redirected to secure Stripe Checkout to complete the remaining balance."}
       </p>
@@ -379,8 +557,8 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                   {formatAppDateTime(booking.compensationResolvedAt ?? null)}.
                 </div>
               ) : null}
-              <PaymentCheckoutButton
-                bookingId={booking.id}
+              <PaymentCheckoutPanel
+                booking={booking}
                 paymentEligibility={paymentEligibility}
               />
           </>

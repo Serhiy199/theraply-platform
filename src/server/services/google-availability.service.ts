@@ -5,10 +5,10 @@ import {
   type AvailabilityTimeRange,
   buildDiscreteAvailabilitySlots,
 } from "@/lib/google/google-slot-mapper";
+import { DEFAULT_APP_TIME_ZONE } from "@/lib/time-zone";
 import {
   GoogleCalendarServiceError,
   getAuthenticatedTherapistGoogleCalendarClient,
-  getTherapistSelectedGoogleCalendarTimeZone,
 } from "@/server/services/google-calendar.service";
 import {
   createAuditLogEntryBestEffort,
@@ -142,7 +142,6 @@ async function getGoogleCalendarBusyRanges(
 }> {
   try {
     const { connection, calendar } = await getAuthenticatedTherapistGoogleCalendarClient(therapistId);
-    const timeZone = await getTherapistSelectedGoogleCalendarTimeZone(therapistId);
 
     if (!connection.googleCalendarId) {
       await createAuditLogEntryBestEffort({
@@ -166,7 +165,7 @@ async function getGoogleCalendarBusyRanges(
       requestBody: {
         timeMin: from.toISOString(),
         timeMax: to.toISOString(),
-        timeZone,
+        timeZone: DEFAULT_APP_TIME_ZONE,
         items: [{ id: connection.googleCalendarId }],
       },
     });
@@ -175,7 +174,7 @@ async function getGoogleCalendarBusyRanges(
       response.data.calendars?.[connection.googleCalendarId]?.busy ?? [];
 
     return {
-      timeZone,
+      timeZone: DEFAULT_APP_TIME_ZONE,
       busyRanges: busyRanges
       .map((range) => {
         const startsAt = range.start ? new Date(range.start) : null;

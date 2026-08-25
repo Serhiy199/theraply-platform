@@ -125,6 +125,12 @@ export function getSafeGoogleCalendarErrorMessage(code: string) {
       return "Connect Google Calendar first.";
     case "GOOGLE_REFRESH_TOKEN_MISSING":
       return "Reconnect Google Calendar before continuing.";
+    case "GOOGLE_OAUTH_SCOPES_INSUFFICIENT":
+      return "Google did not grant all required Calendar permissions. Please reconnect and allow each requested permission.";
+    case "GOOGLE_USERINFO_FETCH_FAILED":
+      return "Google account details could not be verified. Please reconnect Google Calendar.";
+    case "GOOGLE_CALENDAR_LIST_FETCH_FAILED":
+      return "Google calendars could not be read. Please reconnect and allow Calendar access.";
     case "GOOGLE_CALENDAR_SELECTION_INVALID":
       return "Choose a calendar from the connected Google account.";
     case "GOOGLE_CALENDAR_TARGET_MISSING":
@@ -163,6 +169,8 @@ export function getSafePaymentFlowErrorMessage(code: string) {
       return "Stripe Checkout could not be started right now.";
     case "PAYMENT_RECORD_NOT_FOUND":
       return "Payment record could not be found.";
+    case "PROMO_CODE_INVALID":
+      return "This promo code is invalid or unavailable.";
     default:
       return SAFE_ERROR_MESSAGES.genericPayment;
   }

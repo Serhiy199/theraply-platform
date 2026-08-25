@@ -195,8 +195,14 @@ function getBookingDetails(input: BookingEmailInput) {
   return [
     ["Client", input.clientName],
     ["Therapist", input.therapistName],
-    ["Session starts", input.startsAt ? formatAppDateTime(input.startsAt) : null],
-    ["Session ends", input.endsAt ? formatAppDateTime(input.endsAt) : null],
+    [
+      "Session starts",
+      input.startsAt ? `${formatAppDateTime(input.startsAt)} (UK time)` : null,
+    ],
+    [
+      "Session ends",
+      input.endsAt ? `${formatAppDateTime(input.endsAt)} (UK time)` : null,
+    ],
     ["Booking status", getBookingStatusLabel(input.bookingStatus)],
     ["Meeting link", input.meetingLink],
   ] satisfies Array<[string, string | null | undefined]>;

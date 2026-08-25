@@ -7,6 +7,7 @@ import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { getSafeGoogleCalendarErrorMessage } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
 import { parseGoogleOAuthState } from "@/lib/google/google-oauth";
+import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   GoogleCalendarServiceError,
   completeTherapistGoogleCalendarConnection,
@@ -20,12 +21,8 @@ import {
   checkRateLimitPreset,
 } from "@/server/services/rate-limit.service";
 
-function buildAppUrl(request: NextRequest, pathname: string) {
-  return new URL(pathname, request.url);
-}
-
 function normalizeReturnTo(value: string | null | undefined) {
-  if (!value || !value.startsWith("/")) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/therapist/payout-details";
   }
 
@@ -33,12 +30,11 @@ function normalizeReturnTo(value: string | null | undefined) {
 }
 
 function buildReturnRedirect(
-  request: NextRequest,
   returnTo: string,
   status: "success" | "error",
   message: string,
 ) {
-  const redirectUrl = buildAppUrl(request, returnTo);
+  const redirectUrl = buildCanonicalAppUrl(returnTo);
   redirectUrl.searchParams.set("gc_status", status);
   redirectUrl.searchParams.set("gc_message", message);
   return redirectUrl;
@@ -47,13 +43,14 @@ function buildReturnRedirect(
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   const defaultReturnTo = "/therapist/payout-details";
+  let callbackReturnTo = defaultReturnTo;
 
   if (!user) {
-    return NextResponse.redirect(buildAppUrl(request, AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildAppUrl(request, "/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
   }
 
   let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
@@ -62,7 +59,7 @@ export async function GET(request: NextRequest) {
     activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildAppUrl(request, THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
     }
 
     throw error;
@@ -75,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   if (!rateLimit.allowed) {
     return NextResponse.redirect(
-      buildReturnRedirect(request, defaultReturnTo, "error", AUTH_MESSAGES.rateLimited),
+      buildReturnRedirect(defaultReturnTo, "error", AUTH_MESSAGES.rateLimited),
     );
   }
 
@@ -85,13 +82,14 @@ export async function GET(request: NextRequest) {
 
   if (!state) {
     return NextResponse.redirect(
-      buildReturnRedirect(request, defaultReturnTo, "error", "Google callback is missing state."),
+      buildReturnRedirect(defaultReturnTo, "error", "Google callback is missing state."),
     );
   }
 
   try {
     const parsedState = parseGoogleOAuthState(state);
     const returnTo = normalizeReturnTo(parsedState.returnTo);
+    callbackReturnTo = returnTo;
 
     if (parsedState.therapistUserId !== activeTherapist.id) {
       await createAuditLogEntryBestEffort({
@@ -107,7 +105,6 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(
         buildReturnRedirect(
-          request,
           returnTo,
           "error",
           "Google Calendar callback does not match the signed-in therapist.",
@@ -129,7 +126,6 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(
         buildReturnRedirect(
-          request,
           returnTo,
           "error",
           "Google authorization was cancelled or denied.",
@@ -150,7 +146,6 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(
         buildReturnRedirect(
-          request,
           returnTo,
           "error",
           "Google callback did not include an authorization code.",
@@ -164,7 +159,7 @@ export async function GET(request: NextRequest) {
       : "Google Calendar connected successfully.";
 
     return NextResponse.redirect(
-      buildReturnRedirect(request, returnTo, "success", successMessage),
+      buildReturnRedirect(returnTo, "success", successMessage),
     );
   } catch (error) {
     await createAuditLogEntryBestEffort({
@@ -174,18 +169,23 @@ export async function GET(request: NextRequest) {
       action: "GOOGLE_CALENDAR_CALLBACK_FAILED",
       after: {
         error: error instanceof Error ? error.message : String(error),
+        ...(error instanceof GoogleCalendarServiceError && error.diagnostics
+          ? { oauthScopes: error.diagnostics }
+          : {}),
       },
     });
     logDiagnosticEvent("google-calendar-callback-route", "Unable to complete Google Calendar connection.", {
       therapistUserId: activeTherapist.id,
       error: error instanceof Error ? error.message : String(error),
+      ...(error instanceof GoogleCalendarServiceError && error.diagnostics
+        ? { oauthScopes: error.diagnostics }
+        : {}),
     });
 
     if (error instanceof GoogleCalendarServiceError) {
       return NextResponse.redirect(
         buildReturnRedirect(
-          request,
-          defaultReturnTo,
+          callbackReturnTo,
           "error",
           getSafeGoogleCalendarErrorMessage(error.code),
         ),
@@ -194,8 +194,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(
       buildReturnRedirect(
-        request,
-        defaultReturnTo,
+        callbackReturnTo,
         "error",
         "Unable to complete Google Calendar connection.",
       ),

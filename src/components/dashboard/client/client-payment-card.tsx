@@ -1,4 +1,5 @@
-﻿import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
+import type { PaymentSummaryItem } from "@/lib/contracts/bookings";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import {
   formatBookingStatus,
   formatPaymentStatus,
@@ -43,7 +44,9 @@ function getPaymentOutcomeNote(payment: PaymentSummaryItem) {
 function getTherapistName(payment: PaymentSummaryItem) {
   return (
     payment.booking.therapist.therapistProfile?.displayName ||
-    [payment.booking.therapist.firstName, payment.booking.therapist.lastName].filter(Boolean).join(" ") ||
+    [payment.booking.therapist.firstName, payment.booking.therapist.lastName]
+      .filter(Boolean)
+      .join(" ") ||
     payment.booking.therapist.email
   );
 }
@@ -54,6 +57,19 @@ type ClientPaymentCardProps = {
 
 export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
   const paymentOutcomeNote = getPaymentOutcomeNote(payment);
+  let financialSnapshot: ReturnType<typeof resolvePaymentFinancialSnapshot> | null = null;
+
+  try {
+    financialSnapshot = resolvePaymentFinancialSnapshot(payment);
+  } catch {
+    financialSnapshot = null;
+  }
+
+  const promoDiscountAmount = financialSnapshot?.promoDiscountAmount ?? 0;
+  const clientPayableAmount = financialSnapshot?.clientPayableAmount ?? payment.amount;
+  const stripeChargeAmount =
+    financialSnapshot?.stripeChargeAmount ??
+    Math.max(0, payment.amount - (payment.creditAppliedAmount ?? 0));
 
   return (
     <InsetCard as="article" tone="soft">
@@ -66,8 +82,8 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Amount</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{formatAmount(payment.amount, payment.currency)}</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Amount charged</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{formatAmount(stripeChargeAmount, payment.currency)}</p>
         </div>
       </div>
 
@@ -82,10 +98,24 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
 
       <dl className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
+          <dt className="font-medium text-slate-700">Original session price</dt>
+          <dd className="mt-1">{formatAmount(payment.amount, payment.currency)}</dd>
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
+          <dt className="font-medium text-slate-700">Promo code</dt>
+          <dd className="mt-1">{payment.promoCodeSnapshot ?? "None"}</dd>
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
+          <dt className="font-medium text-slate-700">Promo discount</dt>
+          <dd className="mt-1">-{formatAmount(promoDiscountAmount, payment.currency)}</dd>
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
+          <dt className="font-medium text-slate-700">Client payable</dt>
+          <dd className="mt-1">{formatAmount(clientPayableAmount, payment.currency)}</dd>
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Client credit applied</dt>
-          <dd className="mt-1">
-            {formatAmount(payment.creditAppliedAmount ?? 0, payment.currency)}
-          </dd>
+          <dd className="mt-1">{formatAmount(payment.creditAppliedAmount ?? 0, payment.currency)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Paid at</dt>

@@ -116,6 +116,7 @@ model User {
   cancelledBookings        Booking[]                 @relation("CancelledBookings")
   emailLogs                EmailLog[]
   auditLogs                AuditLog[]                @relation("ActorAuditLogs")
+  createdPromoCodes        PromoCode[]               @relation("PromoCodesCreatedByAdmin")
   therapistReviewNotes     TherapistReviewNote[]     @relation("TherapistReviewNotesByAdmin")
   passwordResetTokens      PasswordResetToken[]
   emailVerificationTokens  EmailVerificationToken[]
@@ -313,6 +314,12 @@ model Payment {
   therapistAmount         Int?
   refundedAmount          Int?
   creditAppliedAmount     Int?
+  promoCodeId             String?
+  promoCodeSnapshot       String?
+  promoDiscountPercent    Int?
+  promoDiscountAmount     Int?
+  clientPayableAmount     Int?
+  stripeChargeAmount      Int?
   checkoutExpiresAt       DateTime?
   failedReason            String?
   refundReason            String?
@@ -330,6 +337,7 @@ model Payment {
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   booking                 Booking                   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  promoCode               PromoCode?                @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
   @@index([paymentStatus])
   @@index([transferStatus])
@@ -343,6 +351,25 @@ model Payment {
   @@index([transferFailedAt])
   @@index([paymentStatus, createdAt])
   @@index([transferStatus, createdAt])
+  @@index([promoCodeId])
+  @@index([promoCodeSnapshot])
+}
+
+model PromoCode {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  discountPercent  Int
+  isActive         Boolean   @default(true)
+  expiresAt        DateTime?
+  createdByAdminId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdByAdmin   User?     @relation("PromoCodesCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  payments         Payment[]
+
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([createdAt])
 }
 
 model StripeWebhookEvent {

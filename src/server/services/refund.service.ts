@@ -1,10 +1,11 @@
 import "server-only";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, PaymentTransferStatus } from "@prisma/client";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { CANCELLATION_POLICY_HOURS } from "@/lib/constants/bookings";
+import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import { markStripeChargeRefunded } from "@/server/services/payment-flow.service";
 
@@ -33,7 +34,8 @@ export class RefundServiceError extends Error {
     public readonly code:
       | "BOOKING_NOT_FOUND"
       | "STRIPE_NOT_CONFIGURED"
-      | "REFUND_CREATE_FAILED",
+      | "REFUND_CREATE_FAILED"
+      | "TRANSFER_RECONCILIATION_REQUIRED",
   ) {
     super(message);
     this.name = "RefundServiceError";
@@ -83,6 +85,15 @@ async function getBookingPaymentContextOrThrow(bookingId: string) {
           stripePaymentIntentId: true,
           stripeRefundId: true,
           refundedAmount: true,
+          creditAppliedAmount: true,
+          promoCodeSnapshot: true,
+          promoDiscountPercent: true,
+          promoDiscountAmount: true,
+          clientPayableAmount: true,
+          stripeChargeAmount: true,
+          platformFeeAmount: true,
+          therapistAmount: true,
+          transferStatus: true,
         },
       },
     },
@@ -253,13 +264,6 @@ async function requestStripeRefundForBooking(input: {
   businessReason: string;
   stripeReason: Stripe.RefundCreateParams.Reason;
 }): Promise<RefundExecutionResult> {
-  if (!isStripeConfigured()) {
-    throw new RefundServiceError(
-      "Stripe is not configured yet in this environment.",
-      "STRIPE_NOT_CONFIGURED",
-    );
-  }
-
   const booking = await getBookingPaymentContextOrThrow(input.bookingId);
   const payment = booking.payment;
 
@@ -314,10 +318,77 @@ async function requestStripeRefundForBooking(input: {
     };
   }
 
+  if (payment.transferStatus === PaymentTransferStatus.TRANSFERRED) {
+    await createAuditLogEntryBestEffort({
+      actorUserId: input.actorUserId,
+      entityType: "Payment",
+      entityId: payment.id,
+      action: "REFUND_TRANSFER_RECONCILIATION_REQUIRED",
+      after: {
+        bookingId: booking.id,
+        trigger: input.trigger,
+        transferStatus: payment.transferStatus,
+      },
+    });
+
+    throw new RefundServiceError(
+      "The therapist transfer is already complete, so this refund requires financial reconciliation.",
+      "TRANSFER_RECONCILIATION_REQUIRED",
+    );
+  }
+
+  let snapshot;
+
+  try {
+    snapshot = resolvePaymentFinancialSnapshot(payment);
+  } catch {
+    throw new RefundServiceError(
+      "The authoritative Payment snapshot is incomplete, so the refund cannot be reconciled safely.",
+      "REFUND_CREATE_FAILED",
+    );
+  }
+
   if (!payment.stripePaymentIntentId) {
+    if (snapshot.stripeChargeAmount === 0 && snapshot.creditAppliedAmount > 0) {
+      await markStripeChargeRefunded(booking.id, {
+        refundId: null,
+        refundedAmount: 0,
+        refundReason: input.businessReason,
+      });
+
+      await createAuditLogEntryBestEffort({
+        actorUserId: input.actorUserId,
+        entityType: "Payment",
+        entityId: payment.id,
+        action: "CLIENT_CREDIT_REFUND_COMPLETED",
+        before: {
+          paymentStatus: payment.paymentStatus,
+        },
+        after: {
+          bookingId: booking.id,
+          refundedCreditAmount: snapshot.creditAppliedAmount,
+          trigger: input.trigger,
+        },
+      });
+
+      return {
+        status: "refunded",
+        reason: "REFUNDED",
+        refundId: null,
+        refundedAmount: 0,
+      };
+    }
+
     throw new RefundServiceError(
       "Paid booking is missing Stripe payment intent metadata, so the refund could not be created automatically.",
       "REFUND_CREATE_FAILED",
+    );
+  }
+
+  if (!isStripeConfigured()) {
+    throw new RefundServiceError(
+      "Stripe is not configured yet in this environment.",
+      "STRIPE_NOT_CONFIGURED",
     );
   }
 
@@ -337,7 +408,7 @@ async function requestStripeRefundForBooking(input: {
 
     await markStripeChargeRefunded(booking.id, {
       refundId: refund.id,
-      refundedAmount: refund.amount ?? payment.amount,
+      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
       refundReason: input.businessReason,
     });
 
@@ -353,7 +424,7 @@ async function requestStripeRefundForBooking(input: {
       after: {
         bookingId: booking.id,
         refundId: refund.id,
-        refundedAmount: refund.amount ?? payment.amount,
+        refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
         trigger: input.trigger,
         businessReason: input.businessReason,
       },
@@ -363,7 +434,7 @@ async function requestStripeRefundForBooking(input: {
       status: "refunded",
       reason: "REFUNDED",
       refundId: refund.id,
-      refundedAmount: refund.amount ?? payment.amount,
+      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
     };
   } catch (error) {
     logDiagnosticEvent("refund-service", "Unable to create Stripe refund.", {

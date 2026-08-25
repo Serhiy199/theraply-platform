@@ -9,14 +9,18 @@ import {
   getGooglePrimaryCalendar,
   refreshGoogleAccessToken,
 } from "@/lib/google/google-calendar";
-import { DEFAULT_THERAPIST_TIME_ZONE } from "@/lib/google/google-time-zone";
+import { DEFAULT_APP_TIME_ZONE, resolveTimeZone } from "@/lib/time-zone";
 import {
   buildGoogleOAuthConsentUrl,
   createGoogleOAuthClient,
   exchangeGoogleAuthorizationCode,
   type GoogleOAuthTokens,
 } from "@/lib/google/google-oauth";
-import { isGoogleCalendarConfigured } from "@/lib/google/google-calendar-config";
+import {
+  getGoogleOAuthScopeDiagnostics,
+  isGoogleCalendarConfigured,
+  type GoogleOAuthScopeDiagnostics,
+} from "@/lib/google/google-calendar-config";
 import {
   createAuditLogEntryBestEffort,
   logDiagnosticEvent,
@@ -88,9 +92,13 @@ export class GoogleCalendarServiceError extends Error {
       | "GOOGLE_CALENDAR_NOT_CONNECTED"
       | "GOOGLE_REFRESH_TOKEN_MISSING"
       | "GOOGLE_CALENDAR_REAUTH_REQUIRED"
+      | "GOOGLE_OAUTH_SCOPES_INSUFFICIENT"
+      | "GOOGLE_USERINFO_FETCH_FAILED"
+      | "GOOGLE_CALENDAR_LIST_FETCH_FAILED"
       | "GOOGLE_CALENDAR_SELECTION_INVALID"
       | "GOOGLE_CALENDAR_TARGET_MISSING"
       | "GOOGLE_CALENDAR_EVENT_CREATE_FAILED",
+    public readonly diagnostics?: GoogleOAuthScopeDiagnostics,
   ) {
     super(message);
     this.name = "GoogleCalendarServiceError";
@@ -238,9 +246,31 @@ export async function completeTherapistGoogleCalendarConnection(
   ensureGoogleCalendarConfigured();
 
   const { client, tokens } = await exchangeGoogleCalendarCode(code);
+  const scopeDiagnostics = getGoogleOAuthScopeDiagnostics(tokens.scope);
+
+  if (scopeDiagnostics.missingRequiredScopes.length > 0) {
+    throw new GoogleCalendarServiceError(
+      "Google did not grant all required OAuth scopes.",
+      "GOOGLE_OAUTH_SCOPES_INSUFFICIENT",
+      scopeDiagnostics,
+    );
+  }
+
   const [profile, primaryCalendar] = await Promise.all([
-    getGoogleAuthenticatedUserProfile(client),
-    getGooglePrimaryCalendar(client),
+    getGoogleAuthenticatedUserProfile(client).catch(() => {
+      throw new GoogleCalendarServiceError(
+        "Google user profile lookup failed.",
+        "GOOGLE_USERINFO_FETCH_FAILED",
+        scopeDiagnostics,
+      );
+    }),
+    getGooglePrimaryCalendar(client).catch(() => {
+      throw new GoogleCalendarServiceError(
+        "Google Calendar list lookup failed.",
+        "GOOGLE_CALENDAR_LIST_FETCH_FAILED",
+        scopeDiagnostics,
+      );
+    }),
   ]);
 
   return saveTherapistGoogleCalendarConnection({
@@ -503,16 +533,16 @@ export async function getTherapistSelectedGoogleCalendarTimeZone(therapistUserId
   const connection = await requireTherapistGoogleCalendarConnection(therapistUserId);
 
   if (!connection.googleCalendarId) {
-    return DEFAULT_THERAPIST_TIME_ZONE;
+    return DEFAULT_APP_TIME_ZONE;
   }
 
   try {
     const calendars = await getTherapistSelectableGoogleCalendars(therapistUserId);
     const selectedCalendar = calendars.find((calendar) => calendar.id === connection.googleCalendarId);
 
-    return selectedCalendar?.timeZone?.trim() || DEFAULT_THERAPIST_TIME_ZONE;
+    return resolveTimeZone(selectedCalendar?.timeZone);
   } catch {
-    return DEFAULT_THERAPIST_TIME_ZONE;
+    return DEFAULT_APP_TIME_ZONE;
   }
 }
 
