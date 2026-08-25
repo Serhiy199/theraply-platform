@@ -3,7 +3,12 @@
 import { useActionState, useState, useTransition } from "react";
 import type { BookingDetailsItem } from "@/lib/contracts/bookings";
 import type { PromoCodePreview } from "@/lib/contracts/payments";
-import { resolvePaymentFinancialSnapshot } from "@/lib/promo-code";
+import {
+  getRemainingCardChargeDisplay,
+  hasFrozenPaymentFinancials,
+  resolveClientPaymentDisplayBreakdown,
+  type ClientPaymentDisplayBreakdown,
+} from "@/lib/client-payment-presentation";
 import type { PaymentEligibility } from "@/server/services/payment-flow.service";
 import {
   getCancellationConfirmationMessage,
@@ -127,62 +132,25 @@ function CancelBookingForm({ booking }: { booking: BookingDetailsItem }) {
 type PaymentCheckoutPanelProps = {
   booking: BookingDetailsItem;
   paymentEligibility: PaymentEligibility;
+  promoPreview: PromoCodePreview | null;
+  setPromoPreview: (preview: PromoCodePreview | null) => void;
+  breakdown: ClientPaymentDisplayBreakdown;
 };
 
 function PaymentCheckoutPanel({
   booking,
   paymentEligibility,
+  promoPreview,
+  setPromoPreview,
+  breakdown,
 }: PaymentCheckoutPanelProps) {
   const [promoCodeInput, setPromoCodeInput] = useState("");
-  const [promoPreview, setPromoPreview] = useState<PromoCodePreview | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
   const payment = booking.payment;
-  const hasFrozenPayment =
-    payment?.paymentStatus === "PENDING" ||
-    payment?.paymentStatus === "PAID" ||
-    payment?.paymentStatus === "REFUNDED";
-  let frozenSnapshot: ReturnType<typeof resolvePaymentFinancialSnapshot> | null = null;
-
-  if (hasFrozenPayment && payment) {
-    try {
-      frozenSnapshot = resolvePaymentFinancialSnapshot(payment);
-    } catch {
-      frozenSnapshot = null;
-    }
-  }
-
-  const breakdown = frozenSnapshot
-    ? {
-        grossAmount: frozenSnapshot.grossAmount,
-        promoCode: frozenSnapshot.promoCodeSnapshot,
-        promoDiscountAmount: frozenSnapshot.promoDiscountAmount,
-        clientPayableAmount: frozenSnapshot.clientPayableAmount,
-        creditAppliedAmount: frozenSnapshot.creditAppliedAmount,
-        stripeChargeAmount: frozenSnapshot.stripeChargeAmount,
-        currency: payment?.currency ?? paymentEligibility.currency,
-      }
-    : promoPreview
-      ? {
-          grossAmount: promoPreview.grossAmount,
-          promoCode: promoPreview.normalizedCode,
-          promoDiscountAmount: promoPreview.promoDiscountAmount,
-          clientPayableAmount: promoPreview.clientPayableAmount,
-          creditAppliedAmount: promoPreview.projectedCreditAppliedAmount,
-          stripeChargeAmount: promoPreview.projectedStripeChargeAmount,
-          currency: promoPreview.currency,
-        }
-      : {
-          grossAmount: paymentEligibility.amount,
-          promoCode: null,
-          promoDiscountAmount: 0,
-          clientPayableAmount: paymentEligibility.amount,
-          creditAppliedAmount: paymentEligibility.projectedCreditAppliedAmount,
-          stripeChargeAmount: paymentEligibility.projectedStripeChargeAmount,
-          currency: paymentEligibility.currency,
-        };
+  const hasFrozenPayment = hasFrozenPaymentFinancials(payment);
 
   function handleApplyPromo() {
     setPromoError(null);
@@ -383,11 +351,18 @@ type ClientBookingDetailsProps = {
 };
 
 export function ClientBookingDetails({ booking, paymentEligibility }: ClientBookingDetailsProps) {
+  const [promoPreview, setPromoPreview] = useState<PromoCodePreview | null>(null);
   const paymentStatus = booking.payment?.paymentStatus ?? null;
   const canCancel = ["PENDING_THERAPIST", "CONFIRMED"].includes(booking.bookingStatus) && booking.startsAt > new Date();
   const lateCancellation = isLateCancellation(booking.startsAt);
   const therapistName = getTherapistName(booking);
   const paymentOutcomeMessage = getPaymentOutcomeMessage(booking);
+  const paymentBreakdown = resolveClientPaymentDisplayBreakdown({
+    payment: booking.payment,
+    paymentEligibility,
+    promoPreview,
+  });
+  const remainingCardCharge = getRemainingCardChargeDisplay(paymentBreakdown);
 
   return (
     <div className="grid gap-6">
@@ -463,7 +438,7 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
               <div className="flex items-start justify-between gap-4">
                 <dt className="font-medium text-slate-700">Session price</dt>
                 <dd className="text-right">
-                  {formatAmount(paymentEligibility.amount, paymentEligibility.currency)}
+                  {formatAmount(paymentBreakdown.grossAmount, paymentBreakdown.currency)}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -476,11 +451,11 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="font-medium text-slate-700">Credit applied next</dt>
+                <dt className="font-medium text-slate-700">Client credit</dt>
                 <dd className="text-right">
                   {formatAmount(
-                    paymentEligibility.projectedCreditAppliedAmount,
-                    paymentEligibility.currency,
+                    paymentBreakdown.creditAppliedAmount,
+                    paymentBreakdown.currency,
                   )}
                 </dd>
               </div>
@@ -488,8 +463,8 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
                 <dt className="font-medium text-slate-700">Remaining card charge</dt>
                 <dd className="text-right">
                   {formatAmount(
-                    paymentEligibility.projectedStripeChargeAmount,
-                    paymentEligibility.currency,
+                    remainingCardCharge.amount,
+                    remainingCardCharge.currency,
                   )}
                 </dd>
               </div>
@@ -560,6 +535,9 @@ export function ClientBookingDetails({ booking, paymentEligibility }: ClientBook
               <PaymentCheckoutPanel
                 booking={booking}
                 paymentEligibility={paymentEligibility}
+                promoPreview={promoPreview}
+                setPromoPreview={setPromoPreview}
+                breakdown={paymentBreakdown}
               />
           </>
         </SurfaceCard>
