@@ -24,7 +24,7 @@ function getErrorTone(state: BookingRequestActionState) {
 }
 
 function getErrorTitle(state: BookingRequestActionState) {
-  if (state.code === "conflict") return "Slot conflict detected";
+  if (state.code === "conflict") return "This time is no longer available";
   if (state.code === "validation") return "Invalid booking request";
   return "Unable to create request";
 }
