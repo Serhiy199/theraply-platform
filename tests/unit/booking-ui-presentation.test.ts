@@ -157,6 +157,29 @@ describe("booking availability presentation", () => {
     expect(source).not.toContain("Unavailable cards are shown too");
   });
 
+  it("keeps one concise therapist-selection introduction", () => {
+    const source = readFileSync(
+      new URL("../../src/components/booking/client/therapist-picker.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain("Client booking flow");
+    expect(source).toContain("Choose a therapist");
+    expect(source).toContain(
+      "Select a therapist to view their available appointment times for the next 14 days.",
+    );
+    expect(source).toContain("bookable therapist");
+    expect(source).toContain('therapists.length === 1 ? "" : "s"');
+    expect(source).not.toContain("Choose the best fit");
+    expect(source).not.toContain(
+      "Start a new booking request by choosing the therapist you want to work with.",
+    );
+    expect(source).not.toContain("Select a therapist to continue into slot selection.");
+    expect(source).not.toContain(
+      "Booking requests are created on the next step and stay pending until the therapist responds.",
+    );
+  });
+
   it("keeps booked slots visibly disabled and available slots selectable", () => {
     const source = readFileSync(
       new URL("../../src/components/booking/client/slot-card.tsx", import.meta.url),
