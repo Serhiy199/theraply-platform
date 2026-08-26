@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { DashboardNavItem } from "@/lib/constants/dashboard-nav";
-import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 
 type DashboardShellProps = {
@@ -38,12 +37,6 @@ export function DashboardShell({
           user={user}
         />
         <div className="flex min-w-0 flex-col gap-6">
-          <DashboardHeader
-            email={user.email}
-            firstName={user.firstName}
-            lastName={user.lastName}
-            roleLabel={roleLabel}
-          />
           <div className="flex min-w-0 flex-col gap-6">{children}</div>
         </div>
       </div>

@@ -1,7 +1,10 @@
 import { formatDateKeyInTimeZone } from "@/lib/google/google-time-zone";
-import { DEFAULT_APP_TIME_ZONE } from "@/lib/time-zone";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
+import {
+  getAvailabilityCountLabel,
+  getVisibleAvailabilitySlots,
+} from "@/lib/booking-availability-presentation";
 import type { TherapistAvailabilitySlot } from "@/server/services/booking-flow.service";
 import { SlotCard } from "@/components/booking/client/slot-card";
 import { BookingEmptyState } from "@/components/booking/client/booking-empty-state";
@@ -104,16 +107,9 @@ export function TherapistAvailability({
   slots,
   availabilityIssue,
 }: TherapistAvailabilityProps) {
-  const slotGroups = groupSlotsByDay(slots);
-  const availableCount = slots.filter((slot) => slot.isAvailable).length;
-  const unavailableCount = slots.length - availableCount;
-  const leadTimeBlockedCount = slots.filter(
-    (slot) => !slot.isAvailable && slot.unavailableReason === "lead_time",
-  ).length;
-  const conflictBlockedCount = slots.filter(
-    (slot) => !slot.isAvailable && slot.unavailableReason === "conflict",
-  ).length;
-  const displayTimeZone = slots[0]?.timeZone ?? DEFAULT_APP_TIME_ZONE;
+  const visibleSlots = getVisibleAvailabilitySlots(slots);
+  const slotGroups = groupSlotsByDay(visibleSlots);
+  const availableCount = visibleSlots.filter((slot) => slot.isAvailable).length;
   const hasCalendarConnection = Boolean(
     therapist.therapistProfile?.isGoogleCalendarConnected &&
       therapist.therapistProfile?.googleCalendarId,
@@ -127,11 +123,8 @@ export function TherapistAvailability({
       <SurfaceCard>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <SectionEyebrow>Client booking flow</SectionEyebrow>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-900">Available slots for {displayName}</h2>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-              Pick a time that works for you. The booking request will be sent to the therapist and remain pending until they confirm it.
-            </p>
+            <SectionEyebrow>Therapist</SectionEyebrow>
+            <h2 className="mt-3 text-3xl font-semibold text-slate-900">{displayName}</h2>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <InsetCard as="div" tone="plain" className="rounded-[1.5rem] px-4 py-3 text-sm text-slate-600 shadow-none">
@@ -143,7 +136,7 @@ export function TherapistAvailability({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="mt-6">
           <InsetCard tone="soft">
             <div className="grid gap-5 sm:grid-cols-[230px_minmax(0,1fr)] sm:items-start">
               <TherapistProfilePhoto
@@ -172,67 +165,38 @@ export function TherapistAvailability({
               </div>
             </div>
           </InsetCard>
-
-          <InsetCard tone="soft">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Booking window</p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-900">Next {BOOKING_FLOW_WINDOW_DAYS} days</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              {BOOKING_FLOW_MESSAGES.pendingLabel}. Slot request submission is the next step, so this screen focuses on availability and timing selection.
-            </p>
-            <div className="mt-3 rounded-[1.25rem] border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-              Sessions must be requested at least 25 hours before the start time so the therapist can confirm them and the payment window still remains valid.
-            </div>
-            <div className="mt-5 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
-              Calendar sync: {therapist.therapistProfile?.googleCalendarEmail ?? "Not connected yet"}
-            </div>
-            <div className="mt-3 rounded-[1.25rem] border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
-              All times are shown in UK time.
-              <span className="ml-1 font-semibold text-slate-900">({displayTimeZone})</span>
-            </div>
-            {!hasCalendarConnection ? (
-              <div className="mt-4">
-                <BookingStatusAlert tone="warning" title="Calendar setup is not complete">
-                  This therapist has not finished Google Calendar setup yet, so real availability cannot be shown.
-                </BookingStatusAlert>
-              </div>
-            ) : null}
-            {availabilityIssue ? (
-              <div className="mt-4">
-                <BookingStatusAlert tone="warning" title="Availability could not be loaded">
-                  {availabilityIssue}
-                </BookingStatusAlert>
-              </div>
-            ) : null}
-          </InsetCard>
         </div>
       </SurfaceCard>
 
       <SurfaceCard>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <SectionEyebrow>Therapist availability</SectionEyebrow>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-900">Choose a time</h2>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-              Available slots are generated from the current booking window and existing booking conflicts. On the next step, one of these slots will become a real booking request.
-            </p>
-          </div>
+        <div>
+          <h2 className="text-3xl font-semibold text-slate-900">Choose an available time</h2>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
+            Available sessions for the next {BOOKING_FLOW_WINDOW_DAYS} days. All times are shown in UK time.
+          </p>
         </div>
 
-        {slotGroups.length ? (
-          <>
-            <div className="mt-6">
-              {availableCount > 0 ? (
-                <BookingStatusAlert title="Slots ready for booking">
-                  Choose any available slot below to send a booking request. Unavailable cards are shown too, so conflicts stay visible instead of silently disappearing.
-                </BookingStatusAlert>
-              ) : (
-                <BookingStatusAlert tone="warning" title="All visible slots are currently blocked">
-                  {BOOKING_FLOW_MESSAGES.slotConflict} Try another therapist or come back later when the schedule changes.
-                </BookingStatusAlert>
-              )}
-            </div>
+        <div className="mt-5 rounded-[1.25rem] border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+          Sessions must be requested at least 25 hours before the start time so the therapist can confirm them and the payment window still remains valid.
+        </div>
 
-            <div className="mt-6 grid gap-5">
+        {!hasCalendarConnection ? (
+          <div className="mt-5">
+            <BookingStatusAlert tone="warning" title="Calendar setup is not complete">
+              This therapist has not finished Google Calendar setup yet, so real availability cannot be shown.
+            </BookingStatusAlert>
+          </div>
+        ) : null}
+        {availabilityIssue ? (
+          <div className="mt-5">
+            <BookingStatusAlert tone="warning" title="Availability could not be loaded">
+              {availabilityIssue}
+            </BookingStatusAlert>
+          </div>
+        ) : null}
+
+        {slotGroups.length ? (
+          <div className="mt-6 grid gap-5">
               {slotGroups.map((group) => (
                 <InsetCard key={group.key} as="section" tone="soft">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -241,7 +205,7 @@ export function TherapistAvailability({
                       <h3 className="mt-2 text-2xl font-semibold text-slate-900">{group.label}</h3>
                     </div>
                     <p className="text-sm text-slate-600">
-                      {group.slots.filter((slot) => slot.isAvailable).length} available of {group.slots.length}
+                      {getAvailabilityCountLabel(group.slots)}
                     </p>
                   </div>
 
@@ -252,30 +216,7 @@ export function TherapistAvailability({
                   </div>
                 </InsetCard>
               ))}
-            </div>
-
-            {unavailableCount > 0 ? (
-              <div className="mt-6">
-                <BookingStatusAlert
-                  tone="info"
-                  title={
-                    conflictBlockedCount > 0 && leadTimeBlockedCount > 0
-                      ? "Availability guardrails are enabled"
-                      : leadTimeBlockedCount > 0
-                        ? "Short-notice protection is enabled"
-                        : "Conflict visibility is enabled"
-                  }
-                >
-                  {conflictBlockedCount > 0
-                    ? `${conflictBlockedCount} slot${conflictBlockedCount === 1 ? " is" : "s are"} currently unavailable because they overlap with another active request or confirmed booking.`
-                    : "Active booking conflicts are not blocking any visible slots right now."}
-                  {leadTimeBlockedCount > 0
-                    ? ` ${leadTimeBlockedCount} more slot${leadTimeBlockedCount === 1 ? " is" : "s are"} blocked because they are less than 25 hours away.`
-                    : ""}
-                </BookingStatusAlert>
-              </div>
-            ) : null}
-          </>
+          </div>
         ) : (
           <div className="mt-6">
             <BookingEmptyState
