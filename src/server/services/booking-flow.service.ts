@@ -20,8 +20,11 @@ import {
 } from "@/server/services/google-availability.service";
 import {
   BOOKING_FLOW_MESSAGES,
-  BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION,
 } from "@/lib/constants/booking-flow";
+import {
+  applyBookingAvailabilityPolicy,
+  meetsBookingLeadTime,
+} from "@/lib/booking-availability-policy";
 import {
   createTherapistGoogleCalendarEvent,
   deleteTherapistGoogleCalendarEvent,
@@ -222,14 +225,6 @@ function buildBookingSlotLockKey(therapistId: string, startsAt: Date, endsAt: Da
   return `${therapistId}:${startsAt.toISOString()}:${endsAt.toISOString()}`;
 }
 
-function getMinimumBookingLeadTimeMs() {
-  return BOOKING_FLOW_MIN_HOURS_BEFORE_SESSION * 60 * 60 * 1000;
-}
-
-function meetsBookingLeadTime(startsAt: Date, now = new Date()) {
-  return startsAt.getTime() - now.getTime() >= getMinimumBookingLeadTimeMs();
-}
-
 function assertBookingLeadTime(startsAt: Date, now = new Date()) {
   if (!meetsBookingLeadTime(startsAt, now)) {
     throw new BookingFlowServiceError(
@@ -401,27 +396,10 @@ export async function getTherapistAvailability(
     validateDateRange(from, to);
   }
 
-  const now = new Date();
   const slots = await getTherapistGoogleAvailability(therapistId, from, to);
+  const now = new Date();
 
-  return slots.map((slot) => {
-    if (!slot.isAvailable) {
-      return {
-        ...slot,
-        unavailableReason: "conflict" as const,
-      };
-    }
-
-    if (!meetsBookingLeadTime(slot.startsAt, now)) {
-      return {
-        ...slot,
-        isAvailable: false,
-        unavailableReason: "lead_time" as const,
-      };
-    }
-
-    return slot;
-  });
+  return slots.map((slot) => applyBookingAvailabilityPolicy(slot, now));
 }
 
 export async function createBookingRequest(
