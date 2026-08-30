@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 import { Alert, Button, Form, Input, Space, Typography } from "antd";
-import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
+import {
+  getPostLoginRedirectForUser,
+  resolveSafeInternalCallbackUrl,
+} from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { loginSchema } from "@/lib/validations/auth";
 
@@ -17,7 +20,10 @@ type LoginFormProps = {
 
 function normalizeRedirectTarget(url: string) {
   const parsedUrl = new URL(url, window.location.origin);
-  return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+  return resolveSafeInternalCallbackUrl(
+    `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
+    "/",
+  );
 }
 
 export function LoginForm({ callbackUrl = "/" }: LoginFormProps) {

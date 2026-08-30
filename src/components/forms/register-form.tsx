@@ -43,7 +43,7 @@ function SubmitButton({ pending }: { pending: boolean }) {
   );
 }
 
-export function RegisterForm() {
+export function RegisterForm({ callbackUrl }: { callbackUrl?: string | null }) {
   const [role, setRole] = useState<SignupRole>("CLIENT");
   const [state, formAction, pending] = useActionState<RegisterActionState, FormData>(
     registerAction,
@@ -84,6 +84,9 @@ export function RegisterForm() {
       </Paragraph>
       <form action={formAction} className="w-full">
         <input type="hidden" name="role" value={role} />
+        {callbackUrl ? (
+          <input type="hidden" name="callbackUrl" value={callbackUrl} />
+        ) : null}
         <Form component={false} layout="vertical" requiredMark={false}>
           <Form.Item
             label="Account type"
