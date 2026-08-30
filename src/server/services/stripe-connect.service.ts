@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
+import { isStripeConnectReady } from "@/lib/stripe/stripe-connect-readiness";
 import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 
@@ -130,17 +131,7 @@ function getTherapistDisplayName(therapistProfile: Awaited<ReturnType<typeof get
   );
 }
 
-export function isStripeConnectReady(input: {
-  stripeAccountId?: string | null;
-  stripePayoutsEnabled?: boolean | null;
-  stripeDetailsSubmitted?: boolean | null;
-}) {
-  return Boolean(
-    input.stripeAccountId &&
-      input.stripePayoutsEnabled &&
-      input.stripeDetailsSubmitted,
-  );
-}
+export { isStripeConnectReady };
 
 export async function syncTherapistStripeAccountStatus(therapistUserId: string): Promise<StripeConnectStatusView> {
   assertStripeConfigured();
