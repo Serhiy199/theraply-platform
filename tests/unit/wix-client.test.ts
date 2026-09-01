@@ -27,6 +27,7 @@ afterEach(() => {
 describe("Wix API client configuration", () => {
   it("reads required Wix config and keeps account context optional", () => {
     setRequiredWixEnv();
+    vi.stubEnv("WIX_CMS_API_TOKEN", "different-cms-token");
 
     expect(getWixConfig()).toEqual({
       apiToken: testToken,
