@@ -21,6 +21,7 @@
     "verify:therapist-onboarding": "tsx scripts/verify-therapist-onboarding.ts",
     "verify:cron-booking-rules": "tsx scripts/verify-cron-booking-rules.ts",
     "verify:security": "tsx scripts/verify-security.ts",
+    "wix:cms:reconcile:production": "tsx scripts/reconcile-wix-cms-production.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",

@@ -30,6 +30,10 @@ type QueryDataItemsResponse = {
   dataItems?: unknown[];
 };
 
+type DataCollectionResponse = {
+  collection?: unknown;
+};
+
 type DataItemResponse = {
   dataItem?: unknown;
 };
@@ -39,6 +43,16 @@ export type WixCmsIndex = {
   status: string;
   unique: boolean;
   fields: Array<{ path: string }>;
+};
+
+export type WixCmsCollectionField = {
+  key: string;
+  type: string;
+};
+
+export type WixCmsCollection = {
+  id: string;
+  fields: WixCmsCollectionField[];
 };
 
 export class WixCmsClientError extends Error {
@@ -89,6 +103,36 @@ function parseIndex(value: unknown): WixCmsIndex | null {
   };
 }
 
+function parseCollection(value: unknown): WixCmsCollection {
+  if (!isRecord(value) || typeof value.id !== "string" || !Array.isArray(value.fields)) {
+    throw new WixCmsClientError("Wix CMS returned an invalid collection response.");
+  }
+
+  const fields = value.fields.flatMap((field) =>
+    isRecord(field) && typeof field.key === "string" && typeof field.type === "string"
+      ? [{ key: field.key, type: field.type }]
+      : [],
+  );
+
+  if (fields.length !== value.fields.length) {
+    throw new WixCmsClientError("Wix CMS returned an invalid collection field.");
+  }
+
+  return { id: value.id, fields };
+}
+
+export async function getWixCmsTherapistsCollection() {
+  const config = getWixCmsConfig();
+  const response = await wixRequestForSiteWithApiToken<DataCollectionResponse>(
+    config.siteId,
+    config.apiToken,
+    `/wix-data/v2/collections/${encodeURIComponent(WIX_THERAPISTS_COLLECTION_ID)}?consistentRead=true`,
+    { method: "GET" },
+  );
+
+  return parseCollection(response.collection);
+}
+
 export async function listWixCmsTherapistIndexes() {
   const config = getWixCmsConfig();
   const response = await wixRequestForSiteWithApiToken<{ indexes?: unknown[] }>(
@@ -105,6 +149,39 @@ export async function listWixCmsTherapistIndexes() {
   return response.indexes
     .map(parseIndex)
     .filter((index): index is WixCmsIndex => index !== null);
+}
+
+export async function listAllWixCmsTherapists() {
+  const config = getWixCmsConfig();
+  const items: WixCmsDataItem[] = [];
+  const pageSize = 100;
+
+  for (let offset = 0; offset < 10_000; offset += pageSize) {
+    const response = await wixRequestForSiteWithApiToken<QueryDataItemsResponse>(
+      config.siteId,
+      config.apiToken,
+      "/wix-data/v2/items/query",
+      {
+        method: "POST",
+        body: {
+          dataCollectionId: WIX_THERAPISTS_COLLECTION_ID,
+          consistentRead: true,
+          query: {
+            paging: { limit: pageSize, offset },
+          },
+        },
+      },
+    );
+
+    if (!Array.isArray(response.dataItems)) {
+      throw new WixCmsClientError("Wix CMS returned an invalid query response.");
+    }
+
+    items.push(...response.dataItems.map(parseDataItem));
+    if (response.dataItems.length < pageSize) return items;
+  }
+
+  throw new WixCmsClientError("Wix CMS therapist inventory exceeds the safety limit.");
 }
 
 export async function findWixCmsTherapistsByTheraplyId(theraplyId: string) {

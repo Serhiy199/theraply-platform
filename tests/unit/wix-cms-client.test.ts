@@ -17,6 +17,8 @@ vi.mock("@/lib/wix/wix-client", () => ({
 import {
   createWixCmsTherapist,
   findWixCmsTherapistsByTheraplyId,
+  getWixCmsTherapistsCollection,
+  listAllWixCmsTherapists,
   listWixCmsTherapistIndexes,
   updateWixCmsTherapist,
   type WixCmsTherapistData,
@@ -47,6 +49,55 @@ beforeEach(() => {
 });
 
 describe("Wix CMS client", () => {
+  it("reads the canonical collection schema without modifying it", async () => {
+    mocks.request.mockResolvedValue({
+      collection: {
+        id: "Therapists",
+        fields: [
+          { key: "theraplyId", type: "TEXT" },
+          { key: "bio", type: "RICH_TEXT" },
+        ],
+      },
+    });
+
+    await expect(getWixCmsTherapistsCollection()).resolves.toEqual({
+      id: "Therapists",
+      fields: [
+        { key: "theraplyId", type: "TEXT" },
+        { key: "bio", type: "RICH_TEXT" },
+      ],
+    });
+    expect(mocks.request).toHaveBeenCalledWith(
+      "staging-site-id",
+      "cms-token",
+      "/wix-data/v2/collections/Therapists?consistentRead=true",
+      { method: "GET" },
+    );
+  });
+
+  it("lists the therapist inventory using consistent read pagination", async () => {
+    mocks.request.mockResolvedValue({
+      dataItems: [{ id: "wix-item-id", revision: "1", data: projection }],
+    });
+
+    await expect(listAllWixCmsTherapists()).resolves.toEqual([
+      { id: "wix-item-id", revision: "1", data: projection },
+    ]);
+    expect(mocks.request).toHaveBeenCalledWith(
+      "staging-site-id",
+      "cms-token",
+      "/wix-data/v2/items/query",
+      expect.objectContaining({
+        method: "POST",
+        body: {
+          dataCollectionId: "Therapists",
+          consistentRead: true,
+          query: { paging: { limit: 100, offset: 0 } },
+        },
+      }),
+    );
+  });
+
   it("lists indexes for the canonical Therapists collection", async () => {
     mocks.request.mockResolvedValue({
       indexes: [

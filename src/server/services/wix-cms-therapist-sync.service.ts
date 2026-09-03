@@ -17,7 +17,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 
-const wixCmsTherapistProfileSelect = {
+export const wixCmsTherapistProfileSelect = {
   id: true,
   displayName: true,
   bio: true,

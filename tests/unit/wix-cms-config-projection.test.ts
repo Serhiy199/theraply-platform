@@ -139,6 +139,16 @@ describe("Wix CMS therapist projection", () => {
     expect(result).not.toHaveProperty("stripeAccountId");
   });
 
+  it("keeps bio as a string compatible with the Wix RICH_TEXT field", () => {
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
+    const profile = buildProfile();
+    profile.bio = "<p>Public biography</p>";
+
+    expect(mapTherapistToWixCmsItem(profile).bio).toBe(
+      "<p>Public biography</p>",
+    );
+  });
+
   it("formats positive integer pence deterministically", () => {
     expect(formatWixCmsSessionPrice(6000)).toBe("£60");
     expect(formatWixCmsSessionPrice(6500)).toBe("£65");
