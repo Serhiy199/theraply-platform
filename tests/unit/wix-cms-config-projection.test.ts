@@ -52,16 +52,71 @@ describe("Wix CMS environment guard", () => {
     ).not.toThrow();
   });
 
-  it("loads the dedicated CMS token", () => {
+  it("loads the staging CMS token", () => {
     vi.stubEnv("WIX_CMS_API_TOKEN", "cms-token");
     vi.stubEnv("WIX_CMS_ENVIRONMENT", "staging");
     vi.stubEnv("WIX_CMS_SITE_ID", WIX_CMS_STAGING_SITE_ID);
 
     expect(getWixCmsConfig()).toMatchObject({
       apiToken: "cms-token",
+      tokenSource: "WIX_CMS_API_TOKEN",
       environment: "staging",
       siteId: WIX_CMS_STAGING_SITE_ID,
     });
+  });
+
+  it.each(["dev", "development"])(
+    "loads the non-production CMS token for %s",
+    (environment) => {
+      vi.stubEnv("WIX_CMS_API_TOKEN", "development-cms-token");
+      vi.stubEnv("WIX_CMS_ENVIRONMENT", environment);
+      vi.stubEnv("WIX_CMS_SITE_ID", WIX_CMS_STAGING_SITE_ID);
+
+      expect(getWixCmsConfig()).toMatchObject({
+        apiToken: "development-cms-token",
+        tokenSource: "WIX_CMS_API_TOKEN",
+        environment,
+      });
+    },
+  );
+
+  it("loads only the production CMS token in production", () => {
+    vi.stubEnv("WIX_CMS_API_TOKEN", "staging-cms-token");
+    vi.stubEnv("WIX_CMS_API_TOKEN_PRODUCTION", "production-cms-token");
+    vi.stubEnv("WIX_CMS_ENVIRONMENT", "production");
+    vi.stubEnv("WIX_CMS_SITE_ID", WIX_CMS_PRODUCTION_SITE_ID);
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
+
+    expect(getWixCmsConfig()).toMatchObject({
+      apiToken: "production-cms-token",
+      tokenSource: "WIX_CMS_API_TOKEN_PRODUCTION",
+      environment: "production",
+      siteId: WIX_CMS_PRODUCTION_SITE_ID,
+    });
+  });
+
+  it("fails closed when the production token is missing", () => {
+    vi.stubEnv("WIX_CMS_API_TOKEN", "staging-cms-token");
+    vi.stubEnv("WIX_CMS_API_TOKEN_PRODUCTION", "");
+    vi.stubEnv("WIX_CMS_ENVIRONMENT", "production");
+    vi.stubEnv("WIX_CMS_SITE_ID", WIX_CMS_PRODUCTION_SITE_ID);
+
+    expect(() => getWixCmsConfig()).toThrowError(
+      expect.objectContaining({
+        message: "WIX_CMS_API_TOKEN_PRODUCTION is not configured.",
+        code: "WIX_CMS_CONFIG_MISSING",
+      }),
+    );
+  });
+
+  it("fails closed when the production site ID is wrong", () => {
+    vi.stubEnv("WIX_CMS_API_TOKEN_PRODUCTION", "production-cms-token");
+    vi.stubEnv("WIX_CMS_ENVIRONMENT", "production");
+    vi.stubEnv("WIX_CMS_SITE_ID", WIX_CMS_STAGING_SITE_ID);
+
+    expect(() => getWixCmsConfig()).toThrowError(
+      expect.objectContaining({ code: "WIX_CMS_ENVIRONMENT_MISMATCH" }),
+    );
   });
 
   it("does not fall back to the Forms token", () => {

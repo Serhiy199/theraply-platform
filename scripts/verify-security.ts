@@ -43,6 +43,7 @@ const wixEnvKeys = [
   "WIX_THERAPIST_APPLICATION_FORM_ID",
   "WIX_ACCOUNT_ID",
   "WIX_CMS_API_TOKEN",
+  "WIX_CMS_API_TOKEN_PRODUCTION",
   "WIX_CMS_ENVIRONMENT",
   "WIX_CMS_SITE_ID",
 ] as const;
@@ -337,29 +338,54 @@ function checkHardcodedSecrets(): CheckResult {
 
 function checkWixIntegrationSecrets(): CheckResult {
   const details: string[] = [];
-  const envExampleFile = ".env.example";
   const wixClientFile = "src/lib/wix/wix-client.ts";
+  const wixCmsConfigFile = "src/lib/wix/wix-cms-config.ts";
   const gitignoreFile = ".gitignore";
 
-  if (!fileExists(envExampleFile)) {
-    details.push(`${envExampleFile}: missing`);
-  } else {
-    const content = readText(envExampleFile);
+  for (const exampleFile of exampleEnvFiles) {
+    if (!fileExists(exampleFile)) {
+      details.push(`${exampleFile}: missing`);
+      continue;
+    }
+
+    const content = readText(exampleFile);
     const keys = parseEnvKeys(content);
     const missing = wixEnvKeys.filter((key) => !keys.has(key));
 
     if (missing.length) {
-      details.push(`${envExampleFile}: missing ${missing.join(", ")}`);
+      details.push(`${exampleFile}: missing ${missing.join(", ")}`);
     }
 
-    for (const tokenKey of ["WIX_API_TOKEN", "WIX_CMS_API_TOKEN"]) {
+    for (const tokenKey of [
+      "WIX_API_TOKEN",
+      "WIX_CMS_API_TOKEN",
+      "WIX_CMS_API_TOKEN_PRODUCTION",
+    ]) {
       if (keys.has(tokenKey) && !hasPlaceholderValue(content, tokenKey)) {
-        details.push(`${envExampleFile}: ${tokenKey} should be empty or a placeholder`);
+        details.push(`${exampleFile}: ${tokenKey} should be empty or a placeholder`);
       }
     }
 
     if (keys.has("NEXT_PUBLIC_WIX_API_TOKEN")) {
-      details.push(`${envExampleFile}: NEXT_PUBLIC_WIX_API_TOKEN must not be defined`);
+      details.push(`${exampleFile}: NEXT_PUBLIC_WIX_API_TOKEN must not be defined`);
+    }
+  }
+
+  if (!fileExists(wixCmsConfigFile)) {
+    details.push(`${wixCmsConfigFile}: missing`);
+  } else {
+    const content = readText(wixCmsConfigFile);
+    for (const pattern of [
+      'rawEnvironment === "production"',
+      '"WIX_CMS_API_TOKEN_PRODUCTION"',
+      ': "WIX_CMS_API_TOKEN"',
+    ]) {
+      if (!content.includes(pattern)) {
+        details.push(`${wixCmsConfigFile}: missing production token boundary ${pattern}`);
+      }
+    }
+    if (content.includes("WIX_API_TOKEN")) {
+      details.push(`${wixCmsConfigFile}: CMS config must not use the Forms token`);
     }
   }
 

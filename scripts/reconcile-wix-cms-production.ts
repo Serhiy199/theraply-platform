@@ -84,11 +84,13 @@ async function main() {
       confirmation: undefined,
     });
     console.info("THERAPLY_WIX_PRODUCTION_PREFLIGHT");
+    console.info(`CMS token source: ${preflight.cmsTokenSource}`);
     console.info(JSON.stringify(preflight, null, 2));
   }
 
   const report = await runWixCmsProductionReconciliation(options);
   console.info("THERAPLY_WIX_PRODUCTION_RECONCILIATION");
+  console.info(`CMS token source: ${report.cmsTokenSource}`);
   console.info(JSON.stringify(report, null, 2));
 
   if (!options.write) {

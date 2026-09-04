@@ -5,10 +5,14 @@ export const WIX_CMS_PRODUCTION_SITE_ID = "1ce946b1-1bcb-4b89-a1b5-86358d639333"
 export const WIX_THERAPISTS_COLLECTION_ID = "Therapists";
 export const WIX_THERAPLY_ID_UNIQUE_INDEX_NAME = "theraplyId_unique";
 
-export type WixCmsEnvironment = "staging" | "production";
+export type WixCmsEnvironment = "dev" | "development" | "staging" | "production";
+export type WixCmsTokenSource =
+  | "WIX_CMS_API_TOKEN"
+  | "WIX_CMS_API_TOKEN_PRODUCTION";
 
 export type WixCmsConfig = {
   apiToken: string;
+  tokenSource: WixCmsTokenSource;
   environment: WixCmsEnvironment;
   siteId: string;
   collectionId: typeof WIX_THERAPISTS_COLLECTION_ID;
@@ -27,7 +31,11 @@ export class WixCmsConfigError extends Error {
 }
 
 function readRequiredEnv(
-  name: "WIX_CMS_API_TOKEN" | "WIX_CMS_ENVIRONMENT" | "WIX_CMS_SITE_ID",
+  name:
+    | "WIX_CMS_API_TOKEN"
+    | "WIX_CMS_API_TOKEN_PRODUCTION"
+    | "WIX_CMS_ENVIRONMENT"
+    | "WIX_CMS_SITE_ID",
 ) {
   const value = process.env[name]?.trim();
 
@@ -43,9 +51,9 @@ export function assertWixCmsEnvironment(
   siteId: string,
 ) {
   const expectedSiteId =
-    environment === "staging"
-      ? WIX_CMS_STAGING_SITE_ID
-      : WIX_CMS_PRODUCTION_SITE_ID;
+    environment === "production"
+      ? WIX_CMS_PRODUCTION_SITE_ID
+      : WIX_CMS_STAGING_SITE_ID;
 
   if (siteId !== expectedSiteId) {
     throw new WixCmsConfigError(
@@ -56,21 +64,31 @@ export function assertWixCmsEnvironment(
 }
 
 export function getWixCmsConfig(): WixCmsConfig {
-  const apiToken = readRequiredEnv("WIX_CMS_API_TOKEN");
   const rawEnvironment = readRequiredEnv("WIX_CMS_ENVIRONMENT");
 
-  if (rawEnvironment !== "staging" && rawEnvironment !== "production") {
+  if (
+    rawEnvironment !== "dev" &&
+    rawEnvironment !== "development" &&
+    rawEnvironment !== "staging" &&
+    rawEnvironment !== "production"
+  ) {
     throw new WixCmsConfigError(
-      "WIX_CMS_ENVIRONMENT must be staging or production.",
+      "WIX_CMS_ENVIRONMENT must be dev, development, staging, or production.",
       "WIX_CMS_CONFIG_MISSING",
     );
   }
 
+  const tokenSource: WixCmsTokenSource =
+    rawEnvironment === "production"
+      ? "WIX_CMS_API_TOKEN_PRODUCTION"
+      : "WIX_CMS_API_TOKEN";
+  const apiToken = readRequiredEnv(tokenSource);
   const siteId = readRequiredEnv("WIX_CMS_SITE_ID");
   assertWixCmsEnvironment(rawEnvironment, siteId);
 
   return {
     apiToken,
+    tokenSource,
     environment: rawEnvironment,
     siteId,
     collectionId: WIX_THERAPISTS_COLLECTION_ID,

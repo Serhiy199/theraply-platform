@@ -105,6 +105,7 @@ beforeEach(() => {
   vi.stubEnv("APP_URL", "https://platform.theraply.online");
   mocks.getConfig.mockReturnValue({
     apiToken: "cms-token",
+    tokenSource: "WIX_CMS_API_TOKEN_PRODUCTION",
     environment: "production",
     siteId: "production-site-id",
     collectionId: "Therapists",
@@ -134,6 +135,7 @@ describe("production Wix CMS reconciliation preflight", () => {
   it("defaults to dry-run and performs no reconciliation writes", async () => {
     await expect(runWixCmsProductionReconciliation()).resolves.toMatchObject({
       mode: "DRY_RUN",
+      cmsTokenSource: "WIX_CMS_API_TOKEN_PRODUCTION",
       eligibleCount: 1,
       eligibleProfileIds: ["profile-1"],
       plans: [{ therapistProfileId: "profile-1", action: "CREATE" }],
@@ -170,6 +172,7 @@ describe("production Wix CMS reconciliation preflight", () => {
     mocks.getConfig.mockReturnValue({
       apiToken: "cms-token",
       environment: "staging",
+      tokenSource: "WIX_CMS_API_TOKEN",
       siteId: "staging-site-id",
       collectionId: "Therapists",
     });

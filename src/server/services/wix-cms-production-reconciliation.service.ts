@@ -9,6 +9,7 @@ import {
 } from "@/lib/wix/wix-cms-client";
 import {
   getWixCmsConfig,
+  type WixCmsTokenSource,
   WIX_THERAPLY_ID_UNIQUE_INDEX_NAME,
   WIX_THERAPISTS_COLLECTION_ID,
 } from "@/lib/wix/wix-cms-config";
@@ -62,6 +63,7 @@ export type WixProductionReconciliationPlan = {
 export type WixProductionReconciliationReport = {
   mode: "DRY_RUN" | "WRITE";
   environment: "production";
+  cmsTokenSource: WixCmsTokenSource;
   collectionId: typeof WIX_THERAPISTS_COLLECTION_ID;
   eligibleCount: number;
   eligibleProfileIds: string[];
@@ -256,6 +258,7 @@ export async function runWixCmsProductionReconciliation(
   const report: WixProductionReconciliationReport = {
     mode: options.write ? "WRITE" : "DRY_RUN",
     environment: "production",
+    cmsTokenSource: config.tokenSource,
     collectionId: WIX_THERAPISTS_COLLECTION_ID,
     eligibleCount: eligibleProfileIds.length,
     eligibleProfileIds,
