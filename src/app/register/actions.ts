@@ -1,5 +1,7 @@
 "use server";
 
+import { UserRole } from "@prisma/client";
+import { resolveClientBookingCallbackUrl } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { getSafeAuthErrorMessage } from "@/lib/errors/safe-error-messages";
@@ -45,7 +47,12 @@ export async function registerAction(
   }
 
   try {
-    await registerAccount(parsed.data);
+    const callbackUrl =
+      parsed.data.role === UserRole.CLIENT
+        ? resolveClientBookingCallbackUrl(formData.get("callbackUrl"))
+        : null;
+
+    await registerAccount(parsed.data, { callbackUrl });
 
     return {
       status: "success",

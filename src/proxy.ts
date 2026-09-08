@@ -2,6 +2,10 @@
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
+import {
+  buildAuthRouteWithCallback,
+  resolveSafeInternalCallbackUrl,
+} from "@/lib/auth/redirects";
 
 const ROLE_ROUTE_PREFIXES = {
   CLIENT: "/client",
@@ -39,8 +43,14 @@ export async function proxy(request: NextRequest) {
   });
 
   if (!token) {
-    const loginUrl = new URL(AUTH_ROUTES.login, request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
+    const requestedPath = resolveSafeInternalCallbackUrl(
+      `${pathname}${request.nextUrl.search}`,
+      pathname,
+    );
+    const loginUrl = new URL(
+      buildAuthRouteWithCallback(AUTH_ROUTES.login, requestedPath),
+      request.url,
+    );
     return NextResponse.redirect(loginUrl);
   }
 

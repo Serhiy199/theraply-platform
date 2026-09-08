@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getPostLoginRedirectForUser } from "@/lib/auth/redirects";
+import {
+  getPostLoginRedirectForUser,
+  resolveClientBookingCallbackUrl,
+} from "@/lib/auth/redirects";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import {
@@ -15,6 +18,9 @@ type VerifyEmailPageProps = {
   params: Promise<{
     token: string;
   }>;
+  searchParams: Promise<{
+    callbackUrl?: string | string[];
+  }>;
 };
 
 type VerifyEmailState = {
@@ -27,12 +33,18 @@ type VerifyEmailState = {
   showResend?: boolean;
 };
 
-function getRedirectForVerificationResult(result: EmailVerificationResult) {
-  return getPostLoginRedirectForUser({
-    role: result.role,
-    emailVerified: true,
-    therapistApprovalStatus: result.therapistApprovalStatus,
-  });
+function getRedirectForVerificationResult(
+  result: EmailVerificationResult,
+  callbackUrl: unknown,
+) {
+  return getPostLoginRedirectForUser(
+    {
+      role: result.role,
+      emailVerified: true,
+      therapistApprovalStatus: result.therapistApprovalStatus,
+    },
+    resolveClientBookingCallbackUrl(callbackUrl),
+  );
 }
 
 function getErrorState(error: EmailVerificationServiceError): VerifyEmailState {
@@ -98,14 +110,21 @@ function VerifyEmailStateCard({ state }: { state: VerifyEmailState }) {
   );
 }
 
-export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) {
+export default async function VerifyEmailPage({
+  params,
+  searchParams,
+}: VerifyEmailPageProps) {
   const { token } = await params;
+  const resolvedSearchParams = await searchParams;
   const currentUser = await getCurrentUser();
   let redirectTo: string | null = null;
 
   try {
     const result = await verifyEmailToken(token);
-    redirectTo = getRedirectForVerificationResult(result);
+    redirectTo = getRedirectForVerificationResult(
+      result,
+      resolvedSearchParams.callbackUrl,
+    );
 
     console.info("[verify-email] token handled", {
       status: result.status,

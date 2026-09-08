@@ -4,7 +4,6 @@ import {
   Prisma,
   SessionOutcome,
   SessionStatus,
-  TherapistApprovalStatus,
   UserRole,
 } from "@prisma/client";
 import {
@@ -12,6 +11,7 @@ import {
   type BookingDetailsItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { buildBookableTherapistWhere } from "@/lib/therapist-readiness";
 import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import {
   GoogleAvailabilityServiceError,
@@ -84,23 +84,7 @@ const bookableTherapistSelect = {
   },
 } satisfies Prisma.UserSelect;
 
-const bookableTherapistWhere = {
-  role: UserRole.THERAPIST,
-  isActive: true,
-  emailVerified: true,
-  therapistProfile: {
-    is: {
-      approvalStatus: TherapistApprovalStatus.APPROVED,
-      isApproved: true,
-      onboardingCompleted: true,
-      stripeAccountId: {
-        not: null,
-      },
-      stripePayoutsEnabled: true,
-      stripeDetailsSubmitted: true,
-    },
-  },
-} satisfies Prisma.UserWhereInput;
+const bookableTherapistWhere = buildBookableTherapistWhere();
 
 export type BookableTherapist = Prisma.UserGetPayload<{
   select: typeof bookableTherapistSelect;

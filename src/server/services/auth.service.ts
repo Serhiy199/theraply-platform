@@ -88,7 +88,10 @@ function isResetTokenUsable(tokenRecord: PasswordResetTokenRecord | null) {
   );
 }
 
-export async function registerAccount(input: RegisterInput) {
+export async function registerAccount(
+  input: RegisterInput,
+  options: { callbackUrl?: string | null } = {},
+) {
   const passwordHash = await hashPassword(input.password);
 
   try {
@@ -123,7 +126,7 @@ export async function registerAccount(input: RegisterInput) {
       return createdUser;
     });
 
-    await sendEmailVerification(user.id);
+    await sendEmailVerification(user.id, options.callbackUrl);
 
     return user;
   } catch (error) {

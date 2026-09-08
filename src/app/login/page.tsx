@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { Card, Space } from "antd";
 import { LoginForm } from "@/components/forms/login-form";
+import {
+  buildAuthRouteWithCallback,
+  resolveSafeInternalCallbackUrl,
+} from "@/lib/auth/redirects";
 import { AUTH_ROUTES } from "@/lib/constants/auth";
 
 type LoginPageProps = {
   searchParams?: Promise<{
-    callbackUrl?: string;
+    callbackUrl?: string | string[];
   }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const resolvedSearchParams = await searchParams;
-  const callbackUrl = resolvedSearchParams?.callbackUrl ?? "/";
+  const callbackUrl = resolveSafeInternalCallbackUrl(
+    resolvedSearchParams?.callbackUrl,
+    "/",
+  );
+  const registerHref = buildAuthRouteWithCallback(
+    AUTH_ROUTES.register,
+    callbackUrl === "/" ? null : callbackUrl,
+  );
 
   return (
     <main className="site-shell mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-6 py-16 md:px-10">
@@ -25,7 +36,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
           <LoginForm callbackUrl={callbackUrl} />
           <p className="text-center text-sm text-slate-600">
-            Need an account? <Link href={AUTH_ROUTES.register}>Register here</Link>
+            Need an account? <Link href={registerHref}>Register here</Link>
           </p>
         </Space>
       </Card>

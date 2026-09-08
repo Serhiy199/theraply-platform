@@ -7,6 +7,7 @@ import {
   EMAIL_VERIFICATION_RULES,
 } from "@/lib/constants/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveClientBookingCallbackUrl } from "@/lib/auth/redirects";
 import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import { sendTransactionalEmail } from "@/server/services/email-delivery.service";
 
@@ -74,11 +75,22 @@ function getEmailVerificationExpiryDate() {
 }
 
 function getEmailVerificationBaseUrl() {
-  return process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return (process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000")
+    .replace(/\/+$/, "");
 }
 
-function buildEmailVerificationUrl(token: string) {
-  return `${getEmailVerificationBaseUrl()}${AUTH_ROUTES.verifyEmailBase}/${token}`;
+function buildEmailVerificationUrl(token: string, callbackUrl?: string | null) {
+  const verificationUrl = new URL(
+    `${AUTH_ROUTES.verifyEmailBase}/${token}`,
+    `${getEmailVerificationBaseUrl()}/`,
+  );
+  const safeCallbackUrl = resolveClientBookingCallbackUrl(callbackUrl);
+
+  if (safeCallbackUrl) {
+    verificationUrl.searchParams.set("callbackUrl", safeCallbackUrl);
+  }
+
+  return verificationUrl.toString();
 }
 
 function buildVerificationEmailText(user: EmailVerificationUser, verificationUrl: string) {
@@ -136,6 +148,7 @@ async function findEmailVerificationToken(token: string) {
 
 export async function createEmailVerificationForUser(
   user: EmailVerificationUser,
+  callbackUrl?: string | null,
 ): Promise<EmailVerificationCreationResult> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = getEmailVerificationExpiryDate();
@@ -171,7 +184,7 @@ export async function createEmailVerificationForUser(
     createdTokenId = createdToken.id;
   });
 
-  const verificationUrl = buildEmailVerificationUrl(token);
+  const verificationUrl = buildEmailVerificationUrl(token, callbackUrl);
 
   logEmailVerificationDevEvent("token-created", {
     userId: user.id,
@@ -191,6 +204,7 @@ export async function createEmailVerificationForUser(
 
 export async function sendEmailVerification(
   userId: string,
+  callbackUrl?: string | null,
 ): Promise<EmailVerificationDeliveryResult> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -209,7 +223,7 @@ export async function sendEmailVerification(
     );
   }
 
-  const verification = await createEmailVerificationForUser(user);
+  const verification = await createEmailVerificationForUser(user, callbackUrl);
   const delivery = await sendTransactionalEmail({
     userId: user.id,
     email: user.email,

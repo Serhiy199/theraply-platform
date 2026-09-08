@@ -5,6 +5,7 @@ import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 import { authenticateWithCredentials } from "@/server/services/auth.service";
+import { resolveSafeInternalCallbackUrl } from "@/lib/auth/redirects";
 import {
   buildUserRateLimitIdentifier,
   checkRateLimitPreset,
@@ -53,20 +54,20 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
-      }
-
-      try {
-        const targetUrl = new URL(url);
-        if (targetUrl.origin === baseUrl) {
-          return url;
+      let candidate: string | null = url.startsWith("/") ? url : null;
+      if (!candidate) {
+        try {
+          const targetUrl = new URL(url);
+          if (targetUrl.origin === baseUrl) {
+            candidate = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+          }
+        } catch {
+          candidate = null;
         }
-      } catch {
-        return baseUrl;
       }
 
-      return baseUrl;
+      const safePath = resolveSafeInternalCallbackUrl(candidate, "/");
+      return new URL(safePath, `${baseUrl}/`).toString();
     },
     async jwt({ token, user }) {
       if (user) {
