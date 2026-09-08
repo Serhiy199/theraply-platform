@@ -42,6 +42,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build manual Wix CMS CLI
+        run: npm run build:wix-cli
+
       - name: Prepare deployment artifact
         run: |
           set -euo pipefail
@@ -54,6 +57,8 @@ jobs:
           [ -d public ] && cp -R public deploy_artifact/
           [ -d prisma ] && cp -R prisma deploy_artifact/
           cp -R .next deploy_artifact/
+          mkdir -p deploy_artifact/build
+          cp -R build/wix-cms deploy_artifact/build/
           rm -rf deploy_artifact/.next/cache
 
       - name: Configure SSH

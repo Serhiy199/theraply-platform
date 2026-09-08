@@ -21,7 +21,9 @@
     "verify:therapist-onboarding": "tsx scripts/verify-therapist-onboarding.ts",
     "verify:cron-booking-rules": "tsx scripts/verify-cron-booking-rules.ts",
     "verify:security": "tsx scripts/verify-security.ts",
-    "wix:cms:reconcile:production": "tsx scripts/reconcile-wix-cms-production.ts",
+    "build:wix-cli": "node scripts/build-wix-cms-cli.mjs",
+    "verify:wix-cli:artifact": "node scripts/verify-wix-cms-cli-artifact.mjs",
+    "wix:cms:reconcile:production": "node --env-file-if-exists=.env build/wix-cms/reconcile.cjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",
@@ -43,6 +45,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "esbuild": "0.27.7",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
