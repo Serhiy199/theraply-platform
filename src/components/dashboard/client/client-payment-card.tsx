@@ -69,7 +69,7 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
   const clientPayableAmount = financialSnapshot?.clientPayableAmount ?? payment.amount;
   const stripeChargeAmount =
     financialSnapshot?.stripeChargeAmount ??
-    Math.max(0, payment.amount - (payment.creditAppliedAmount ?? 0));
+    Math.max(0, payment.amount - (payment.creditAppliedAmount ?? 0)) + (payment.bookingFeeAmount ?? 0);
 
   return (
     <InsetCard as="article" tone="soft">
@@ -110,12 +110,16 @@ export function ClientPaymentCard({ payment }: ClientPaymentCardProps) {
           <dd className="mt-1">-{formatAmount(promoDiscountAmount, payment.currency)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
-          <dt className="font-medium text-slate-700">Client payable</dt>
+          <dt className="font-medium text-slate-700">Session after promo</dt>
           <dd className="mt-1">{formatAmount(clientPayableAmount, payment.currency)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Client credit applied</dt>
           <dd className="mt-1">{formatAmount(payment.creditAppliedAmount ?? 0, payment.currency)}</dd>
+        </InsetCard>
+        <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
+          <dt className="font-medium text-slate-700">Booking fee (non-refundable)</dt>
+          <dd className="mt-1">{formatAmount(payment.bookingFeeAmount ?? 0, payment.currency)}</dd>
         </InsetCard>
         <InsetCard as="div" tone="muted" className="rounded-[1.25rem] px-4 py-3 shadow-none">
           <dt className="font-medium text-slate-700">Paid at</dt>

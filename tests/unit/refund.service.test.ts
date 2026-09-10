@@ -87,6 +87,30 @@ const refundInput = {
 };
 
 describe("refund service financial settlement", () => {
+  it.each([0, 2000, 8000])("retains the fee with %i session credit, including therapist cancellations", async (credit) => {
+    findBookingMock.mockResolvedValue(buildBooking({
+      amount: 8000, bookingFeeAmount: 199, creditAppliedAmount: credit,
+      promoDiscountAmount: 0, clientPayableAmount: 8000,
+      stripeChargeAmount: 8199 - credit, platformFeeAmount: 800, therapistAmount: 7200,
+    }));
+    refundCreateMock.mockResolvedValue({ id: "re_session", amount: 8000 - credit, status: "succeeded" });
+    const result = await refundPlatformCancellationIfEligible({ ...refundInput, trigger: "THERAPIST_CANCELLATION" });
+    expect(result.refundedAmount).toBe(8000 - credit);
+    if (credit === 8000) {
+      expect(refundCreateMock).not.toHaveBeenCalled();
+    } else {
+      expect(refundCreateMock).toHaveBeenCalledWith(expect.objectContaining({ amount: 8000 - credit }),
+        { idempotencyKey: "theraply-session-refund-payment-id" });
+    }
+    expect(markRefundedMock).toHaveBeenCalledWith("booking-id", expect.objectContaining({ refundedAmount: 8000 - credit }));
+  });
+
+  it("does not restore credit before a pending Stripe refund succeeds", async () => {
+    refundCreateMock.mockResolvedValue({ id: "re_pending", amount: 10000, status: "pending" });
+    await expect(refundPlatformCancellationIfEligible(refundInput)).rejects.toMatchObject({ code: "REFUND_CREATE_FAILED" });
+    expect(markRefundedMock).not.toHaveBeenCalled();
+  });
+
   it("refunds a Stripe-only payment", async () => {
     const result = await refundPlatformCancellationIfEligible(refundInput);
 
@@ -98,6 +122,7 @@ describe("refund service financial settlement", () => {
     });
     expect(refundCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ payment_intent: "pi_123" }),
+      expect.objectContaining({ idempotencyKey: "theraply-session-refund-payment-id" }),
     );
   });
 

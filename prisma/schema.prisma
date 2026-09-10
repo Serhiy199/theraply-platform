@@ -310,6 +310,7 @@ model Payment {
   stripeTransferGroup     String?                   @unique
   stripeTransferId        String?                   @unique
   amount                  Int
+  bookingFeeAmount        Int                       @default(0)
   platformFeeAmount       Int?
   therapistAmount         Int?
   refundedAmount          Int?

@@ -1,4 +1,5 @@
 export type PromoCodePreview = {
+  bookingFeeAmount: number;
   valid: true;
   normalizedCode: string;
   discountPercent: number;

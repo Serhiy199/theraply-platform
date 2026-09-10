@@ -90,6 +90,33 @@ beforeEach(() => {
 });
 
 describe("payment refund reconciliation", () => {
+  it.each([0, 2000, 8000])("restores %i credit once while retaining the fee on repeated events", async (credit) => {
+    const { tx, getPayment } = configureRefund({
+      amount: 8000, bookingFeeAmount: 199, creditAppliedAmount: credit,
+      clientPayableAmount: 8000, stripeChargeAmount: 8199 - credit,
+      promoDiscountAmount: 0, therapistAmount: 7200, platformFeeAmount: 800,
+    });
+    const input = { refundId: credit === 8000 ? null : "re_session", refundedAmount: 8000 - credit, refundReason: "Cancelled" };
+    await markStripeChargeRefunded("booking-id", input);
+    await markStripeChargeRefunded("booking-id", input);
+    expect(tx.payment.update).toHaveBeenCalledTimes(1);
+    expect(issueCreditMock).toHaveBeenCalledTimes(credit ? 1 : 0);
+    if (credit) expect(issueCreditMock).toHaveBeenCalledWith(tx, expect.objectContaining({ amount: credit }));
+    expect(getPayment()).toMatchObject({ bookingFeeAmount: 199, refundedAmount: 8000 - credit, paymentStatus: PaymentStatus.REFUNDED });
+  });
+
+  it.each([100, 8199])("rejects unsupported external refund amount %i without credit restoration", async (amount) => {
+    const { tx } = configureRefund({
+      amount: 8000, bookingFeeAmount: 199, creditAppliedAmount: 0,
+      clientPayableAmount: 8000, stripeChargeAmount: 8199,
+      promoDiscountAmount: 0, therapistAmount: 7200, platformFeeAmount: 800,
+    });
+    await expect(markStripeChargeRefunded("booking-id", { refundId: "re_external", refundedAmount: amount, refundReason: "External" }))
+      .rejects.toMatchObject({ code: "PAYMENT_SNAPSHOT_MISMATCH" });
+    expect(tx.payment.update).not.toHaveBeenCalled();
+    expect(issueCreditMock).not.toHaveBeenCalled();
+  });
+
   it("atomically marks a full-credit payment refunded and restores credit", async () => {
     const { tx, getPayment } = configureRefund();
 

@@ -40,6 +40,9 @@ type BookingCancelledEmailInput = BookingEmailInput & {
 type PaymentEmailInput = BookingEmailInput & {
   paymentStatus?: PaymentStatus | string | null;
   amount?: MoneyInput | null;
+  bookingFee?: MoneyInput | null;
+  creditApplied?: MoneyInput | null;
+  cardAmount?: MoneyInput | null;
   failedReason?: string | null;
 };
 
@@ -333,7 +336,10 @@ export function buildPaymentSuccessfulEmail(input: PaymentEmailInput): EmailTemp
   const details = [
     ...getBookingDetails(input),
     ["Payment status", getPaymentStatusLabel(input.paymentStatus ?? PaymentStatus.PAID)],
-    ["Amount", amount],
+    [input.bookingFee?.amountMinor ? "Session after promo" : "Amount", amount],
+    ["Booking fee (non-refundable)", formatMoney(input.bookingFee)],
+    ["Client credit", formatMoney(input.creditApplied)],
+    ["Card amount", formatMoney(input.cardAmount)],
   ] satisfies Array<[string, string | null | undefined]>;
 
   return {
@@ -364,7 +370,10 @@ export function buildPaymentFailedEmail(input: PaymentEmailInput): EmailTemplate
   const details = [
     ...getBookingDetails(input),
     ["Payment status", getPaymentStatusLabel(input.paymentStatus ?? PaymentStatus.FAILED)],
-    ["Amount", amount],
+    [input.bookingFee?.amountMinor ? "Session amount" : "Amount", amount],
+    ["Booking fee (non-refundable)", formatMoney(input.bookingFee)],
+    ["Client credit", formatMoney(input.creditApplied)],
+    ["Card amount", formatMoney(input.cardAmount)],
     ["Failure reason", input.failedReason],
   ] satisfies Array<[string, string | null | undefined]>;
 

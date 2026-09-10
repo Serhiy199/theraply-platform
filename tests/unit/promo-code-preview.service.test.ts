@@ -94,7 +94,8 @@ describe("client promo preview", () => {
       promoDiscountAmount: expected.discount,
       clientPayableAmount: expected.payable,
       projectedCreditAppliedAmount: 2000,
-      projectedStripeChargeAmount: expected.stripe,
+      bookingFeeAmount: 199,
+      projectedStripeChargeAmount: expected.stripe + 199,
     });
     expect(findPromoCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { code: `SAVE${expected.percent}` } }),

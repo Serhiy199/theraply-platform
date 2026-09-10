@@ -136,6 +136,17 @@ const intentSuccess = {
 };
 
 describe("payment snapshot reconciliation", () => {
+  it("converges across duplicate success events without adding the booking fee again", async () => {
+    Object.assign(payment, { amount: 8000, bookingFeeAmount: 199, creditAppliedAmount: 8000,
+      clientPayableAmount: 8000, stripeChargeAmount: 199, promoDiscountAmount: 0,
+      therapistAmount: 7200, platformFeeAmount: 800 });
+    await markStripeCheckoutSessionCompleted("booking-id", { ...checkoutSuccess, amount: 199, metadata: { bookingFeeAmount: "199" } });
+    await markStripePaymentIntentSucceeded("booking-id", { ...intentSuccess, amount: 199, metadata: { bookingFeeAmount: "199" } });
+    expect(payment).toMatchObject({ bookingFeeAmount: 199, stripeChargeAmount: 199, creditAppliedAmount: 8000,
+      therapistAmount: 7200, platformFeeAmount: 800, paymentStatus: PaymentStatus.PAID });
+    expect(deliveredEmailBookings.size).toBe(1);
+  });
+
   it("converges when success return is processed before the webhook", async () => {
     await markStripeCheckoutSessionCompleted("booking-id", checkoutSuccess);
     await markStripePaymentIntentSucceeded("booking-id", intentSuccess);

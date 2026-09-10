@@ -105,6 +105,16 @@ afterEach(() => {
 });
 
 describe("therapist transfer service", () => {
+  it("transfers exactly 7200 for an 8000 session, excluding the 199 booking fee", async () => {
+    findBookingMock.mockResolvedValue(buildTransferBooking({ payment: {
+      ...buildTransferBooking().payment, amount: 8000, bookingFeeAmount: 199,
+      clientPayableAmount: 8000, stripeChargeAmount: 8199, promoDiscountAmount: 0,
+      therapistAmount: 7200, platformFeeAmount: 800,
+    } }));
+    await createTherapistTransferForBooking("booking-id", "admin-id");
+    expect(transferCreateMock).toHaveBeenCalledWith(expect.objectContaining({ amount: 7200 }), expect.any(Object));
+  });
+
   it("skips transfer when payment is not paid", async () => {
     findBookingMock.mockResolvedValue(
       buildTransferBooking({

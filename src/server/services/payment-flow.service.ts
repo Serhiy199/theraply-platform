@@ -6,6 +6,7 @@ import {
   PAYMENT_ELIGIBILITY_MESSAGES,
   PAYMENT_POLICY_HOURS_BEFORE_SESSION,
 } from "@/lib/constants/payments";
+import { resolveCheckoutBookingFee } from "@/server/services/booking-fee-policy";
 import { calculatePaymentBreakdown } from "@/lib/payment-breakdown";
 import type { PromoCodePreview } from "@/lib/contracts/payments";
 import {
@@ -66,11 +67,14 @@ const paymentEligibilitySelect = {
   payment: {
     select: {
       id: true,
+      currency: true,
       paymentStatus: true,
       paidAt: true,
       failedAt: true,
       refundedAt: true,
       checkoutExpiresAt: true,
+      bookingFeeAmount: true,
+
       creditAppliedAmount: true,
       promoCodeSnapshot: true,
       promoDiscountPercent: true,
@@ -97,6 +101,7 @@ export type PaymentEligibilityCode =
   | "PAYMENT_DEADLINE_PASSED";
 
 export type PaymentEligibility = {
+  bookingFeeAmount: number;
   canPay: boolean;
   code: PaymentEligibilityCode;
   message: string;
@@ -169,11 +174,14 @@ const stripeCheckoutBookingSelect = {
   payment: {
     select: {
       id: true,
+      currency: true,
       paymentStatus: true,
       paidAt: true,
       failedAt: true,
       refundedAt: true,
       checkoutExpiresAt: true,
+      bookingFeeAmount: true,
+
       creditAppliedAmount: true,
       promoCodeSnapshot: true,
       promoDiscountPercent: true,
@@ -196,6 +204,7 @@ export type CreateClientStripeCheckoutSessionInput = {
 };
 
 export type StripeCheckoutSessionResult = {
+  bookingFeeAmount: number;
   checkoutUrl: string | null;
   sessionId: string | null;
   paymentId: string;
@@ -280,6 +289,7 @@ function assertStripeAmountMatchesPaymentSnapshot(
   payment: {
     id: string;
     amount: number;
+    bookingFeeAmount?: number;
     currency: string;
     creditAppliedAmount: number | null;
     therapistAmount: number | null;
@@ -319,6 +329,7 @@ function assertStripeAmountMatchesPaymentSnapshot(
     const expectedMetadata: Record<string, string> = {
       paymentId: payment.id,
       grossAmount: String(snapshot.grossAmount),
+      bookingFeeAmount: String(snapshot.bookingFeeAmount),
       promoCode: snapshot.promoCodeSnapshot ?? "",
       promoDiscountPercent: String(snapshot.promoDiscountPercent),
       promoDiscountAmount: String(snapshot.promoDiscountAmount),
@@ -467,7 +478,7 @@ function getAvailableClientCreditAmount(
   return booking.client.clientCreditBalance?.balance ?? 0;
 }
 
-function getProjectedCreditAmounts(totalAmount: number | null, availableCreditAmount: number) {
+function getProjectedCreditAmounts(totalAmount: number | null, availableCreditAmount: number, bookingFeeAmount: number) {
   if (!totalAmount || totalAmount <= 0) {
     return {
       availableCreditAmount,
@@ -478,6 +489,7 @@ function getProjectedCreditAmounts(totalAmount: number | null, availableCreditAm
 
   const breakdown = calculatePaymentBreakdown({
     grossAmount: totalAmount,
+    bookingFeeAmount,
     promoDiscountPercent: 0,
     availableClientCredit: availableCreditAmount,
   });
@@ -524,10 +536,12 @@ function buildEligibilityResult(
 ): PaymentEligibility {
   const amount = booking.therapist.therapistProfile?.sessionPricePence ?? null;
   const availableCreditAmount = getAvailableClientCreditAmount(booking);
-  const projectedCredit = getProjectedCreditAmounts(amount, availableCreditAmount);
+  const bookingFeeAmount = resolveCheckoutBookingFee(booking.payment, booking.payment?.currency ?? PAYMENT_CURRENCY);
+  const projectedCredit = getProjectedCreditAmounts(amount, availableCreditAmount, bookingFeeAmount);
 
   return {
     canPay,
+    bookingFeeAmount,
     code,
     message,
     amount,
@@ -568,7 +582,7 @@ function evaluatePaymentEligibility(
     );
   }
 
-  if (!booking.therapist.therapistProfile?.sessionPricePence) {
+  if (!booking.therapist.therapistProfile?.sessionPricePence || booking.therapist.therapistProfile.sessionPricePence <= 0) {
     return buildEligibilityResult(
       booking,
       "MISSING_THERAPIST_PRICE",
@@ -677,6 +691,8 @@ async function getStripePaymentBookingOrThrow(bookingId: string) {
           currency: true,
           paymentStatus: true,
           paidAt: true,
+          bookingFeeAmount: true,
+
           creditAppliedAmount: true,
           promoCodeSnapshot: true,
           promoDiscountPercent: true,
@@ -760,12 +776,14 @@ export async function previewClientPromoCode(
 
   const breakdown = calculatePaymentBreakdown({
     grossAmount: eligibility.amount,
+    bookingFeeAmount: eligibility.bookingFeeAmount,
     promoDiscountPercent: promoCode.discountPercent,
     availableClientCredit: eligibility.availableCreditAmount,
   });
 
   return {
     valid: true,
+    bookingFeeAmount: breakdown.bookingFeeAmount,
     normalizedCode: promoCode.code,
     discountPercent: promoCode.discountPercent,
     promoDiscountAmount: breakdown.promoDiscountAmount,
@@ -812,6 +830,7 @@ export async function createClientStripeCheckoutSession(
         : null;
       const breakdown = calculatePaymentBreakdown({
         grossAmount: eligibility.amount,
+        bookingFeeAmount: eligibility.bookingFeeAmount,
         promoDiscountPercent: promoCode?.discountPercent ?? 0,
         availableClientCredit: getAvailableClientCreditAmount(booking),
       });
@@ -841,6 +860,7 @@ export async function createClientStripeCheckoutSession(
         },
         update: {
           amount: breakdown.grossAmount,
+          bookingFeeAmount: breakdown.bookingFeeAmount,
           currency: eligibility.currency,
           paymentStatus: completedFromCredit ? PaymentStatus.PAID : PaymentStatus.PENDING,
           checkoutExpiresAt,
@@ -870,6 +890,7 @@ export async function createClientStripeCheckoutSession(
         create: {
           bookingId: booking.id,
           amount: breakdown.grossAmount,
+          bookingFeeAmount: breakdown.bookingFeeAmount,
           currency: eligibility.currency,
           paymentStatus: completedFromCredit ? PaymentStatus.PAID : PaymentStatus.PENDING,
           checkoutExpiresAt,
@@ -980,6 +1001,7 @@ export async function createClientStripeCheckoutSession(
       after: {
         bookingId: booking.id,
         amount: breakdown.grossAmount,
+        bookingFeeAmount: breakdown.bookingFeeAmount,
         currency,
         creditAppliedAmount: breakdown.creditAppliedAmount,
         promoCode: promoCode?.code ?? null,
@@ -998,6 +1020,7 @@ export async function createClientStripeCheckoutSession(
       sessionId: null,
       paymentId,
       amount: breakdown.grossAmount,
+      bookingFeeAmount: breakdown.bookingFeeAmount,
       chargeAmount: 0,
       creditAppliedAmount: breakdown.creditAppliedAmount,
       promoCode: promoCode?.code ?? null,
@@ -1020,6 +1043,7 @@ export async function createClientStripeCheckoutSession(
       clientUserId,
       therapistUserId: booking.therapistId,
       grossAmount: String(breakdown.grossAmount),
+      bookingFeeAmount: String(breakdown.bookingFeeAmount),
       promoCode: promoCode?.code ?? "",
       promoDiscountPercent: String(promoCode?.discountPercent ?? 0),
       promoDiscountAmount: String(breakdown.promoDiscountAmount),
@@ -1035,7 +1059,19 @@ export async function createClientStripeCheckoutSession(
       cancel_url: input.cancelUrl,
       customer_email: booking.client.email,
       client_reference_id: booking.id,
-      line_items: [buildCheckoutLineItem(booking, breakdown.stripeChargeAmount)],
+      line_items: [
+        ...(breakdown.stripeChargeAmount > breakdown.bookingFeeAmount
+          ? [buildCheckoutLineItem(booking, breakdown.stripeChargeAmount - breakdown.bookingFeeAmount)]
+          : []),
+        ...(breakdown.bookingFeeAmount > 0 ? [{
+          quantity: 1,
+          price_data: {
+            currency,
+            unit_amount: breakdown.bookingFeeAmount,
+            product_data: { name: "Booking fee", description: "Non-refundable booking fee" },
+          },
+        }] : []),
+      ],
       metadata,
       payment_intent_data: {
         transfer_group: getTransferGroup(booking.id),
@@ -1094,6 +1130,7 @@ export async function createClientStripeCheckoutSession(
       sessionId: checkoutSession.id,
       paymentId,
       amount: breakdown.grossAmount,
+      bookingFeeAmount: breakdown.bookingFeeAmount,
       chargeAmount: breakdown.stripeChargeAmount,
       creditAppliedAmount: breakdown.creditAppliedAmount,
       promoCode: promoCode?.code ?? null,
@@ -1617,6 +1654,15 @@ export async function markStripeChargeRefunded(
   }
 
   const refundPayment = booking.payment;
+  if ((refundPayment.bookingFeeAmount ?? 0) > 0) {
+    const refundSnapshot = resolvePaymentFinancialSnapshot(refundPayment);
+    if (input.refundedAmount !== refundSnapshot.stripeChargeAmount - refundSnapshot.bookingFeeAmount) {
+      throw new PaymentFlowServiceError(
+        "Refund does not match the card-funded session portion; manual reconciliation required.",
+        "PAYMENT_SNAPSHOT_MISMATCH",
+      );
+    }
+  }
   const refundedAt = new Date();
   const result = await prisma.$transaction(
     async (tx) => {
@@ -1632,6 +1678,8 @@ export async function markStripeChargeRefunded(
           bookingId: true,
           paymentStatus: true,
           transferStatus: true,
+          bookingFeeAmount: true,
+
           creditAppliedAmount: true,
           currency: true,
         },

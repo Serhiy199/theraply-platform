@@ -33,6 +33,8 @@ export type PromoPaymentSnapshot = Readonly<{
 }>;
 
 export type PaymentFinancialSnapshotSource = {
+  bookingFeeAmount?: number;
+  currency?: string;
   amount: number;
   therapistAmount: number | null;
   platformFeeAmount: number | null;
@@ -234,6 +236,11 @@ export function resolvePaymentFinancialSnapshot(
     (value) => value !== null,
   ) && (payment.promoCodeSnapshot === null || payment.promoDiscountPercent !== null);
 
+  if ((payment.bookingFeeAmount ?? 0) > 0 &&
+      (!hasCompleteNumericSnapshot || (payment.currency && payment.currency.toLowerCase() !== "gbp"))) {
+    throw new PromoCodeValidationError("INCOMPLETE_PAYMENT_SNAPSHOT", "Booking fee snapshot is incomplete or not GBP.");
+  }
+
   if (hasSnapshotValue && !hasCompleteNumericSnapshot) {
     throw new PromoCodeValidationError(
       "INCOMPLETE_PAYMENT_SNAPSHOT",
@@ -261,6 +268,7 @@ export function resolvePaymentFinancialSnapshot(
 
   const calculated = calculatePaymentBreakdown({
     grossAmount: payment.amount,
+    bookingFeeAmount: payment.bookingFeeAmount ?? 0,
     promoDiscountPercent: payment.promoDiscountPercent ?? 0,
     availableClientCredit: payment.creditAppliedAmount ?? 0,
   });

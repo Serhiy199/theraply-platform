@@ -134,24 +134,53 @@ const checkoutInput = {
 };
 
 describe("payment checkout settlement", () => {
-  it("settles full credit atomically without creating Stripe objects", async () => {
+  it.each([0, 199, 299])("reuses the persisted %i fee on a failed-payment retry", async (fee) => {
+    const tx = configureTransaction(0);
+    tx.booking.findFirst.mockResolvedValue({ ...buildBooking(0), payment: { id: "payment-id", paymentStatus: PaymentStatus.FAILED, bookingFeeAmount: fee } });
+    const result = await createClientStripeCheckoutSession("client-id", checkoutInput);
+    expect(result.bookingFeeAmount).toBe(fee);
+    expect(result.chargeAmount).toBe(10000 + fee);
+    expect(tx.payment.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: expect.objectContaining({ bookingFeeAmount: fee }) }));
+  });
+
+  it("does not rewrite an existing pending snapshot", async () => {
+    const tx = configureTransaction(0);
+    tx.booking.findFirst.mockResolvedValue({ ...buildBooking(0), payment: { id: "payment-id", paymentStatus: PaymentStatus.PENDING, bookingFeeAmount: 0 } });
+    await expect(createClientStripeCheckoutSession("client-id", checkoutInput)).rejects.toThrow();
+    expect(tx.payment.upsert).not.toHaveBeenCalled();
+    expect(checkoutCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects zero-price sessions before creating a Payment", async () => {
+    const tx = configureTransaction(0);
+    const booking = buildBooking(0);
+    booking.therapist.therapistProfile.sessionPricePence = 0;
+    tx.booking.findFirst.mockResolvedValue(booking);
+    await expect(createClientStripeCheckoutSession("client-id", checkoutInput)).rejects.toThrow();
+    expect(tx.payment.upsert).not.toHaveBeenCalled();
+  });
+
+  it("reserves full session credit but still charges the booking fee", async () => {
     const tx = configureTransaction(10000);
 
     const result = await createClientStripeCheckoutSession("client-id", checkoutInput);
 
     expect(result).toEqual(expect.objectContaining({
-      completedFromCredit: true,
+      completedFromCredit: false,
       amount: 10000,
       creditAppliedAmount: 10000,
-      chargeAmount: 0,
+      chargeAmount: 199,
+      bookingFeeAmount: 199,
     }));
-    expect(checkoutCreateMock).not.toHaveBeenCalled();
-    expect(successEmailMock).toHaveBeenCalledOnce();
-    expect(successEmailMock).toHaveBeenCalledWith("booking-id");
+    expect(checkoutCreateMock).toHaveBeenCalledOnce();
+    expect(checkoutCreateMock.mock.calls[0][0].line_items).toEqual([
+      expect.objectContaining({ price_data: expect.objectContaining({ unit_amount: 199 }) }),
+    ]);
+    expect(successEmailMock).not.toHaveBeenCalled();
     expect(tx.payment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          paymentStatus: PaymentStatus.PAID,
+          paymentStatus: PaymentStatus.PENDING,
           amount: 10000,
           promoDiscountPercent: null,
           therapistAmount: 9000,
@@ -169,7 +198,7 @@ describe("payment checkout settlement", () => {
 
     expect(result).toEqual(expect.objectContaining({
       completedFromCredit: false,
-      chargeAmount: 7500,
+      chargeAmount: 7699,
       creditAppliedAmount: 2500,
     }));
     expect(checkoutCreateMock).toHaveBeenCalledWith(
@@ -178,6 +207,7 @@ describe("payment checkout settlement", () => {
           expect.objectContaining({
             price_data: expect.objectContaining({ unit_amount: 7500 }),
           }),
+          expect.objectContaining({ price_data: expect.objectContaining({ unit_amount: 199 }) }),
         ],
       }),
       expect.objectContaining({
@@ -211,6 +241,7 @@ describe("payment checkout settlement", () => {
                 }),
               }),
             }),
+            expect.objectContaining({ price_data: expect.objectContaining({ unit_amount: 199 }) }),
           ],
         }),
         expect.anything(),
@@ -258,7 +289,7 @@ describe("payment checkout settlement", () => {
       promoCode: ` save${expected.percent} `,
     });
 
-    expect(result.chargeAmount).toBe(expected.charge);
+    expect(result.chargeAmount).toBe(expected.charge + 199);
     expect(tx.payment.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
@@ -267,7 +298,8 @@ describe("payment checkout settlement", () => {
           promoDiscountPercent: expected.percent,
           promoDiscountAmount: 10000 - expected.charge,
           clientPayableAmount: expected.charge,
-          stripeChargeAmount: expected.charge,
+          stripeChargeAmount: expected.charge + 199,
+          bookingFeeAmount: 199,
           therapistAmount: 9000,
           platformFeeAmount: expected.platform,
         }),
@@ -299,7 +331,7 @@ describe("payment checkout settlement", () => {
 
     expect(result).toMatchObject({
       creditAppliedAmount: expected.applied,
-      chargeAmount: expected.stripe,
+      chargeAmount: expected.stripe + 199,
       clientPayableAmount: 9500,
       promoDiscountAmount: 500,
     });
@@ -307,7 +339,7 @@ describe("payment checkout settlement", () => {
       expect.objectContaining({
         create: expect.objectContaining({
           creditAppliedAmount: expected.applied,
-          stripeChargeAmount: expected.stripe,
+          stripeChargeAmount: expected.stripe + 199,
         }),
       }),
     );

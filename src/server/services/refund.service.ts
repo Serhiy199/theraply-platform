@@ -85,6 +85,8 @@ async function getBookingPaymentContextOrThrow(bookingId: string) {
           stripePaymentIntentId: true,
           stripeRefundId: true,
           refundedAmount: true,
+          bookingFeeAmount: true,
+
           creditAppliedAmount: true,
           promoCodeSnapshot: true,
           promoDiscountPercent: true,
@@ -348,8 +350,9 @@ async function requestStripeRefundForBooking(input: {
     );
   }
 
-  if (!payment.stripePaymentIntentId) {
-    if (snapshot.stripeChargeAmount === 0 && snapshot.creditAppliedAmount > 0) {
+  const refundableCardAmount = snapshot.stripeChargeAmount - snapshot.bookingFeeAmount;
+  if (!payment.stripePaymentIntentId || refundableCardAmount === 0) {
+    if (refundableCardAmount === 0 && snapshot.creditAppliedAmount > 0) {
       await markStripeChargeRefunded(booking.id, {
         refundId: null,
         refundedAmount: 0,
@@ -397,6 +400,7 @@ async function requestStripeRefundForBooking(input: {
   try {
     const refund = await stripe.refunds.create({
       payment_intent: payment.stripePaymentIntentId,
+      amount: refundableCardAmount,
       reason: input.stripeReason,
       metadata: {
         bookingId: booking.id,
@@ -404,11 +408,15 @@ async function requestStripeRefundForBooking(input: {
         actorUserId: input.actorUserId ?? "",
         trigger: input.trigger,
       },
-    });
+    }, { idempotencyKey: `theraply-session-refund-${payment.id}` });
+
+    if (refund.status && refund.status !== "succeeded") {
+      throw new Error("Stripe refund has not succeeded yet; retry reconciliation later.");
+    }
 
     await markStripeChargeRefunded(booking.id, {
       refundId: refund.id,
-      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
+      refundedAmount: refund.amount ?? refundableCardAmount,
       refundReason: input.businessReason,
     });
 
@@ -424,7 +432,7 @@ async function requestStripeRefundForBooking(input: {
       after: {
         bookingId: booking.id,
         refundId: refund.id,
-        refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
+        refundedAmount: refund.amount ?? refundableCardAmount,
         trigger: input.trigger,
         businessReason: input.businessReason,
       },
@@ -434,7 +442,7 @@ async function requestStripeRefundForBooking(input: {
       status: "refunded",
       reason: "REFUNDED",
       refundId: refund.id,
-      refundedAmount: refund.amount ?? snapshot.stripeChargeAmount,
+      refundedAmount: refund.amount ?? refundableCardAmount,
     };
   } catch (error) {
     logDiagnosticEvent("refund-service", "Unable to create Stripe refund.", {

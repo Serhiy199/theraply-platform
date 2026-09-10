@@ -15,6 +15,7 @@ const baseEligibility = {
 function promoPreview(creditAppliedAmount: number): PromoCodePreview {
   return {
     valid: true,
+    bookingFeeAmount: 0,
     normalizedCode: "ACCEPT5",
     discountPercent: 5,
     promoDiscountAmount: 300,
@@ -41,6 +42,14 @@ const frozenAccept5Payment = {
 };
 
 describe("resolveClientPaymentDisplayBreakdown", () => {
+  it("shows the fee separately for new payments without changing legacy snapshots", () => {
+    const eligibility = { ...baseEligibility, bookingFeeAmount: 199, projectedStripeChargeAmount: 6199 };
+    const fresh = resolveClientPaymentDisplayBreakdown({ payment: null, paymentEligibility: eligibility, promoPreview: null });
+    expect(fresh).toMatchObject({ bookingFeeAmount: 199, stripeChargeAmount: 6199 });
+    const legacy = resolveClientPaymentDisplayBreakdown({ payment: frozenAccept5Payment, paymentEligibility: eligibility, promoPreview: null });
+    expect(legacy).toMatchObject({ bookingFeeAmount: 0, stripeChargeAmount: 5700 });
+  });
+
   it.each([
     {
       name: "no promo and no credit",

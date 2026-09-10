@@ -130,6 +130,8 @@ export function AdminPaymentsTable({ payments }: AdminPaymentsTableProps) {
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     <p>Platform {formatAmount(payment.platformFeeAmount ?? 0, payment.currency)}</p>
+                    <p>Booking fee {formatAmount(payment.bookingFeeAmount ?? 0, payment.currency)}</p>
+                    <p>Platform gross {formatAmount((payment.platformFeeAmount ?? 0) + (payment.bookingFeeAmount ?? 0), payment.currency)}</p>
                     <p className="mt-1">Therapist {formatAmount(payment.therapistAmount ?? 0, payment.currency)}</p>
                   </td>
                   <td className="px-5 py-4">

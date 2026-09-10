@@ -10,6 +10,7 @@ type PaymentDisplaySource = PaymentFinancialSnapshotSource & {
 };
 
 type PaymentEligibilityDisplaySource = {
+  bookingFeeAmount?: number;
   amount: number | null;
   projectedCreditAppliedAmount: number;
   projectedStripeChargeAmount: number | null;
@@ -17,6 +18,7 @@ type PaymentEligibilityDisplaySource = {
 };
 
 export type ClientPaymentDisplayBreakdown = {
+  bookingFeeAmount: number;
   grossAmount: number | null;
   promoCode: string | null;
   promoDiscountAmount: number;
@@ -50,6 +52,7 @@ export function resolveClientPaymentDisplayBreakdown({
       const snapshot = resolvePaymentFinancialSnapshot(payment);
 
       return {
+        bookingFeeAmount: snapshot.bookingFeeAmount,
         grossAmount: snapshot.grossAmount,
         promoCode: snapshot.promoCodeSnapshot,
         promoDiscountAmount: snapshot.promoDiscountAmount,
@@ -65,6 +68,7 @@ export function resolveClientPaymentDisplayBreakdown({
 
   if (promoPreview) {
     return {
+      bookingFeeAmount: promoPreview.bookingFeeAmount ?? 0,
       grossAmount: promoPreview.grossAmount,
       promoCode: promoPreview.normalizedCode,
       promoDiscountAmount: promoPreview.promoDiscountAmount,
@@ -76,6 +80,7 @@ export function resolveClientPaymentDisplayBreakdown({
   }
 
   return {
+    bookingFeeAmount: paymentEligibility.bookingFeeAmount ?? 0,
     grossAmount: paymentEligibility.amount,
     promoCode: null,
     promoDiscountAmount: 0,
