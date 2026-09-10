@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -36,8 +36,12 @@ function npm(args, extraEnv = {}, expectedStatus = 0) {
 
 try {
   await cp(source, artifact, { recursive: true });
-  for (const absent of ["src", "scripts", "tsconfig.json", "node_modules", ".env"]) {
+  for (const absent of ["src", "tsconfig.json", "node_modules", ".env"]) {
     assert(!existsSync(path.join(artifact, absent)), `Unexpected artifact path: ${absent}`);
+  }
+  // The deployment orchestrator is shipped, but the source Wix runner is not.
+  if (existsSync(path.join(artifact, "scripts"))) {
+    assert.deepEqual(await readdir(path.join(artifact, "scripts")), ["deploy-production-release.mjs"]);
   }
   assert(existsSync(path.join(artifact, "build/wix-cms/reconcile.cjs")));
   const manifest = JSON.parse(await readFile(path.join(artifact, "build/wix-cms/dependencies.json"), "utf8"));

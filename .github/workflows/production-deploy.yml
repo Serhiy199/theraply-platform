@@ -59,6 +59,9 @@ jobs:
           cp -R .next deploy_artifact/
           mkdir -p deploy_artifact/build
           cp -R build/wix-cms deploy_artifact/build/
+          mkdir -p deploy_artifact/scripts
+          cp scripts/deploy-production-release.mjs deploy_artifact/scripts/
+          printf '%s\n' "$GITHUB_SHA" > deploy_artifact/RELEASE_SHA
           rm -rf deploy_artifact/.next/cache
 
       - name: Configure SSH
@@ -74,35 +77,31 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Sync files to VPS
+      - name: Upload isolated candidate release
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
         run: |
           set -euo pipefail
-          rsync -az --delete \
+          RELEASE="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "set -eu; test -d /var/www/theraply; test ! -L /var/www/theraply; mkdir -p /var/www/theraply/releases; test ! -L /var/www/theraply/releases; mkdir /var/www/theraply/releases/$RELEASE"
+          rsync -az \
             --exclude='.env' \
             --exclude='logs/' \
             --exclude='uploads/' \
             --exclude='storage/' \
             -e "ssh -i ~/.ssh/deploy_key -p $VPS_PORT" \
-            deploy_artifact/ "$VPS_USER@$VPS_HOST:/var/www/theraply/"
+            deploy_artifact/ "$VPS_USER@$VPS_HOST:/var/www/theraply/releases/$RELEASE/"
 
-      - name: Install production runtime and restart PM2
+      - name: Verify backup, prepare, migrate, activate, and verify release
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" <<'EOF'
-            set -euo pipefail
-            cd /var/www/theraply
-            test -f .env
-            npm ci
-            npx prisma generate
-            npx prisma migrate deploy
-            pm2 startOrReload ecosystem.config.js --env production
-            pm2 save
-          EOF
+          RELEASE="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "flock -n /var/www/theraply/.deploy.lock node /var/www/theraply/releases/$RELEASE/scripts/deploy-production-release.mjs /var/www/theraply $RELEASE $GITHUB_SHA"
