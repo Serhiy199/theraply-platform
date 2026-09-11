@@ -5,6 +5,51 @@ import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 
 const exec = promisify(execFile);
+const failureCodes = new Set([
+  "UNKNOWN", "FILESYSTEM_OR_CONFIG_GATE", "RELEASE_HEALTH_FAILED", "HTTP_STATUS_NOT_OK",
+  "HTTP_REQUEST_FAILED", "PM2_PROCESS_COUNT_MISMATCH", "PM2_PROCESS_NOT_ONLINE", "PM2_CWD_MISMATCH",
+  "PM2_INSPECTION_FAILED", "PM2_DELETE_FAILED", "PM2_START_FAILED", "PM2_SAVE_FAILED", "PM2_COMMAND_FAILED",
+  "DEPENDENCY_INSTALL_FAILED", "DB_IDENTITY_PROBE_FAILED", "BACKUP_LIST_FAILED", "COMMAND_FAILED",
+  "PRISMA_GENERATE_FAILED", "PRISMA_MIGRATION_FAILED", "PRISMA_STATUS_FAILED",
+  "INVALID_RELEASE_ID", "INVALID_DEPLOY_TARGET", "RELEASE_PATH_MISMATCH", "ENV_PROTECTION_GATE",
+  "CURRENT_NOT_SYMLINK", "PREVIOUS_RELEASE_OUTSIDE_ROOT", "CANDIDATE_ALREADY_ACTIVE",
+  "FRESH_BACKUP_REQUIRED", "ARTIFACT_SHA_MISMATCH", "ENV_IN_ARTIFACT", "PERSISTENT_DIRECTORY_GATE",
+  "RELEASE_FAILED_RECOVERY_FAILED", "RELEASE_FAILED_PREVIOUS_CODE_RESTORED",
+]);
+
+export function safeFailureCode(error) {
+  const code = error instanceof Error ? error.message.split(":")[0] : "UNKNOWN";
+  return failureCodes.has(code) ? code : "FILESYSTEM_OR_CONFIG_GATE";
+}
+
+export async function replacePm2Release(run, dir) {
+  const apps = JSON.parse((await run("pm2", ["jlist"], dir)).stdout).filter((app) => app.name === "theraply");
+  if (apps.length > 1) throw new Error("PM2_PROCESS_COUNT_MISMATCH");
+  // Existing-process reload does not re-resolve pm_cwd from ecosystem cwd.
+  if (apps.length === 1) await run("pm2", ["delete", "theraply"], dir);
+  await run("pm2", ["start", path.join(dir, "ecosystem.config.js"), "--only", "theraply", "--env", "production"], dir);
+}
+
+export async function inspectPm2Release(run, expected) {
+  const apps = JSON.parse((await run("pm2", ["jlist"], expected)).stdout).filter((app) => app.name === "theraply");
+  if (apps.length !== 1) throw new Error("PM2_PROCESS_COUNT_MISMATCH");
+  if (apps[0].pm2_env.status !== "online") throw new Error("PM2_PROCESS_NOT_ONLINE");
+  if (await fs.realpath(apps[0].pm2_env.pm_cwd) !== expected) throw new Error("PM2_CWD_MISMATCH");
+}
+
+export async function verifyRelease(run, dir, { attempts = 15, delayMs = 2000 } = {}) {
+  let gate = "RELEASE_HEALTH_FAILED";
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await inspectPm2Release(run, dir);
+      const { stdout } = await run("curl", ["--silent", "--show-error", "--output", "/dev/null", "--write-out", "%{http_code}", "--max-time", "5", "http://127.0.0.1:3000/login"], dir);
+      if (stdout === "200") return;
+      gate = "HTTP_STATUS_NOT_OK";
+    } catch (error) { gate = safeFailureCode(error); }
+    if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new Error(gate);
+}
 
 // The same ordering is exercised with isolated mock operations in unit tests.
 export async function deployRelease(ops) {
@@ -16,10 +61,12 @@ export async function deployRelease(ops) {
     await ops.restart();
     await ops.verify();
     await ops.save();
-  } catch {
+  } catch (error) {
+    console.error(`RELEASE_FAILURE_GATE=${safeFailureCode(error)}`);
     try {
       await ops.restore();
-    } catch {
+    } catch (recoveryError) {
+      console.error(`RECOVERY_FAILURE_GATE=${safeFailureCode(recoveryError)}`);
       throw new Error("RELEASE_FAILED_RECOVERY_FAILED: operator intervention required; no DB rollback attempted");
     }
     throw new Error("RELEASE_FAILED_PREVIOUS_CODE_RESTORED: database remains migrated");
@@ -46,7 +93,14 @@ export async function productionOperations(root, name, sha) {
       return await exec(command, args, { cwd, maxBuffer: 8 * 1024 * 1024 });
     } catch {
       // Child output can include environment values or database connection strings.
-      throw new Error(`COMMAND_FAILED: ${command}`);
+      const name = path.basename(command);
+      const gates = { npm: "DEPENDENCY_INSTALL_FAILED", node: "DB_IDENTITY_PROBE_FAILED", pg_restore: "BACKUP_LIST_FAILED", curl: "HTTP_REQUEST_FAILED" };
+      if (name === "pm2") {
+        const pm2Gates = { jlist: "PM2_INSPECTION_FAILED", delete: "PM2_DELETE_FAILED", start: "PM2_START_FAILED", save: "PM2_SAVE_FAILED" };
+        throw new Error(pm2Gates[args[0]] ?? "PM2_COMMAND_FAILED");
+      }
+      if (name === "prisma") throw new Error(args[0] === "generate" ? "PRISMA_GENERATE_FAILED" : args[1] === "deploy" ? "PRISMA_MIGRATION_FAILED" : "PRISMA_STATUS_FAILED");
+      throw new Error(gates[name] ?? "COMMAND_FAILED");
     }
   };
   const switchTo = async (target) => {
@@ -59,24 +113,8 @@ export async function productionOperations(root, name, sha) {
       throw error;
     }
   };
-  const inspectPm2 = async (expected) => {
-    const { stdout } = await run("pm2", ["jlist"], root);
-    const apps = JSON.parse(stdout).filter((app) => app.name === "theraply");
-    if (apps.length !== 1 || apps[0].pm2_env.status !== "online" ||
-        await fs.realpath(apps[0].pm2_env.pm_cwd) !== expected) throw new Error("PM2_RELEASE_MISMATCH");
-  };
-  const restartAt = (dir) => run("pm2", ["startOrReload", path.join(dir, "ecosystem.config.js"), "--env", "production", "--update-env"], dir);
-  const verifyAt = async (dir) => {
-    for (let attempt = 0; attempt < 15; attempt++) {
-      try {
-        await inspectPm2(dir);
-        const { stdout } = await run("curl", ["--silent", "--show-error", "--output", "/dev/null", "--write-out", "%{http_code}", "--max-time", "5", "http://127.0.0.1:3000/login"], dir);
-        if (stdout === "200") return;
-      } catch { /* PM2 may still be starting. */ }
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-    throw new Error("RELEASE_HEALTH_FAILED");
-  };
+  const restartAt = (dir) => replacePm2Release(run, dir);
+  const verifyAt = (dir) => verifyRelease(run, dir);
   return {
     async preflight() {
       if (await fs.realpath(root) !== root || await fs.realpath(releases) !== releases ||
@@ -90,7 +128,7 @@ export async function productionOperations(root, name, sha) {
       previous = link ? await fs.realpath(current) : root;
       if (previous !== root && path.dirname(previous) !== releases) throw new Error("PREVIOUS_RELEASE_OUTSIDE_ROOT");
       if (previous === candidate) throw new Error("CANDIDATE_ALREADY_ACTIVE");
-      await inspectPm2(previous);
+      await inspectPm2Release(run, previous);
       const dump = await fs.lstat(backup);
       const age = Date.now() - dump.mtimeMs;
       if (!dump.isFile() || dump.size === 0 || dump.uid !== process.getuid() ||
@@ -149,8 +187,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     await deployRelease(await productionOperations(root, release, sha));
     console.log("PRODUCTION_RELEASE_HEALTHY");
   } catch (error) {
-    const code = error instanceof Error ? error.message.split(":")[0] : "UNKNOWN";
-    console.error(`PRODUCTION_RELEASE_FAILED: ${/^[A-Z_]+$/.test(code) ? code : "FILESYSTEM_OR_CONFIG_GATE"}; no DB rollback attempted`);
+    console.error(`PRODUCTION_RELEASE_FAILED: ${safeFailureCode(error)}; no DB rollback attempted`);
     process.exitCode = 1;
   }
 }

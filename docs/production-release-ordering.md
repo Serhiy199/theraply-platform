@@ -36,7 +36,7 @@ or relocated. Future persistent paths must be explicitly reviewed before use.
 Candidate directories are unique and cannot be reused. No active-directory rsync,
 no automatic release pruning, and no automatic Wix reconciliation occur.
 PM2 cwd is the physical release directory (`__dirname` in ecosystem config), not
-the mutable `current` symlink. This keeps an old process on old files until reload.
+the mutable `current` symlink. This keeps an old process on old files until replacement.
 Manual CLI commands after adoption must run from `/var/www/theraply/current`, not
 the retained legacy root. In particular this applies to the manual Wix CLI.
 
@@ -69,8 +69,16 @@ a fresh dump at the required path before retrying. Do not weaken this gate.
 6. Read-only check local production DB identity, then run candidate `prisma migrate
    deploy` and `prisma migrate status`. Any failure exits before activation or PM2.
 7. Record previous physical directory, atomically rename a new symlink to `current`.
-8. PM2 startOrReload with the candidate ecosystem and `--update-env`; verify exactly
-   one online theraply process with candidate cwd and `/login` HTTP 200; PM2 save.
+8. Inspect PM2 and reject duplicate `theraply` registrations. Delete only the existing
+   `theraply` registration, then start the candidate ecosystem with `--only theraply
+   --env production`. Verify exactly one online process with candidate cwd and
+   `/login` HTTP 200; PM2 save. This introduces brief downtime, not zero-downtime reload.
+
+Do not use `startOrReload` to switch physical release directories: an existing PM2
+registration can retain its old internal `pm_cwd` despite a changed ecosystem `cwd`.
+Replacement forces PM2 to resolve the new script and working directory. Unrelated
+PM2 processes are never deleted. If activation failed after deletion, recovery can
+start the previous release even when no `theraply` registration remains.
 
 Build/preparation/migration failure leaves the active runtime and PM2 untouched.
 Candidate files are retained for diagnosis. A failed SQL migration can still have
@@ -80,8 +88,8 @@ All future migrations must be backward-compatible with the old running code
 
 ## Recovery and code rollback
 
-PM2 reload, health or save failure triggers restoration of the prior current link
-(or removal of the newly introduced link on first adoption), reloads the previous
+PM2 replacement, health or save failure triggers restoration of the prior current link
+(or removal of the newly introduced link on first adoption), re-registers the previous
 ecosystem, rechecks health and saves PM2. The Action still fails. If recovery fails,
 stop and inspect sanitized process metadata; do not blindly rerun the deployment.
 
@@ -92,7 +100,8 @@ Manual code rollback after a successful release, under the same deploy lock:
 2. Atomically replace `current` with a symlink to that directory using a unique
    temporary link and `mv -Tf`. For first-adoption rollback to the retained root,
    remove only the verified `current` symlink instead (never remove its target).
-3. Run `pm2 startOrReload <previous>/ecosystem.config.js --env production --update-env`.
+3. Verify at most one `theraply` registration. If present, run `pm2 delete theraply`.
+   Run `pm2 start <previous>/ecosystem.config.js --only theraply --env production`.
 4. Verify PM2 physical cwd/status and localhost `/login` HTTP 200, then `pm2 save`.
 5. Report the database migration as still applied. Do not run down migrations.
 
@@ -106,6 +115,16 @@ incident plan. Code rollback is not financial or database rollback.
 
 Unit simulations use temporary local files and mocked deployment operations to
 prove success, preflight/preparation/migration failure and PM2/health recovery order.
-They do not claim a live VPS deployment or real PM2/migration smoke. Production
+The isolated Linux `scripts/verify-pm2-release.mjs --pm2-cli=<absolute-pinned-cli>`
+test exercises real PM2 with synthetic HTTP servers and a private PM2_HOME, including
+old-cwd reproduction, candidate activation, recovery and unrelated-process preservation.
+It never loads application env or connects to a database. It kills only its private
+daemon and removes its temporary fixtures. Neither test claims a live VPS deployment
+or real migration smoke. Production
 activation must still be verified in the separately authorized release task.
 Free Intro, booking/payment/Wix logic and Prisma schema are unchanged by this fix.
+
+Failures emit sanitized `RELEASE_FAILURE_GATE` and, if recovery fails,
+`RECOVERY_FAILURE_GATE` codes. PM2 inspection/delete/start/save, cwd/status/count,
+and HTTP request/status failures are distinguishable without printing child output,
+environment values or database URLs. A recovered release still exits unsuccessfully.

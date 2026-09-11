@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { deployRelease, validateReleaseName } = await import(pathToFileURL(path.resolve("scripts/deploy-production-release.mjs")).href);
+const { deployRelease, validateReleaseName, replacePm2Release, inspectPm2Release, verifyRelease, safeFailureCode } = await import(pathToFileURL(path.resolve("scripts/deploy-production-release.mjs")).href);
 const temporary: string[] = [];
 afterEach(async () => {
   for (const dir of temporary.splice(0)) await fs.rm(dir, { recursive: true, force: true });
@@ -61,6 +61,36 @@ async function simulation(failure?: string, recoveryFailure = false) {
 }
 
 describe("production schema-before-code ordering (no network or credentials)", () => {
+  it("replaces only theraply and starts the exact candidate ecosystem", async () => {
+    const calls: string[][] = [];
+    const run = async (_command: string, args: string[]) => {
+      calls.push(args);
+      return { stdout: JSON.stringify([{ name: "theraply" }, { name: "unrelated" }]) };
+    };
+    await replacePm2Release(run, "/candidate");
+    expect(calls).toEqual([["jlist"], ["delete", "theraply"], ["start", path.join("/candidate", "ecosystem.config.js"), "--only", "theraply", "--env", "production"]]);
+  });
+  it("recovers when the failed start left no registered process", async () => {
+    const calls: string[][] = [];
+    await replacePm2Release(async (_command: string, args: string[]) => { calls.push(args); return { stdout: "[]" }; }, "/previous");
+    expect(calls.map((a) => a[0])).toEqual(["jlist", "start"]);
+  });
+  it("refuses ambiguous process identity before delete", async () => {
+    await expect(replacePm2Release(async () => ({ stdout: '[{"name":"theraply"},{"name":"theraply"}]' }), "/candidate")).rejects.toThrow("PM2_PROCESS_COUNT_MISMATCH");
+  });
+  it("reports exact cwd and HTTP verification failures", async () => {
+    const s = await simulation();
+    const candidate = path.join(s.dir, "candidate");
+    const old = path.join(s.dir, "old");
+    await expect(inspectPm2Release(async () => ({ stdout: JSON.stringify([{ name: "theraply", pm2_env: { status: "online", pm_cwd: old } }]) }), candidate)).rejects.toThrow("PM2_CWD_MISMATCH");
+    const run = async (command: string) => ({ stdout: command === "curl" ? "503" : JSON.stringify([{ name: "theraply", pm2_env: { status: "online", pm_cwd: candidate } }]) });
+    await expect(verifyRelease(run, candidate, { attempts: 1, delayMs: 0 })).rejects.toThrow("HTTP_STATUS_NOT_OK");
+  });
+  it("does not expose raw command failures or secret-like messages", () => {
+    expect(safeFailureCode(new Error("raw password or URL"))).toBe("FILESYSTEM_OR_CONFIG_GATE");
+    expect(safeFailureCode(new Error("UNRECOGNIZED_SECRET_LIKE_VALUE"))).toBe("FILESYSTEM_OR_CONFIG_GATE");
+    expect(safeFailureCode(new Error("PM2_START_FAILED"))).toBe("PM2_START_FAILED");
+  });
   it("A: prepares and migrates before activation and PM2", async () => {
     const s = await simulation();
     await deployRelease(s.ops);
@@ -105,6 +135,8 @@ describe("production schema-before-code ordering (no network or credentials)", (
     expect(upload).not.toContain("--delete");
     expect(source).toContain("cp -R build/wix-cms deploy_artifact/build/");
     expect(source).toContain("flock -n /var/www/theraply/.deploy.lock");
+    expect(source).toContain("pm2@7.0.4");
+    expect(source).toContain("node scripts/verify-pm2-release.mjs");
     expect(source).not.toContain("npm run wix:cms:reconcile:production");
   });
   it("Booking Fee migration is additive with no historical money UPDATE", async () => {
