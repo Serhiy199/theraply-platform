@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatSessionPricePerHour, formatYearsOfExperience } from "@/lib/therapist-display";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { TherapistProfilePhoto } from "@/components/booking/client/therapist-profile-photo";
 import { ButtonLink } from "@/components/ui/button";
@@ -45,40 +46,11 @@ function getDescription(therapist: TherapistListItem) {
   return `${specialisation}. ${profileSummary}`;
 }
 
-function getExperienceLabel(therapist: TherapistListItem) {
-  const yearsOfExperience = therapist.therapistProfile?.yearsOfExperience?.trim();
-
-  if (!yearsOfExperience) {
-    return "Experience shared during onboarding";
-  }
-
-  const hasYearText = /year|yr/i.test(yearsOfExperience);
-
-  return hasYearText ? yearsOfExperience : `${yearsOfExperience} years of experience`;
-}
-
 type TherapistCardProps = {
   therapist: TherapistListItem;
 };
 
 const DESCRIPTION_EXPAND_THRESHOLD = 260;
-
-function formatCurrency(value: number | null | undefined) {
-  if (typeof value !== "number") {
-    return "Price will be confirmed later";
-  }
-
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(value / 100);
-}
-
-function formatHourlyRate(value: number | null | undefined) {
-  const formatted = formatCurrency(value);
-
-  return formatted.startsWith("Price") ? formatted : `${formatted}/hour`;
-}
 
 export function TherapistCard({ therapist }: TherapistCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -104,10 +76,10 @@ export function TherapistCard({ therapist }: TherapistCardProps) {
           {displayName}
         </h3>
         <p className="mt-1 text-base leading-6 text-slate-700">
-          {getExperienceLabel(therapist)}
+          {formatYearsOfExperience(therapist.therapistProfile?.yearsOfExperience) ?? "Experience shared during onboarding"}
         </p>
         <p className="mt-4 text-base font-semibold leading-6 text-sky-700">
-          {formatHourlyRate(therapist.therapistProfile?.sessionPricePence)}
+          {formatSessionPricePerHour(therapist.therapistProfile?.sessionPricePence) ?? "Price will be confirmed later"}
         </p>
 
         <p

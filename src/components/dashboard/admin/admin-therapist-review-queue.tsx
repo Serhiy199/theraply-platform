@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { InsetCard, SectionEyebrow } from "@/components/ui/card";
 import { normalizeTherapistOnboardingDraft } from "@/lib/contracts/therapist-onboarding";
 import { formatAppDateTime } from "@/lib/utils/date-time";
+import { formatYearsOfExperience } from "@/lib/therapist-display";
 import type { AdminTherapistReviewItem } from "@/server/services/admin-operations.service";
 
 type AdminTherapistReviewQueueProps = {
@@ -305,7 +306,7 @@ export function AdminTherapistReviewQueue({
                       <FieldValue label="Email" value={review.user.email} />
                       <FieldValue label="Gender" value={review.gender} />
                       <FieldValue label="Contact number" value={review.contactNumber} />
-                      <FieldValue label="Years of experience" value={review.yearsOfExperience} />
+                      <FieldValue label="Years of experience" value={formatYearsOfExperience(review.yearsOfExperience)} />
                       <FieldValue label="Price per hour" value={review.pricePerHour} />
                     </div>
                     <FieldValue

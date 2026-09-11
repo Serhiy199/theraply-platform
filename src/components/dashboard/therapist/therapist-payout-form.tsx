@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { formatSessionPricePerHour } from "@/lib/therapist-display";
 import { DashboardStatusAlert } from "@/components/dashboard/shared/dashboard-status-alert";
 import {
   googleCalendarSelectionAction,
@@ -41,17 +42,6 @@ function formatSessionPriceInput(value: number | null) {
   }
 
   return (value / 100).toFixed(2);
-}
-
-function formatCurrency(value: number | null) {
-  if (typeof value !== "number") {
-    return "Not set yet";
-  }
-
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(value / 100);
 }
 
 function formatConnectionDate(value: Date | null) {
@@ -203,7 +193,7 @@ export function TherapistPayoutForm({
             </div>
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Session price</dt>
-              <dd className="text-right">{formatCurrency(data.profile.sessionPricePence)}</dd>
+              <dd className="text-right">{formatSessionPricePerHour(data.profile.sessionPricePence) ?? "Not set yet"}</dd>
             </div>
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Calendar email</dt>

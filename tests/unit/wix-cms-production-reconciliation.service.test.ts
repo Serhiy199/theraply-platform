@@ -39,6 +39,7 @@ import {
   WIX_PRODUCTION_RECONCILIATION_CONFIRMATION,
 } from "@/server/services/wix-cms-production-reconciliation.service";
 import { WixCmsConfigError } from "@/lib/wix/wix-cms-config";
+import { evaluateTherapistReadiness } from "@/lib/therapist-readiness";
 
 const validFields = [
   ["theraplyId", "TEXT"],
@@ -132,6 +133,31 @@ beforeEach(() => {
 });
 
 describe("production Wix CMS reconciliation preflight", () => {
+  it("plans only the two display changes on an existing item, then NO_CHANGE", async () => {
+    const actual = await vi.importActual<typeof import("@/server/services/wix-cms-therapist-sync.service")>(
+      "@/server/services/wix-cms-therapist-sync.service",
+    );
+    mocks.mapProfile.mockImplementation(actual.mapTherapistToWixCmsItem);
+    const profile = buildProfile();
+    const before = structuredClone(profile);
+    const readiness = evaluateTherapistReadiness({ user: profile.user, profile });
+    const oldData = projection();
+    const formatted = actual.mapTherapistToWixCmsItem(profile);
+    expect(formatted).toEqual({ ...oldData, yearsOfExperience: "5 years of experience", sessionPriceDisplay: "£60/hour" });
+    expect(profile).toEqual(before);
+    expect(evaluateTherapistReadiness({ user: profile.user, profile })).toEqual(readiness);
+    expect(readiness.publicReady).toBe(true);
+    mocks.listItems.mockResolvedValue([{ id: "existing-item", data: oldData }]);
+    expect((await runWixCmsProductionReconciliation()).plans).toEqual([
+      { therapistProfileId: "profile-1", action: "UPDATE", wixItemId: "existing-item" },
+    ]);
+    mocks.listItems.mockResolvedValue([{ id: "existing-item", data: formatted }]);
+    expect((await runWixCmsProductionReconciliation()).plans).toEqual([
+      { therapistProfileId: "profile-1", action: "NO_CHANGE", wixItemId: "existing-item" },
+    ]);
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
+
   it("defaults to dry-run and performs no reconciliation writes", async () => {
     await expect(runWixCmsProductionReconciliation()).resolves.toMatchObject({
       mode: "DRY_RUN",
