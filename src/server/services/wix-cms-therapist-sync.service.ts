@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { evaluateTherapistReadiness } from "@/lib/therapist-readiness";
 import { formatSessionPricePerHour, formatYearsOfExperience } from "@/lib/therapist-display";
+import { formatWixBioDisplay } from "@/lib/wix/wix-bio-display";
 import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   createWixCmsTherapist,
@@ -106,6 +107,7 @@ export function mapTherapistToWixCmsItem(
     theraplyId: profile.id,
     displayName: requirePublicText(profile.displayName, "displayName"),
     bio: requirePublicText(profile.bio, "bio"),
+    bioDisplay: formatWixBioDisplay(profile.bio),
     specialization: requirePublicText(profile.specialization, "specialization"),
     therapyServicesProvided: requirePublicText(
       profile.therapyServicesProvided,

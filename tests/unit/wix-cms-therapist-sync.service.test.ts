@@ -64,6 +64,7 @@ const existingData = {
   theraplyId: "profile-id",
   displayName: "Test Therapist",
   bio: "Public bio",
+  bioDisplay: "Public bio",
   specialization: "Anxiety",
   therapyServicesProvided: "Individual therapy",
   yearsOfExperience: "5 years of experience",

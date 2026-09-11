@@ -1,5 +1,6 @@
 import "server-only";
 import { evaluateTherapistReadiness } from "@/lib/therapist-readiness";
+import { WIX_CMS_REQUIRED_FIELDS } from "@/lib/wix/wix-cms-schema";
 import { getCanonicalAppBaseUrl } from "@/lib/urls/canonical-app-url";
 import {
   getWixCmsTherapistsCollection,
@@ -24,21 +25,6 @@ import {
 export const WIX_PRODUCTION_RECONCILIATION_CONFIRMATION =
   "WIX_PRODUCTION_RECONCILE";
 export const WIX_PRODUCTION_APP_ORIGIN = "https://platform.theraply.online";
-
-const REQUIRED_COLLECTION_FIELDS: Record<string, readonly string[]> = {
-  theraplyId: ["TEXT"],
-  displayName: ["TEXT"],
-  bio: ["RICH_TEXT", "TEXT"],
-  specialization: ["TEXT"],
-  therapyServicesProvided: ["TEXT"],
-  yearsOfExperience: ["TEXT"],
-  profilePhoto: ["IMAGE"],
-  sessionPricePence: ["NUMBER"],
-  sessionPriceDisplay: ["TEXT"],
-  bookingUrl: ["URL"],
-  isBookable: ["BOOLEAN"],
-  isPublished: ["BOOLEAN"],
-};
 
 export type WixProductionReconciliationAction =
   | "CREATE"
@@ -120,7 +106,7 @@ function assertProductionUrl() {
 
 function assertCollectionSchema(fields: Array<{ key: string; type: string }>) {
   const actual = new Map(fields.map((field) => [field.key, field.type]));
-  const mismatches = Object.entries(REQUIRED_COLLECTION_FIELDS).filter(
+  const mismatches = Object.entries(WIX_CMS_REQUIRED_FIELDS).filter(
     ([key, acceptedTypes]) => !acceptedTypes.includes(actual.get(key) ?? ""),
   );
 

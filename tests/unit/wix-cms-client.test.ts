@@ -28,6 +28,7 @@ const projection: WixCmsTherapistData = {
   theraplyId: "profile-id",
   displayName: "Test Therapist",
   bio: "Bio",
+  bioDisplay: "Bio",
   specialization: "Anxiety",
   therapyServicesProvided: "Individual therapy",
   yearsOfExperience: "5",
