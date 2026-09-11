@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { evaluateTherapistReadiness } from "@/lib/therapist-readiness";
+import { formatSessionPricePerHour, formatYearsOfExperience } from "@/lib/therapist-display";
 import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   createWixCmsTherapist,
@@ -72,15 +73,15 @@ export class WixCmsTherapistSyncError extends Error {
 }
 
 export function formatWixCmsSessionPrice(sessionPricePence: number) {
-  if (!Number.isInteger(sessionPricePence) || sessionPricePence <= 0) {
+  const formatted = formatSessionPricePerHour(sessionPricePence);
+  if (formatted === null) {
     throw new WixCmsTherapistSyncError(
       "A positive integer session price is required for Wix CMS projection.",
       "WIX_CMS_SYNC_FAILED",
     );
   }
 
-  const pounds = (sessionPricePence / 100).toFixed(2).replace(/\.00$/, "");
-  return `£${pounds}`;
+  return formatted;
 }
 
 function requirePublicText(value: string | null, field: string) {
@@ -111,7 +112,7 @@ export function mapTherapistToWixCmsItem(
       "therapyServicesProvided",
     ),
     yearsOfExperience: requirePublicText(
-      profile.yearsOfExperience,
+      formatYearsOfExperience(profile.yearsOfExperience),
       "yearsOfExperience",
     ),
     profilePhoto: requirePublicText(profile.profilePhotoUrl, "profilePhotoUrl"),

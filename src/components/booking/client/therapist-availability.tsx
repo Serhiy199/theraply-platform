@@ -1,4 +1,5 @@
 import { formatDateKeyInTimeZone } from "@/lib/google/google-time-zone";
+import { formatSessionPricePerHour, formatYearsOfExperience } from "@/lib/therapist-display";
 import type { TherapistListItem } from "@/lib/contracts/booking-flow";
 import { BOOKING_FLOW_MESSAGES, BOOKING_FLOW_WINDOW_DAYS } from "@/lib/constants/booking-flow";
 import {
@@ -37,33 +38,8 @@ function getProfileSummary(therapist: TherapistListItem) {
   );
 }
 
-function formatCurrency(value: number | null | undefined) {
-  if (typeof value !== "number") {
-    return "Price not set yet";
-  }
-
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(value / 100);
-}
-
-function formatHourlyRate(value: number | null | undefined) {
-  const formatted = formatCurrency(value);
-
-  return formatted.startsWith("Price") ? formatted : `${formatted}/hour`;
-}
-
 function getExperienceLabel(therapist: TherapistListItem) {
-  const yearsOfExperience = therapist.therapistProfile?.yearsOfExperience?.trim();
-
-  if (!yearsOfExperience) {
-    return null;
-  }
-
-  const hasYearText = /year|yr/i.test(yearsOfExperience);
-
-  return hasYearText ? yearsOfExperience : `${yearsOfExperience} years of experience`;
+  return formatYearsOfExperience(therapist.therapistProfile?.yearsOfExperience);
 }
 
 function formatDayLabel(date: Date, timeZone: string) {
@@ -154,7 +130,7 @@ export function TherapistAvailability({
                   <p className="mt-1 text-sm leading-6 text-slate-600">{experienceLabel}</p>
                 ) : null}
                 <p className="mt-3 text-base font-semibold leading-6 text-sky-700">
-                  {formatHourlyRate(therapist.therapistProfile?.sessionPricePence)}
+                  {formatSessionPricePerHour(therapist.therapistProfile?.sessionPricePence) ?? "Price not set yet"}
                 </p>
                 <p className="mt-5 text-sm font-semibold text-slate-800 [overflow-wrap:anywhere]">
                   {getSpecialisation(therapist)}

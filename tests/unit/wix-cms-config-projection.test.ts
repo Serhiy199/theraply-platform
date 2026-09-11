@@ -180,10 +180,10 @@ describe("Wix CMS therapist projection", () => {
       bio: "Public biography",
       specialization: "Anxiety",
       therapyServicesProvided: "Individual therapy",
-      yearsOfExperience: "8",
+      yearsOfExperience: "8 years of experience",
       profilePhoto: "https://cdn.example/therapist.jpg",
       sessionPricePence: 6000,
-      sessionPriceDisplay: "£60",
+      sessionPriceDisplay: "£60/hour",
       bookingUrl:
         "https://theraply-platform.vercel.app/client/book/therapist-user-id",
       isBookable: true,
@@ -205,9 +205,9 @@ describe("Wix CMS therapist projection", () => {
   });
 
   it("formats positive integer pence deterministically", () => {
-    expect(formatWixCmsSessionPrice(6000)).toBe("£60");
-    expect(formatWixCmsSessionPrice(6500)).toBe("£65");
-    expect(formatWixCmsSessionPrice(6550)).toBe("£65.50");
+    expect(formatWixCmsSessionPrice(6000)).toBe("£60/hour");
+    expect(formatWixCmsSessionPrice(6500)).toBe("£65/hour");
+    expect(formatWixCmsSessionPrice(6550)).toBe("£65.50/hour");
     expect(() => formatWixCmsSessionPrice(0)).toThrow();
     expect(() => formatWixCmsSessionPrice(10.5)).toThrow();
   });
