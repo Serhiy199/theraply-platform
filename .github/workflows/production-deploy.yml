@@ -39,6 +39,14 @@ jobs:
       - name: Security verification
         run: npm run verify:security
 
+      - name: Isolated real PM2 release and recovery smoke
+        run: |
+          set -euo pipefail
+          PM2_TEST_DIR="$(mktemp -d "$RUNNER_TEMP/theraply-pm2-package.XXXXXX")"
+          trap 'rm -rf "$PM2_TEST_DIR"' EXIT
+          npm install --prefix "$PM2_TEST_DIR" --ignore-scripts --no-audit --no-fund pm2@7.0.4
+          node scripts/verify-pm2-release.mjs --pm2-cli="$PM2_TEST_DIR/node_modules/pm2/bin/pm2"
+
       - name: Build
         run: npm run build
 
