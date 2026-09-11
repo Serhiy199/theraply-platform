@@ -9,6 +9,7 @@ export type WixCmsTherapistData = {
   theraplyId: string;
   displayName: string;
   bio: string;
+  bioDisplay: string;
   specialization: string;
   therapyServicesProvided: string;
   yearsOfExperience: string;

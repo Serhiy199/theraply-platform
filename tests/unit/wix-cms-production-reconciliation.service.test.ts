@@ -45,6 +45,7 @@ const validFields = [
   ["theraplyId", "TEXT"],
   ["displayName", "TEXT"],
   ["bio", "RICH_TEXT"],
+  ["bioDisplay", "TEXT"],
   ["specialization", "TEXT"],
   ["therapyServicesProvided", "TEXT"],
   ["yearsOfExperience", "TEXT"],
@@ -89,6 +90,7 @@ function projection(id = "profile-1") {
     theraplyId: id,
     displayName: "Test Therapist",
     bio: "Public bio",
+    bioDisplay: "Public bio",
     specialization: "Anxiety",
     therapyServicesProvided: "Individual therapy",
     yearsOfExperience: "5",
@@ -133,6 +135,36 @@ beforeEach(() => {
 });
 
 describe("production Wix CMS reconciliation preflight", () => {
+  it("adds only bioDisplay to an existing formatted item, then NO_CHANGE", async () => {
+    const actual = await vi.importActual<typeof import("@/server/services/wix-cms-therapist-sync.service")>(
+      "@/server/services/wix-cms-therapist-sync.service",
+    );
+    mocks.mapProfile.mockImplementation(actual.mapTherapistToWixCmsItem);
+    const profile = buildProfile();
+    profile.bio = '<p style="color:red">Public <b>bio</b></p>';
+    mocks.findMany.mockResolvedValue([profile]);
+    const before = structuredClone(profile);
+    const readiness = evaluateTherapistReadiness({ user: profile.user, profile });
+    const oldData = { ...projection(), bio: profile.bio, yearsOfExperience: "5 years of experience", sessionPriceDisplay: "£60/hour" };
+    const { bioDisplay: omitted, ...withoutDisplay } = oldData;
+    expect(omitted).toBe("Public bio");
+    const expected = actual.mapTherapistToWixCmsItem(profile);
+    expect(expected).toEqual({ ...withoutDisplay, bioDisplay: "Public bio" });
+    expect(profile).toEqual(before);
+    expect(evaluateTherapistReadiness({ user: profile.user, profile })).toEqual(readiness);
+    mocks.listItems.mockResolvedValue([{ id: "existing-item", data: withoutDisplay }]);
+    expect((await runWixCmsProductionReconciliation()).plans[0]).toMatchObject({ action: "UPDATE", wixItemId: "existing-item" });
+    mocks.listItems.mockResolvedValue([{ id: "existing-item", data: expected }]);
+    expect((await runWixCmsProductionReconciliation()).plans[0]).toMatchObject({ action: "NO_CHANGE", wixItemId: "existing-item" });
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
+
+  it("blocks reconciliation before writes when bioDisplay schema is absent", async () => {
+    mocks.getCollection.mockResolvedValue({ id: "Therapists", fields: validFields.filter((field) => field.key !== "bioDisplay") });
+    await expect(runWixCmsProductionReconciliation()).rejects.toMatchObject({ code: "COLLECTION_SCHEMA_MISMATCH" });
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
+
   it("plans only the two display changes on an existing item, then NO_CHANGE", async () => {
     const actual = await vi.importActual<typeof import("@/server/services/wix-cms-therapist-sync.service")>(
       "@/server/services/wix-cms-therapist-sync.service",

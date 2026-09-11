@@ -178,6 +178,7 @@ describe("Wix CMS therapist projection", () => {
       theraplyId: "therapist-profile-id",
       displayName: "Test Therapist",
       bio: "Public biography",
+      bioDisplay: "Public biography",
       specialization: "Anxiety",
       therapyServicesProvided: "Individual therapy",
       yearsOfExperience: "8 years of experience",
@@ -202,6 +203,16 @@ describe("Wix CMS therapist projection", () => {
     expect(mapTherapistToWixCmsItem(profile).bio).toBe(
       "<p>Public biography</p>",
     );
+    expect(mapTherapistToWixCmsItem(profile).bioDisplay).toBe("Public biography");
+  });
+
+  it("keeps missing-bio rejection and safely represents markup-only bio", () => {
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
+    const profile = buildProfile();
+    profile.bio = "";
+    expect(() => mapTherapistToWixCmsItem(profile)).toThrow("bio is required");
+    profile.bio = "<p><br></p>";
+    expect(mapTherapistToWixCmsItem(profile)).toMatchObject({ bio: profile.bio, bioDisplay: "" });
   });
 
   it("formats positive integer pence deterministically", () => {
