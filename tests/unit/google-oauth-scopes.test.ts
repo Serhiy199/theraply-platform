@@ -20,7 +20,7 @@ describe("Google Calendar OAuth scopes", () => {
     );
 
     const consentUrl = new URL(
-      buildGoogleOAuthConsentUrl({ therapistUserId: "therapist-user-id" }),
+      buildGoogleOAuthConsentUrl("signed-state"),
     );
     const scopes = consentUrl.searchParams.get("scope")?.split(" ") ?? [];
 

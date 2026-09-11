@@ -6,6 +6,10 @@ import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { ActionPermissionError } from "@/lib/permissions";
 import { GET } from "@/app/api/integrations/google/callback/route";
 import { GoogleCalendarServiceError } from "@/server/services/google-calendar.service";
+import { createGoogleOAuthState } from "@/lib/google/google-oauth-state";
+const claimMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/prisma", () => ({ prisma: { auditLog: { create: claimMock } } }));
+const secret = "unit-test-only-signing-key-not-a-real-secret";
 
 const getCurrentUserMock = vi.hoisted(() => vi.fn());
 const requireActionActiveTherapistFeaturesMock = vi.hoisted(() => vi.fn());
@@ -54,17 +58,20 @@ const therapistUser = {
 };
 
 function stateFor(userId = therapistUser.id, returnTo = "/therapist/payout-details") {
-  return Buffer.from(JSON.stringify({ therapistUserId: userId, returnTo })).toString("base64url");
+  return createGoogleOAuthState({ userId, session: "test-session", secret }, returnTo).state;
 }
 
 function requestWith(params: Record<string, string> = {}) {
   const url = new URL("https://localhost:3000/api/integrations/google/callback");
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  return new NextRequest(url);
+  const nonce = params.state ? JSON.parse(Buffer.from(params.state.split(".")[0], "base64url").toString()).nonce : "";
+  return new NextRequest(url, { headers: { cookie: `next-auth.session-token=test-session; theraply-google-state=${nonce}` } });
 }
 
 beforeEach(() => {
   vi.stubEnv("APP_URL", "https://staging-or-test.example");
+  vi.stubEnv("AUTH_SECRET", secret);
+  claimMock.mockResolvedValue({});
   getCurrentUserMock.mockResolvedValue(therapistUser);
   requireActionActiveTherapistFeaturesMock.mockResolvedValue(therapistUser);
   checkRateLimitPresetMock.mockResolvedValue({ allowed: true });
@@ -115,7 +122,7 @@ describe("GET /api/integrations/google/callback", () => {
     ],
     [
       { state: stateFor("different-user"), code: "authorization-code" },
-      "Google Calendar callback does not match the signed-in therapist.",
+      "Google authorization expired or is invalid. Please reconnect.",
     ],
   ])("handles invalid callback input on the canonical host", async (params, message) => {
     const response = await GET(requestWith(params));
@@ -162,5 +169,16 @@ describe("GET /api/integrations/google/callback", () => {
 
     expect(location.origin).toBe("https://staging-or-test.example");
     expect(location.searchParams.get("gc_status")).toBe("error");
+  });
+
+  it("does not exchange a code after replay or missing browser binding", async () => {
+    claimMock.mockRejectedValueOnce(new Error("duplicate claim"));
+    const response = await GET(requestWith({ state: stateFor(), code: "must-not-exchange" }));
+    expect(new URL(response.headers.get("location")!).searchParams.get("gc_status")).toBe("error");
+    expect(completeConnectionMock).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    const unbound = new NextRequest(`https://app.test/callback?state=${stateFor()}&code=must-not-exchange`);
+    await GET(unbound);
+    expect(completeConnectionMock).not.toHaveBeenCalled();
   });
 });

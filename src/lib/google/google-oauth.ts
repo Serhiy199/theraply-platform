@@ -2,11 +2,6 @@ import "server-only";
 import { google } from "googleapis";
 import { GOOGLE_CALENDAR_SCOPES, getGoogleCalendarConfig } from "@/lib/google/google-calendar-config";
 
-export type GoogleOAuthStatePayload = {
-  therapistUserId: string;
-  returnTo?: string | null;
-};
-
 export type GoogleOAuthTokens = {
   accessToken: string | null;
   refreshToken: string | null;
@@ -39,29 +34,14 @@ export function createGoogleOAuthClient() {
   );
 }
 
-export function serializeGoogleOAuthState(payload: GoogleOAuthStatePayload) {
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
-}
-
-export function parseGoogleOAuthState(state: string): GoogleOAuthStatePayload {
-  const decoded = Buffer.from(state, "base64url").toString("utf8");
-  const payload = JSON.parse(decoded) as GoogleOAuthStatePayload;
-
-  if (!payload.therapistUserId?.trim()) {
-    throw new Error("Invalid Google OAuth state payload.");
-  }
-
-  return payload;
-}
-
-export function buildGoogleOAuthConsentUrl(payload: GoogleOAuthStatePayload) {
+export function buildGoogleOAuthConsentUrl(state: string) {
   const client = createGoogleOAuthClient();
 
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: [...GOOGLE_CALENDAR_SCOPES],
-    state: serializeGoogleOAuthState(payload),
+    state,
     include_granted_scopes: true,
   });
 }

@@ -38,6 +38,7 @@ const therapistUser = {
 
 beforeEach(() => {
   vi.stubEnv("APP_URL", "https://staging-or-test.example");
+  vi.stubEnv("AUTH_SECRET", "unit-test-only-signing-key-not-a-real-secret");
   getCurrentUserMock.mockResolvedValue(therapistUser);
   requireActionActiveTherapistFeaturesMock.mockResolvedValue(therapistUser);
   checkRateLimitPresetMock.mockResolvedValue({ allowed: true });
@@ -52,12 +53,15 @@ afterEach(() => {
 describe("GET /api/integrations/google/connect", () => {
   it("preserves the external Google consent URL", async () => {
     const response = await GET(
-      new NextRequest("https://localhost:3000/api/integrations/google/connect"),
+      new NextRequest("https://localhost:3000/api/integrations/google/connect", { headers: { cookie: "next-auth.session-token=test-session" } }),
     );
 
     expect(response.headers.get("location")).toBe(
       "https://accounts.google.test/o/oauth2/v2/auth",
     );
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).toContain("SameSite=lax");
+    expect(buildConnectUrlMock).toHaveBeenCalledWith(therapistUser.id, "/therapist/payout-details", expect.any(String));
   });
 
   it("uses the canonical host for local error redirects", async () => {

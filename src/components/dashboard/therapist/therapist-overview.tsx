@@ -89,10 +89,13 @@ export function TherapistOverview({ email, data }: TherapistOverviewProps) {
       <div className="grid gap-4">
         <SurfaceCard className="p-6">
           <h3 className="text-xl font-semibold text-slate-900">Client summary</h3>
-          <TherapistProfilePhotoUploader
-            currentPhotoUrl={data.profileSummary.profilePhotoUrl}
-            displayName={data.profileSummary.displayName ?? email ?? "Therapist"}
-          />
+          <div id="profile-photo">
+            <TherapistProfilePhotoUploader
+              currentPhotoUrl={data.profileSummary.profilePhotoUrl}
+              displayName={data.profileSummary.displayName ?? email ?? "Therapist"}
+            />
+          </div>
+          <a href="#public-profile" className="mt-3 inline-block text-sm font-medium text-blue-700 underline">Edit public profile</a>
           <dl className="mt-5 space-y-4 text-sm text-slate-600">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/60 pb-4">
               <dt className="font-medium text-slate-700">Therapist profile</dt>

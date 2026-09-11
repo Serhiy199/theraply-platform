@@ -82,10 +82,19 @@ const criticalFiles: Array<{
     file: "src/app/api/integrations/google/callback/route.ts",
     patterns: [
       "requireActionActiveTherapistFeatures",
-      "parseGoogleOAuthState",
-      "parsedState.therapistUserId",
+      "consumeGoogleOAuthState",
+      "safeGoogleReturnTo",
+      "consumeGoogleOAuthState(request, activeTherapist.id)",
       "checkRateLimitPreset",
     ],
+  },
+  {
+    file: "src/lib/google/google-oauth-state.ts",
+    patterns: ["randomBytes(32)", "timingSafeEqual", "createHmac", "payload.userId !== context.userId", "payload.expires <= now", "google-session:"],
+  },
+  {
+    file: "src/server/services/google-oauth-state.service.ts",
+    patterns: ["validateGoogleOAuthState", "prisma.auditLog.create", "GOOGLE_OAUTH_STATE_CONSUMED", "createHash"],
   },
   {
     file: "src/app/api/cron/booking-rules/route.ts",

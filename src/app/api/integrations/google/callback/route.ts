@@ -6,7 +6,8 @@ import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
 import { getSafeGoogleCalendarErrorMessage } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, hasRole, requireActionActiveTherapistFeatures } from "@/lib/permissions";
-import { parseGoogleOAuthState } from "@/lib/google/google-oauth";
+import { GoogleOAuthStateError, safeGoogleReturnTo } from "@/lib/google/google-oauth-state";
+import { consumeGoogleOAuthState, googleStateCookieName } from "@/server/services/google-oauth-state.service";
 import { buildCanonicalAppUrl } from "@/lib/urls/canonical-app-url";
 import {
   GoogleCalendarServiceError,
@@ -21,14 +22,6 @@ import {
   checkRateLimitPreset,
 } from "@/server/services/rate-limit.service";
 
-function normalizeReturnTo(value: string | null | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/therapist/payout-details";
-  }
-
-  return value;
-}
-
 function buildReturnRedirect(
   returnTo: string,
   status: "success" | "error",
@@ -40,7 +33,7 @@ function buildReturnRedirect(
   return redirectUrl;
 }
 
-export async function GET(request: NextRequest) {
+async function handleCallback(request: NextRequest) {
   const user = await getCurrentUser();
   const defaultReturnTo = "/therapist/payout-details";
   let callbackReturnTo = defaultReturnTo;
@@ -87,30 +80,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const parsedState = parseGoogleOAuthState(state);
-    const returnTo = normalizeReturnTo(parsedState.returnTo);
+    const parsedState = await consumeGoogleOAuthState(request, activeTherapist.id);
+    const returnTo = safeGoogleReturnTo(parsedState.returnTo);
     callbackReturnTo = returnTo;
-
-    if (parsedState.therapistUserId !== activeTherapist.id) {
-      await createAuditLogEntryBestEffort({
-        actorUserId: activeTherapist.id,
-        entityType: "GoogleCalendarIntegration",
-        entityId: parsedState.therapistUserId,
-        action: "GOOGLE_CALENDAR_CALLBACK_USER_MISMATCH",
-        after: {
-          signedInUserId: activeTherapist.id,
-          stateTherapistUserId: parsedState.therapistUserId,
-        },
-      });
-
-      return NextResponse.redirect(
-        buildReturnRedirect(
-          returnTo,
-          "error",
-          "Google Calendar callback does not match the signed-in therapist.",
-        ),
-      );
-    }
 
     if (oauthError) {
       await createAuditLogEntryBestEffort({
@@ -120,7 +92,7 @@ export async function GET(request: NextRequest) {
         action: "GOOGLE_CALENDAR_CALLBACK_DENIED",
         after: {
           returnTo,
-          oauthError,
+          denied: true,
         },
       });
 
@@ -162,6 +134,9 @@ export async function GET(request: NextRequest) {
       buildReturnRedirect(returnTo, "success", successMessage),
     );
   } catch (error) {
+    if (error instanceof GoogleOAuthStateError) {
+      return NextResponse.redirect(buildReturnRedirect(defaultReturnTo, "error", error.message));
+    }
     await createAuditLogEntryBestEffort({
       actorUserId: activeTherapist.id,
       entityType: "GoogleCalendarIntegration",
@@ -200,4 +175,12 @@ export async function GET(request: NextRequest) {
       ),
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  const response = await handleCallback(request);
+  response.cookies.set(googleStateCookieName(), "", {
+    httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0,
+  });
+  return response;
 }
