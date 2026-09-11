@@ -116,6 +116,8 @@ const transferBookingSelect = {
       stripeTransferId: true,
       therapistAmount: true,
       platformFeeAmount: true,
+      bookingFeeAmount: true,
+
       creditAppliedAmount: true,
       promoCodeSnapshot: true,
       promoDiscountPercent: true,

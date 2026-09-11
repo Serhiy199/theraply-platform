@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "theraply",
-      cwd: "/var/www/theraply",
+      cwd: __dirname,
       script: "npm",
       args: "run start",
       env: {

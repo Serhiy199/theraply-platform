@@ -293,7 +293,7 @@ function PaymentCheckoutPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <dt>Client payable</dt>
+          <dt>Session after promo</dt>
           <dd className="font-medium text-slate-900">
             {formatAmount(breakdown.clientPayableAmount, breakdown.currency)}
           </dd>
@@ -305,7 +305,11 @@ function PaymentCheckoutPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-4 text-base">
-          <dt className="font-semibold text-slate-900">Amount to pay by card</dt>
+          <dt>Booking fee (non-refundable)</dt>
+          <dd>{formatAmount(breakdown.bookingFeeAmount, breakdown.currency)}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="font-semibold text-slate-900">Total to pay by card</dt>
           <dd className="font-semibold text-slate-900">
             {formatAmount(breakdown.stripeChargeAmount, breakdown.currency)}
           </dd>

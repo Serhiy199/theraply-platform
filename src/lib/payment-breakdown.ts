@@ -7,9 +7,11 @@ export type PaymentBreakdownInput = {
   grossAmount: number;
   promoDiscountPercent?: number;
   availableClientCredit?: number;
+  bookingFeeAmount?: number;
 };
 
 export type PaymentBreakdown = {
+  bookingFeeAmount: number;
   grossAmount: number;
   therapistAmount: number;
   basePlatformFeeAmount: number;
@@ -31,9 +33,11 @@ export function calculatePaymentBreakdown({
   grossAmount,
   promoDiscountPercent = 0,
   availableClientCredit = 0,
+  bookingFeeAmount = 0,
 }: PaymentBreakdownInput): PaymentBreakdown {
   assertNonNegativeMoney(grossAmount, "grossAmount");
   assertNonNegativeMoney(availableClientCredit, "availableClientCredit");
+  assertNonNegativeMoney(bookingFeeAmount, "bookingFeeAmount");
 
   if (
     !Number.isInteger(promoDiscountPercent) ||
@@ -55,12 +59,13 @@ export function calculatePaymentBreakdown({
   );
   const clientPayableAmount = grossAmount - promoDiscountAmount;
   const creditAppliedAmount = Math.min(availableClientCredit, clientPayableAmount);
-  const stripeChargeAmount = clientPayableAmount - creditAppliedAmount;
+  const stripeChargeAmount = clientPayableAmount - creditAppliedAmount + bookingFeeAmount;
   const platformFeeAmount = basePlatformFeeAmount - promoDiscountAmount;
 
   if (
     therapistAmount + platformFeeAmount !== clientPayableAmount ||
-    stripeChargeAmount + creditAppliedAmount !== clientPayableAmount ||
+    stripeChargeAmount + creditAppliedAmount !== clientPayableAmount + bookingFeeAmount ||
+    !Number.isSafeInteger(stripeChargeAmount) ||
     promoDiscountAmount > basePlatformFeeAmount ||
     platformFeeAmount < 0 ||
     stripeChargeAmount < 0
@@ -69,6 +74,7 @@ export function calculatePaymentBreakdown({
   }
 
   return {
+    bookingFeeAmount,
     grossAmount,
     therapistAmount,
     basePlatformFeeAmount,

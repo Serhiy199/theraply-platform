@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         sessionId: checkoutSession.sessionId,
         paymentId: checkoutSession.paymentId,
         amount: checkoutSession.amount,
+        bookingFeeAmount: checkoutSession.bookingFeeAmount,
         chargeAmount: checkoutSession.chargeAmount,
         creditAppliedAmount: checkoutSession.creditAppliedAmount,
         promoCode: checkoutSession.promoCode,

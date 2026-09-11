@@ -58,6 +58,9 @@ const transactionalEmailBookingSelect = {
       id: true,
       amount: true,
       clientPayableAmount: true,
+      bookingFeeAmount: true,
+      creditAppliedAmount: true,
+      stripeChargeAmount: true,
       currency: true,
       paymentStatus: true,
       failedReason: true,
@@ -169,6 +172,12 @@ function getPaymentTemplateInput(
   return {
     ...getBookingTemplateInput(booking, recipient),
     paymentStatus: booking.payment?.paymentStatus ?? null,
+    bookingFee: booking.payment ? {
+      amountMinor: booking.payment.bookingFeeAmount ?? 0,
+      currency: booking.payment.currency,
+    } : null,
+    creditApplied: booking.payment ? { amountMinor: booking.payment.creditAppliedAmount ?? 0, currency: booking.payment.currency } : null,
+    cardAmount: booking.payment?.stripeChargeAmount != null ? { amountMinor: booking.payment.stripeChargeAmount, currency: booking.payment.currency } : null,
     amount: booking.payment
       ? {
           amountMinor:
