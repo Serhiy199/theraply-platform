@@ -4,6 +4,8 @@ import {
   UserRole,
 } from "@prisma/client";
 import { isStripeConnectReady } from "@/lib/stripe/stripe-connect-readiness";
+import { isProductionTestFixture, PRODUCTION_TEST_THERAPIST } from "@/lib/stripe/test-fixture";
+import { isLiveStripeReadinessContext } from "@/lib/stripe/runtime-mode";
 
 export type TherapistReadinessReason =
   | "NOT_THERAPIST"
@@ -17,12 +19,15 @@ export type TherapistReadinessReason =
   | "PUBLIC_PROFILE_INCOMPLETE";
 
 type ReadinessUser = {
+  id?: string;
   role?: UserRole | null;
   isActive?: boolean | null;
   emailVerified?: boolean | null;
 };
 
 type ReadinessProfile = {
+  id?: string;
+  userId?: string;
   approvalStatus?: TherapistApprovalStatus | null;
   isApproved?: boolean | null;
   onboardingCompleted?: boolean | null;
@@ -87,6 +92,8 @@ export function evaluateTherapistReadiness(input: {
   }
   if (!isTherapistCalendarReady(profile)) reasons.push("CALENDAR_NOT_READY");
   if (
+    (isLiveStripeReadinessContext() &&
+      isProductionTestFixture({ therapistId: user.id ?? profile.userId, profileId: profile.id })) ||
     !isStripeConnectReady({
       ...profile,
       stripeAccountId: profile.stripeAccountId?.trim(),
@@ -112,6 +119,7 @@ export function buildBookableTherapistWhere(): Prisma.UserWhereInput {
   // Persisted integration identifiers are normalized by their write paths. The
   // pure evaluator remains stricter and also rejects whitespace-only values.
   return {
+    ...(isLiveStripeReadinessContext() ? { id: { not: PRODUCTION_TEST_THERAPIST.userId } } : {}),
     role: UserRole.THERAPIST,
     isActive: true,
     emailVerified: true,

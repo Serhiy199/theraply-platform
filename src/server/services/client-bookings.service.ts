@@ -1,4 +1,5 @@
 import { BookingStatus, PaymentStatus, PaymentTransferStatus, SessionStatus } from "@prisma/client";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import {
   bookingDetailsSelect,
   bookingListSelect,
@@ -286,6 +287,7 @@ export async function cancelClientBooking(
   }
 
   if (booking.session?.googleCalendarEventId) {
+    await assertFinancialReferencesAllowed(prisma, { bookingId: booking.id });
     try {
       await deleteTherapistGoogleCalendarEvent(
         booking.therapistId,

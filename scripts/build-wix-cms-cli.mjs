@@ -2,8 +2,9 @@ import { build } from "esbuild";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const result = await build({
-  entryPoints: ["scripts/reconcile-wix-cms-production.ts"],
-  outfile: "build/wix-cms/reconcile.cjs",
+  entryPoints: { reconcile: "scripts/reconcile-wix-cms-production.ts", "reconcile-profile": "scripts/reconcile-wix-profile-production.ts" },
+  outdir: "build/wix-cms",
+  outExtension: { ".js": ".cjs" },
   bundle: true,
   platform: "node",
   target: "node24",

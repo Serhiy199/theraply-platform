@@ -1,4 +1,5 @@
 import "server-only";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import {
   ClientCreditTransactionType,
   type Prisma,
@@ -120,6 +121,7 @@ export async function applyClientCreditToPaymentInTransaction(
   tx: CreditDbClient,
   input: ApplyClientCreditInput,
 ) {
+  await assertFinancialReferencesAllowed(tx, input);
   if (input.amount <= 0) {
     return { amount: 0, appliedNow: false };
   }
@@ -243,6 +245,7 @@ export async function reverseClientCreditApplication(input: {
   currency?: string;
   notes?: string | null;
 }) {
+  await assertFinancialReferencesAllowed(prisma, input);
   if (input.amount <= 0) {
     return 0;
   }
@@ -375,6 +378,7 @@ export async function issueClientCreditInTransaction(
     notes?: string | null;
   },
 ) {
+  await assertFinancialReferencesAllowed(tx, input);
   if (input.amount <= 0) {
     return { amount: 0, issuedNow: false };
   }

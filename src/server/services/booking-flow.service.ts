@@ -11,6 +11,7 @@ import {
   type BookingDetailsItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import { buildBookableTherapistWhere } from "@/lib/therapist-readiness";
 import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
 import {
@@ -965,6 +966,7 @@ export async function settleConfirmedSessionByTherapist(
   }
 
   const updatedBooking = await prisma.$transaction(async (tx) => {
+    await assertFinancialReferencesAllowed(tx, { bookingId: booking.id });
     await tx.booking.update({
       where: { id: booking.id },
       data: {

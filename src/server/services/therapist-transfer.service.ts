@@ -1,4 +1,5 @@
 import "server-only";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import {
   BookingStatus,
   PaymentStatus,
@@ -203,6 +204,7 @@ function getTransferPaymentSnapshot(payment: NonNullable<TransferBooking["paymen
 }
 
 async function getTransferBookingOrThrow(bookingId: string) {
+  await assertFinancialReferencesAllowed(prisma, { bookingId });
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: transferBookingSelect,

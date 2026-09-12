@@ -1,4 +1,5 @@
 import "server-only";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import { PaymentStatus, PaymentTransferStatus } from "@prisma/client";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
@@ -67,6 +68,7 @@ async function logRefundSkipped(input: {
 }
 
 async function getBookingPaymentContextOrThrow(bookingId: string) {
+  await assertFinancialReferencesAllowed(prisma, { bookingId });
   const booking = await prisma.booking.findUnique({
     where: {
       id: bookingId,

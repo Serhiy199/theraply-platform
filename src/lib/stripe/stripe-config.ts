@@ -1,4 +1,5 @@
 import "server-only";
+import { getStripeRuntimeMode } from "@/lib/stripe/runtime-mode";
 
 export type StripeConfig = {
   secretKey: string;
@@ -38,6 +39,7 @@ export function isStripeConfigured() {
 }
 
 export function getStripeConfig(): StripeConfig {
+  getStripeRuntimeMode();
   return {
     secretKey: readRequiredEnv("STRIPE_SECRET_KEY"),
     publishableKey: readRequiredEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"),

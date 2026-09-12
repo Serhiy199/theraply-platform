@@ -1,4 +1,7 @@
 import Stripe from "stripe";
+import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
+import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import { PaymentTransferStatus, StripeConnectOnboardingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
@@ -298,6 +301,7 @@ async function syncAccountUpdated(account: Stripe.Account) {
   const updated = await prisma.therapistProfile.updateMany({
     where: {
       stripeAccountId: account.id,
+      user: { role: "THERAPIST", isActive: true },
     },
     data: {
       stripeOnboardingStatus: getAccountOnboardingStatus(account),
@@ -314,6 +318,7 @@ async function syncAccountUpdated(account: Stripe.Account) {
     },
   });
 
+  if (updated.count !== 1) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
   await createAuditLogEntryBestEffort({
     entityType: "TherapistProfile",
     entityId: account.id,
@@ -370,6 +375,20 @@ async function markTransferFailed(transfer: Stripe.Transfer) {
 }
 
 export async function processStripeWebhookEvent(event: Stripe.Event) {
+  assertStripeEventMode(event.livemode);
+  if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    if (!account.id || (event.account && event.account !== account.id)) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
+    const owner = await prisma.therapistProfile.findUnique({
+      where: { stripeAccountId: account.id },
+      select: { id: true, userId: true, user: { select: { role: true, isActive: true } } },
+    });
+    if (!owner || owner.user.role !== "THERAPIST" || !owner.user.isActive) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
+    assertStripeFinancialContext({ therapistId: owner.userId, profileId: owner.id });
+  } else {
+    const object = event.data.object as Stripe.PaymentIntent;
+    await assertFinancialReferencesAllowed(prisma, { bookingId: object.metadata?.bookingId, paymentId: object.metadata?.paymentId });
+  }
   const reserved = await reserveWebhookEvent(event);
 
   if (!reserved) {
@@ -426,6 +445,10 @@ export async function processStripeWebhookEventBestEffort(event: Stripe.Event) {
   try {
     await processStripeWebhookEvent(event);
   } catch (error) {
+    if (error instanceof StripeIsolationError) {
+      logDiagnosticEvent("stripe-webhook", "Stripe event rejected by isolation guard.", { code: error.code });
+      throw error;
+    }
     if (
       error instanceof PaymentFlowServiceError &&
       error.code === "PAYMENT_RECORD_NOT_FOUND"

@@ -1,5 +1,7 @@
 import { BookingStatus, PaymentStatus, PaymentTransferStatus, Prisma } from "@prisma/client";
 import Stripe from "stripe";
+import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import { prisma } from "@/lib/prisma";
 import {
   PAYMENT_CURRENCY,
@@ -672,6 +674,7 @@ async function getPaymentEligibilityBookingOrThrow(
 }
 
 async function getStripePaymentBookingOrThrow(bookingId: string) {
+  await assertFinancialReferencesAllowed(prisma, { bookingId });
   const booking = await prisma.booking.findUnique({
     where: {
       id: bookingId,
@@ -799,6 +802,7 @@ export async function createClientStripeCheckoutSession(
   clientUserId: string,
   input: CreateClientStripeCheckoutSessionInput,
 ): Promise<StripeCheckoutSessionResult> {
+  await assertFinancialReferencesAllowed(prisma, { bookingId: input.bookingId });
   const prepared = await prisma.$transaction(
     async (tx) => {
       await acquireFinancialTransactionLock(tx, `client-credit:${clientUserId}`);
@@ -820,6 +824,7 @@ export async function createClientStripeCheckoutSession(
       }
 
       const eligibility = evaluatePaymentEligibility(booking);
+      assertStripeFinancialContext({ therapistId: booking.therapistId, payment: booking.payment });
 
       if (!eligibility.canPay || !eligibility.amount) {
         throw new PaymentFlowServiceError(eligibility.message, "PAYMENT_NOT_ELIGIBLE");
@@ -1203,6 +1208,8 @@ export async function syncClientStripeCheckoutSuccess(
   bookingId: string,
   checkoutSessionId: string,
 ): Promise<StripeCheckoutSuccessSyncResult> {
+  assertStripeFinancialContext({ payment: { stripeCheckoutSessionId: checkoutSessionId } });
+  await assertFinancialReferencesAllowed(prisma, { bookingId });
   const booking = await prisma.booking.findFirst({
     where: {
       id: bookingId,

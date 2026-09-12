@@ -44,6 +44,7 @@ try {
     assert.deepEqual(await readdir(path.join(artifact, "scripts")), ["deploy-production-release.mjs"]);
   }
   assert(existsSync(path.join(artifact, "build/wix-cms/reconcile.cjs")));
+  assert(existsSync(path.join(artifact, "build/wix-cms/reconcile-profile.cjs")));
   const manifest = JSON.parse(await readFile(path.join(artifact, "build/wix-cms/dependencies.json"), "utf8"));
   assert.deepEqual(manifest.external, ["@prisma/client"]);
 
@@ -67,6 +68,9 @@ require("node:https").request = deny;
 require("node:net").Socket.prototype.connect = deny;
 `);
   const probeEnv = { NODE_OPTIONS: `--require=${JSON.stringify(guard)}` };
+  const targeted = npm(["run", "wix:cms:reconcile-profile:production"], probeEnv, 1);
+  assert(targeted.includes("TARGETED_WIX_DEPUBLISH_BLOCKED"), targeted);
+  assert(!/MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|ARTIFACT_NETWORK_FORBIDDEN/.test(targeted), targeted);
   const missing = npm(["run", "wix:cms:reconcile:production"], probeEnv, 1);
   assert(missing.includes("WIX_CMS_ENVIRONMENT is not configured."), missing);
 

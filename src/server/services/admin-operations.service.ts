@@ -17,6 +17,7 @@ import {
   type PaymentSummaryItem,
 } from "@/lib/contracts/bookings";
 import { prisma } from "@/lib/prisma";
+import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import {
   deleteTherapistGoogleCalendarEvent,
   GoogleCalendarServiceError,
@@ -651,6 +652,7 @@ export async function adminCancelBooking(
   const now = getNow();
 
   if (booking.session?.googleCalendarEventId) {
+    await assertFinancialReferencesAllowed(prisma, { bookingId: booking.id });
     try {
       await deleteTherapistGoogleCalendarEvent(
         booking.therapistId,
