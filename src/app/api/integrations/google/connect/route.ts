@@ -1,5 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { GOOGLE_STATE_TTL_SECONDS, safeGoogleReturnTo } from "@/lib/google/google-oauth-state";
+import { issueGoogleOAuthState, googleStateCookieName } from "@/server/services/google-oauth-state.service";
 import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
@@ -19,14 +21,6 @@ import {
   buildUserRateLimitIdentifier,
   checkRateLimitPreset,
 } from "@/server/services/rate-limit.service";
-
-function normalizeReturnTo(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/therapist/payout-details";
-  }
-
-  return value;
-}
 
 function buildTherapistRedirect(status: "success" | "error", message: string) {
   const redirectUrl = buildCanonicalAppUrl("/therapist/payout-details");
@@ -67,11 +61,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(buildTherapistRedirect("error", AUTH_MESSAGES.rateLimited));
   }
 
-  const returnTo = normalizeReturnTo(request.nextUrl.searchParams.get("returnTo"));
+  const returnTo = safeGoogleReturnTo(request.nextUrl.searchParams.get("returnTo"));
 
   try {
-    const consentUrl = await buildTherapistGoogleCalendarConnectUrl(activeTherapist.id, returnTo);
-    return NextResponse.redirect(consentUrl);
+    const challenge = issueGoogleOAuthState(request, activeTherapist.id, returnTo);
+    const consentUrl = await buildTherapistGoogleCalendarConnectUrl(activeTherapist.id, returnTo, challenge.state);
+    const response = NextResponse.redirect(consentUrl);
+    response.cookies.set(googleStateCookieName(), challenge.nonce, {
+      httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax",
+      path: "/", maxAge: GOOGLE_STATE_TTL_SECONDS,
+    });
+    return response;
   } catch (error) {
     await createAuditLogEntryBestEffort({
       actorUserId: activeTherapist.id,

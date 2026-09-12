@@ -214,7 +214,8 @@ export async function requireTherapistGoogleCalendarConnection(therapistUserId: 
 
 export async function buildTherapistGoogleCalendarConnectUrl(
   therapistUserId: string,
-  returnTo?: string | null,
+  returnTo: string,
+  state: string,
 ) {
   ensureGoogleCalendarConfigured();
 
@@ -228,10 +229,7 @@ export async function buildTherapistGoogleCalendarConnectUrl(
     returnTo: normalizeOptionalString(returnTo),
   });
 
-  return buildGoogleOAuthConsentUrl({
-    therapistUserId: connection.userId,
-    returnTo: normalizeOptionalString(returnTo),
-  });
+  return buildGoogleOAuthConsentUrl(state);
 }
 
 export async function exchangeGoogleCalendarCode(code: string) {
