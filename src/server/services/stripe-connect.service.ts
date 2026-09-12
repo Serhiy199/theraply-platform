@@ -1,4 +1,5 @@
 import "server-only";
+import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
 import { Prisma, StripeConnectOnboardingStatus, UserRole } from "@prisma/client";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
@@ -135,6 +136,7 @@ export { isStripeConnectReady };
 
 export async function syncTherapistStripeAccountStatus(therapistUserId: string): Promise<StripeConnectStatusView> {
   assertStripeConfigured();
+  assertStripeFinancialContext({ therapistId: therapistUserId });
   const therapistProfile = await getTherapistProfileOrThrow(therapistUserId);
 
   if (!therapistProfile.stripeAccountId) {
@@ -210,6 +212,7 @@ export async function syncTherapistStripeAccountStatus(therapistUserId: string):
 
 export async function createTherapistStripeAccountLink(therapistUserId: string) {
   assertStripeConfigured();
+  assertStripeFinancialContext({ therapistId: therapistUserId });
   const therapistProfile = await getTherapistProfileOrThrow(therapistUserId);
   const stripe = getStripeClient();
   let stripeAccountId = therapistProfile.stripeAccountId;

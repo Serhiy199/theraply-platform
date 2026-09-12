@@ -152,6 +152,7 @@ function logSyncResult(result: WixCmsTherapistSyncResult) {
 
 export async function reconcileTherapistPublicProfile(
   therapistProfileId: string,
+  depublishOnly?: { expectedWixItemId: string },
 ): Promise<WixCmsTherapistSyncResult> {
   const profile = await prisma.therapistProfile.findUnique({
     where: { id: therapistProfileId },
@@ -174,6 +175,11 @@ export async function reconcileTherapistPublicProfile(
 
   try {
     const matches = await findWixCmsTherapistsByTheraplyId(profile.id);
+
+    if (depublishOnly && (readiness.publicReady || matches.length !== 1 ||
+      matches[0].id !== depublishOnly.expectedWixItemId || matches[0].data.theraplyId !== profile.id)) {
+      throw new Error("TARGETED_DEPUBLISH_IDENTITY_OR_READINESS_CHANGED");
+    }
 
     if (matches.length > 1) {
       throw new WixCmsTherapistSyncError(

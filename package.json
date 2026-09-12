@@ -24,6 +24,7 @@
     "build:wix-cli": "node scripts/build-wix-cms-cli.mjs",
     "verify:wix-cli:artifact": "node scripts/verify-wix-cms-cli-artifact.mjs",
     "wix:cms:reconcile:production": "node --env-file-if-exists=.env build/wix-cms/reconcile.cjs",
+    "wix:cms:reconcile-profile:production": "node --env-file-if-exists=.env build/wix-cms/reconcile-profile.cjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",

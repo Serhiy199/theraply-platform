@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/stripe";
 import { getStripeConfig, StripeConfigError } from "@/lib/stripe/stripe-config";
@@ -34,10 +35,15 @@ export async function POST(request: NextRequest) {
       config.webhookSecret,
     ) as Stripe.Event;
 
+    assertStripeEventMode(event.livemode);
+
     await processStripeWebhookEventBestEffort(event);
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof StripeIsolationError) {
+      return NextResponse.json({ error: error.code }, { status: 400 });
+    }
     if (error instanceof StripeConfigError) {
       return NextResponse.json({ error: getSafePaymentFlowErrorMessage("STRIPE_NOT_CONFIGURED") }, { status: 503 });
     }
@@ -48,11 +54,11 @@ export async function POST(request: NextRequest) {
         entityId: "signature-verification",
         action: "STRIPE_WEBHOOK_SIGNATURE_VERIFICATION_FAILED",
         after: {
-          error: error.message,
+          error: "STRIPE_SIGNATURE_VERIFICATION_FAILED",
         },
       });
       logDiagnosticEvent("stripe-webhook-route", "Stripe webhook signature verification failed.", {
-        error: error.message,
+        error: "STRIPE_SIGNATURE_VERIFICATION_FAILED",
       });
 
       return NextResponse.json({ error: "Invalid Stripe webhook signature." }, { status: 400 });
@@ -80,11 +86,11 @@ export async function POST(request: NextRequest) {
       entityId: "route-failure",
       action: "STRIPE_WEBHOOK_ROUTE_FAILED",
       after: {
-        error: error instanceof Error ? error.message : String(error),
+        error: "STRIPE_WEBHOOK_UNEXPECTED_FAILURE",
       },
     });
     logDiagnosticEvent("stripe-webhook-route", "Unhandled Stripe webhook route failure.", {
-      error: error instanceof Error ? error.message : String(error),
+      error: "STRIPE_WEBHOOK_UNEXPECTED_FAILURE",
     });
 
     return NextResponse.json(

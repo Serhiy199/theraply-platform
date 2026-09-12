@@ -30,6 +30,9 @@ import {
   WixCmsTherapistSyncError,
 } from "@/server/services/wix-cms-therapist-sync.service";
 import { WixApiRequestError } from "@/lib/wix/wix-client";
+import { parseTargetedDepublishArgs, runTargetedWixDepublication, TARGETED_DEPUBLISH_CONFIRMATION } from "@/server/services/wix-cms-targeted-depublication.service";
+
+vi.mock("@/lib/wix/wix-cms-config", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/wix/wix-cms-config")>(), getWixCmsConfig: () => ({ environment: "production" }) }));
 
 function buildProfile(overrides: Record<string, unknown> = {}) {
   return {
@@ -238,5 +241,52 @@ describe("Wix CMS therapist reconciliation", () => {
       },
     );
     expect(JSON.stringify(mocks.diagnostic.mock.calls)).not.toContain("must-not-leak");
+  });
+});
+
+describe("targeted Wix soft depublication", () => {
+  const options = { profileId: "profile-id", expectedWixItemId: "wix-item-id", confirmation: TARGETED_DEPUBLISH_CONFIRMATION };
+  beforeEach(() => {
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
+    mocks.profileFindUnique.mockResolvedValue(buildProfile({ user: { id: "user-id", role: UserRole.THERAPIST, isActive: false, emailVerified: true } }));
+    mocks.findItems.mockResolvedValue([{ id: "wix-item-id", revision: "7", data: existingData }]);
+  });
+
+  it("defaults to dry run without any mutations", async () => {
+    const parsed = parseTargetedDepublishArgs(["--profile-id=profile-id", "--expected-wix-item-id=wix-item-id", `--confirm-production=${TARGETED_DEPUBLISH_CONFIRMATION}`]);
+    expect(parsed.write).toBe(false);
+    await expect(runTargetedWixDepublication(parsed)).resolves.toMatchObject({ mode: "DRY_RUN", action: "HIDDEN" });
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("preserves content, never creates, and becomes idempotent", async () => {
+    await expect(runTargetedWixDepublication({ ...options, write: true })).resolves.toMatchObject({ action: "HIDDEN" });
+    const hidden = { ...existingData, isPublished: false, isBookable: false };
+    expect(mocks.updateItem).toHaveBeenCalledWith(expect.objectContaining({ id: "wix-item-id" }), hidden);
+    mocks.findItems.mockResolvedValue([{ id: "wix-item-id", revision: "8", data: hidden }]);
+    await expect(runTargetedWixDepublication(options)).resolves.toMatchObject({ action: "NO_CHANGE" });
+    await expect(runTargetedWixDepublication({ ...options, write: true })).resolves.toMatchObject({ action: "NO_CHANGE" });
+    expect(mocks.updateItem).toHaveBeenCalledTimes(1);
+    expect(mocks.createItem).not.toHaveBeenCalled();
+  });
+
+  it.each([[], [{ id: "other-item", data: existingData }], [{ id: "wix-item-id", data: { ...existingData, theraplyId: "other-profile" } }], [{ id: "wix-item-id", data: existingData }, { id: "duplicate", data: existingData }]])("rejects absent, foreign or duplicate identities", async (...items) => {
+    mocks.findItems.mockResolvedValue(items);
+    await expect(runTargetedWixDepublication({ ...options, write: true })).rejects.toThrow();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("rechecks readiness immediately in canonical write flow", async () => {
+    const inactive = buildProfile({ user: { id: "user-id", role: UserRole.THERAPIST, isActive: false, emailVerified: true } });
+    mocks.profileFindUnique.mockResolvedValueOnce(inactive).mockResolvedValueOnce(buildProfile());
+    await expect(runTargetedWixDepublication({ ...options, write: true })).rejects.toThrow();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it.each([{ args: [] }, { args: ["--profile-id=*"] }, { args: ["--all"] }, { args: ["--write=true"] }, { args: ["--write", "--write"] }])("rejects unsafe arguments", ({ args }) => {
+    expect(() => parseTargetedDepublishArgs(args)).toThrow();
   });
 });
