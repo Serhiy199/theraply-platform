@@ -1,5 +1,8 @@
 # Theraply Deployment Workflow
 
+Stripe webhook destination setup and optional Connect signing-secret behavior:
+[Stripe Webhook Destinations](stripe-webhook-destinations.md).
+
 Theraply uses a split deployment model:
 
 - `develop` is the main working branch and should be connected to Vercel staging.

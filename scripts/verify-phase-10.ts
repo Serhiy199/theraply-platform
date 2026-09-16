@@ -221,6 +221,7 @@ async function main() {
           message: "Verification failure from Stripe test event.",
         },
       }),
+      "PLATFORM",
     );
 
     const failedPaymentAfterWebhook = await prisma.payment.findUnique({
@@ -292,6 +293,7 @@ async function main() {
         },
         expires_at: Math.floor(addHours(now, 1).getTime() / 1000),
       }),
+      "PLATFORM",
     );
 
     const expiredPaymentAfterWebhook = await prisma.payment.findUnique({
@@ -341,6 +343,7 @@ async function main() {
         },
         payment_intent: "pi_verify_completed_phase10",
       }),
+      "PLATFORM",
     );
 
     const completedPaymentAfterWebhook = await prisma.payment.findUnique({
@@ -398,6 +401,7 @@ async function main() {
           ],
         },
       }),
+      "PLATFORM",
     );
 
     const refundedPaymentAfterWebhook = await prisma.payment.findUnique({

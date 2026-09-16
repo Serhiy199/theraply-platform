@@ -1,8 +1,9 @@
 import Stripe from "stripe";
+import { isWebhookEventAllowed, type StripeWebhookChannel } from "@/lib/stripe/webhook-channel";
 import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
 import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
 import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
-import { PaymentTransferStatus, StripeConnectOnboardingStatus } from "@prisma/client";
+import { PaymentTransferStatus, Prisma, StripeConnectOnboardingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import {
@@ -101,7 +102,8 @@ async function reserveWebhookEvent(event: Stripe.Event) {
       },
     });
     return true;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
     await createAuditLogEntryBestEffort({
       entityType: "StripeWebhook",
       entityId: event.id,
@@ -297,9 +299,11 @@ async function markChargeRefunded(charge: Stripe.Charge) {
   });
 }
 
-async function syncAccountUpdated(account: Stripe.Account) {
+async function syncAccountUpdated(account: Stripe.Account, owner: { id: string; userId: string }) {
   const updated = await prisma.therapistProfile.updateMany({
     where: {
+      id: owner.id,
+      userId: owner.userId,
       stripeAccountId: account.id,
       user: { role: "THERAPIST", isActive: true },
     },
@@ -321,7 +325,7 @@ async function syncAccountUpdated(account: Stripe.Account) {
   if (updated.count !== 1) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
   await createAuditLogEntryBestEffort({
     entityType: "TherapistProfile",
-    entityId: account.id,
+    entityId: owner.id,
     action: "STRIPE_CONNECT_ACCOUNT_UPDATED",
     after: {
       stripeAccountId: account.id,
@@ -374,8 +378,13 @@ async function markTransferFailed(transfer: Stripe.Transfer) {
   });
 }
 
-export async function processStripeWebhookEvent(event: Stripe.Event) {
+export async function processStripeWebhookEvent(event: Stripe.Event, channel: StripeWebhookChannel) {
   assertStripeEventMode(event.livemode);
+  if (!isWebhookEventAllowed(channel, event.type)) {
+    logDiagnosticEvent("stripe-webhook", "Stripe event ignored by destination allowlist.", { channel, eventType: event.type });
+    return;
+  }
+  let accountOwner: { id: string; userId: string } | null = null;
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account;
     if (!account.id || (event.account && event.account !== account.id)) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
@@ -383,8 +392,9 @@ export async function processStripeWebhookEvent(event: Stripe.Event) {
       where: { stripeAccountId: account.id },
       select: { id: true, userId: true, user: { select: { role: true, isActive: true } } },
     });
-    if (!owner || owner.user.role !== "THERAPIST" || !owner.user.isActive) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
+    if (!owner || !owner.user || owner.user.role !== "THERAPIST" || !owner.user.isActive) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
     assertStripeFinancialContext({ therapistId: owner.userId, profileId: owner.id });
+    accountOwner = owner;
   } else {
     const object = event.data.object as Stripe.PaymentIntent;
     await assertFinancialReferencesAllowed(prisma, { bookingId: object.metadata?.bookingId, paymentId: object.metadata?.paymentId });
@@ -413,7 +423,8 @@ export async function processStripeWebhookEvent(event: Stripe.Event) {
       await markChargeRefunded(event.data.object as Stripe.Charge);
       return;
     case "account.updated":
-      await syncAccountUpdated(event.data.object as Stripe.Account);
+      if (!accountOwner) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
+      await syncAccountUpdated(event.data.object as Stripe.Account, accountOwner);
       return;
     case "transfer.created":
       await markTransferCreated(event.data.object as Stripe.Transfer);
@@ -441,9 +452,9 @@ export async function processStripeWebhookEvent(event: Stripe.Event) {
   }
 }
 
-export async function processStripeWebhookEventBestEffort(event: Stripe.Event) {
+export async function processStripeWebhookEventBestEffort(event: Stripe.Event, channel: StripeWebhookChannel) {
   try {
-    await processStripeWebhookEvent(event);
+    await processStripeWebhookEvent(event, channel);
   } catch (error) {
     if (error instanceof StripeIsolationError) {
       logDiagnosticEvent("stripe-webhook", "Stripe event rejected by isolation guard.", { code: error.code });

@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import { verifyStripeWebhook, StripeWebhookVerificationError } from "@/lib/stripe/webhook-channel";
 import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/stripe";
@@ -29,15 +29,11 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripeClient();
     const config = getStripeConfig();
-    const event = stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      config.webhookSecret,
-    ) as Stripe.Event;
+    const { event, channel } = verifyStripeWebhook(stripe, payload, signature, config);
 
     assertStripeEventMode(event.livemode);
 
-    await processStripeWebhookEventBestEffort(event);
+    await processStripeWebhookEventBestEffort(event, channel);
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
@@ -48,15 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: getSafePaymentFlowErrorMessage("STRIPE_NOT_CONFIGURED") }, { status: 503 });
     }
 
-    if (error instanceof Stripe.errors.StripeSignatureVerificationError) {
-      await createAuditLogEntryBestEffort({
-        entityType: "StripeWebhook",
-        entityId: "signature-verification",
-        action: "STRIPE_WEBHOOK_SIGNATURE_VERIFICATION_FAILED",
-        after: {
-          error: "STRIPE_SIGNATURE_VERIFICATION_FAILED",
-        },
-      });
+    if (error instanceof StripeWebhookVerificationError) {
       logDiagnosticEvent("stripe-webhook-route", "Stripe webhook signature verification failed.", {
         error: "STRIPE_SIGNATURE_VERIFICATION_FAILED",
       });
