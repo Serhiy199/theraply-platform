@@ -13,6 +13,7 @@ Use `.env.example` as the source template. Values below are examples only.
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes for payments | `<stripe-publishable-key>` | Stripe client/public config |
 | `STRIPE_SECRET_KEY` | Yes for payments | `<stripe-secret-key>` | Stripe server API |
 | `STRIPE_WEBHOOK_SECRET` | Yes for webhooks | `<stripe-webhook-secret>` | Stripe webhook signature verification |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Optional until Connect destination is configured | empty | Connected accounts signature verification; distinct from platform secret |
 | `GOOGLE_CLIENT_ID` | Yes for calendar | `your_google_client_id_here` | Google OAuth |
 | `GOOGLE_CLIENT_SECRET` | Yes for calendar | `your_google_client_secret_here` | Google OAuth |
 | `GOOGLE_CALENDAR_REDIRECT_URI` | Yes for calendar | `http://localhost:3000/api/integrations/google/callback` | Google OAuth callback |

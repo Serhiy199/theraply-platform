@@ -5,6 +5,7 @@ export type StripeConfig = {
   secretKey: string;
   publishableKey: string;
   webhookSecret: string;
+  connectWebhookSecret: string | null;
   apiVersion: "2026-04-22.dahlia";
   currency: "gbp";
 };
@@ -44,6 +45,7 @@ export function getStripeConfig(): StripeConfig {
     secretKey: readRequiredEnv("STRIPE_SECRET_KEY"),
     publishableKey: readRequiredEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"),
     webhookSecret: readRequiredEnv("STRIPE_WEBHOOK_SECRET"),
+    connectWebhookSecret: readOptionalEnv("STRIPE_CONNECT_WEBHOOK_SECRET"),
     apiVersion: "2026-04-22.dahlia",
     currency: "gbp",
   };

@@ -22,6 +22,7 @@ const requiredEnvKeys = [
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_CONNECT_WEBHOOK_SECRET",
   "SMTP_HOST",
   "SMTP_PORT",
   "SMTP_USER",
@@ -65,10 +66,15 @@ const criticalFiles: Array<{
     file: "src/app/api/stripe/webhook/route.ts",
     patterns: [
       "stripe-signature",
-      "constructEvent",
-      "StripeSignatureVerificationError",
+      "request.text()",
+      "verifyStripeWebhook",
+      "StripeWebhookVerificationError",
       "processStripeWebhookEventBestEffort",
     ],
+  },
+  {
+    file: "src/lib/stripe/webhook-channel.ts",
+    patterns: ["constructEvent(payload, signature, secret)", "StripeSignatureVerificationError", "PLATFORM", "CONNECTED_ACCOUNT", "isWebhookEventAllowed"],
   },
   {
     file: "src/app/api/integrations/google/connect/route.ts",

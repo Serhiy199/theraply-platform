@@ -72,16 +72,16 @@ describe("minimal Stripe LIVE isolation", () => {
   });
   it.each([false, true])("rejects mismatched webhook before any DB reservation (%s)", async livemode => {
     mode(livemode ? "test" : "live");
-    await expect(processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode } as Stripe.Event)).rejects.toThrow("STRIPE_EVENT_MODE_MISMATCH");
+    await expect(processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode } as Stripe.Event, "CONNECTED_ACCOUNT")).rejects.toThrow("STRIPE_EVENT_MODE_MISMATCH");
     expect(mocks.reserve).not.toHaveBeenCalled(); expect(mocks.findUnique).not.toHaveBeenCalled(); expect(mocks.audit).not.toHaveBeenCalled();
   });
   it("rejects unknown account ownership before reservation", async () => {
     mocks.findUnique.mockResolvedValue(null);
-    await expect(processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode: true, data: { object: { id: "acct_unknown" } } } as Stripe.Event)).rejects.toThrow("STRIPE_ACCOUNT_UNOWNED");
+    await expect(processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode: true, data: { object: { id: "acct_unknown" } } } as Stripe.Event, "CONNECTED_ACCOUNT")).rejects.toThrow("STRIPE_ACCOUNT_UNOWNED");
     expect(mocks.reserve).not.toHaveBeenCalled(); expect(mocks.updateMany).not.toHaveBeenCalled(); expect(mocks.audit).not.toHaveBeenCalled();
   });
   it("route rejects signed mode mismatch before reservation or audit", async () => {
-    mocks.stripe.mockReturnValue({ webhooks: { constructEvent: () => ({ livemode: false }) } });
+    mocks.stripe.mockReturnValue({ webhooks: { constructEvent: () => ({ id: "evt_unit", type: "charge.refunded", livemode: false, data: { object: {} } }) } });
     const response = await POST(new NextRequest("https://example.com/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": "unit" }, body: "unit" }));
     expect(response.status).toBe(400);
     expect(mocks.reserve).not.toHaveBeenCalled();
@@ -97,7 +97,7 @@ describe("minimal Stripe LIVE isolation", () => {
   });
   it.each([false, true])("allows matching webhook with stored ownership (%s)", async livemode => {
     mode(livemode ? "live" : "test"); mocks.findUnique.mockResolvedValue({ id: "real-profile", userId: "real", user: { role: "THERAPIST", isActive: true } }); mocks.updateMany.mockResolvedValue({ count: 1 });
-    await processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode, account: "acct_owned", data: { object: { id: "acct_owned", payouts_enabled: true, details_submitted: true } } } as Stripe.Event);
+    await processStripeWebhookEventBestEffort({ id: "event", type: "account.updated", livemode, account: "acct_owned", data: { object: { id: "acct_owned", payouts_enabled: true, details_submitted: true } } } as Stripe.Event, "CONNECTED_ACCOUNT");
     expect(mocks.reserve).toHaveBeenCalledOnce(); expect(mocks.updateMany).toHaveBeenCalledOnce();
   });
   it("stale TEST flags cannot satisfy LIVE readiness", () => {
