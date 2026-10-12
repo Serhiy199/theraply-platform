@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { isWebhookEventAllowed, type StripeWebhookChannel } from "@/lib/stripe/webhook-channel";
+import { isWebhookEventAllowed, type StripeAccountThinNotification, type StripeWebhookChannel } from "@/lib/stripe/webhook-channel";
 import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
 import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
 import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
@@ -27,6 +27,15 @@ export class StripeWebhookServiceError extends Error {
     this.name = "StripeWebhookServiceError";
   }
 }
+
+export class StripeThinWebhookServiceError extends Error {
+  constructor(public readonly code: "TRANSIENT_FETCH_FAILURE" | "UNOWNED_ACCOUNT" | "INVALID_ACCOUNT_STATE") {
+    super(code);
+    this.name = "StripeThinWebhookServiceError";
+  }
+}
+
+class StripeThinEventAlreadyProcessed extends Error {}
 
 function getEventBookingId(
   object:
@@ -299,8 +308,12 @@ async function markChargeRefunded(charge: Stripe.Charge) {
   });
 }
 
-async function syncAccountUpdated(account: Stripe.Account, owner: { id: string; userId: string }) {
-  const updated = await prisma.therapistProfile.updateMany({
+async function updateCanonicalAccountStatus(
+  account: Stripe.Account,
+  owner: { id: string; userId: string },
+  client: Pick<Prisma.TransactionClient, "therapistProfile">,
+) {
+  const updated = await client.therapistProfile.updateMany({
     where: {
       id: owner.id,
       userId: owner.userId,
@@ -323,18 +336,84 @@ async function syncAccountUpdated(account: Stripe.Account, owner: { id: string; 
   });
 
   if (updated.count !== 1) throw new StripeIsolationError("STRIPE_ACCOUNT_UNOWNED");
+}
+
+async function auditAccountUpdated(account: Stripe.Account, owner: { id: string; userId: string }) {
   await createAuditLogEntryBestEffort({
     entityType: "TherapistProfile",
     entityId: owner.id,
     action: "STRIPE_CONNECT_ACCOUNT_UPDATED",
     after: {
       stripeAccountId: account.id,
-      matchedProfiles: updated.count,
+      matchedProfiles: 1,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
       detailsSubmitted: account.details_submitted,
     },
   });
+}
+
+async function syncAccountUpdated(account: Stripe.Account, owner: { id: string; userId: string }) {
+  await updateCanonicalAccountStatus(account, owner, prisma);
+  await auditAccountUpdated(account, owner);
+}
+
+export async function processStripeAccountThinWebhook(
+  event: StripeAccountThinNotification,
+  stripe: Pick<Stripe, "accounts">,
+) {
+  assertStripeEventMode(event.livemode);
+  const accountId = event.related_object.id;
+  try {
+    // Roll back BOTH reservation and status on fetch/ownership failure; retries stay possible.
+    const result = await prisma.$transaction(async tx => {
+      try {
+        await tx.stripeWebhookEvent.create({ data: { id: event.id, eventType: event.type } });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          throw new StripeThinEventAlreadyProcessed();
+        }
+        throw error;
+      }
+      let account: Stripe.Account;
+      try {
+        // Stripe supports reading V2 Accounts through V1, preserving canonical readiness fields.
+        account = await stripe.accounts.retrieve(accountId, {}, {
+          ...(event.context ? { stripeContext: event.context } : {}),
+          timeout: 5000,
+          maxNetworkRetries: 0,
+        });
+      } catch (error) {
+        if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "resource_missing") {
+          throw new StripeThinWebhookServiceError("UNOWNED_ACCOUNT");
+        }
+        throw new StripeThinWebhookServiceError("TRANSIENT_FETCH_FAILURE");
+      }
+      if (!account || account.id !== accountId || account.object !== "account" || account.controller?.is_controller !== true) {
+        throw new StripeThinWebhookServiceError("UNOWNED_ACCOUNT");
+      }
+      if ([account.details_submitted, account.payouts_enabled, account.charges_enabled].some(v => typeof v !== "boolean")) {
+        throw new StripeThinWebhookServiceError("INVALID_ACCOUNT_STATE");
+      }
+      const owner = await tx.therapistProfile.findUnique({
+        where: { stripeAccountId: account.id },
+        select: { id: true, userId: true, user: { select: { role: true, isActive: true } } },
+      });
+      if (!owner || !owner.user || owner.user.role !== "THERAPIST" || !owner.user.isActive) {
+        throw new StripeThinWebhookServiceError("UNOWNED_ACCOUNT");
+      }
+      assertStripeFinancialContext({ therapistId: owner.userId, profileId: owner.id });
+      await updateCanonicalAccountStatus(account, owner, tx);
+      return { account, owner };
+    }, { maxWait: 5000, timeout: 15000 });
+    await auditAccountUpdated(result.account, result.owner);
+  } catch (error) {
+    if (error instanceof StripeThinEventAlreadyProcessed) {
+      logDiagnosticEvent("stripe-webhook-thin", "Thin account event already processed.", { code: "ALREADY_PROCESSED" });
+      return;
+    }
+    throw error;
+  }
 }
 
 async function markTransferCreated(transfer: Stripe.Transfer) {

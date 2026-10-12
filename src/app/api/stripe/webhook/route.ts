@@ -5,7 +5,7 @@ import { getStripeClient } from "@/lib/stripe/stripe";
 import { getStripeConfig, StripeConfigError } from "@/lib/stripe/stripe-config";
 import { SAFE_ERROR_MESSAGES, getSafePaymentFlowErrorMessage } from "@/lib/errors/safe-error-messages";
 import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
-import { processStripeWebhookEventBestEffort, StripeWebhookServiceError } from "@/server/services/stripe-webhook.service";
+import { processStripeAccountThinWebhook, processStripeWebhookEventBestEffort, StripeThinWebhookServiceError, StripeWebhookServiceError } from "@/server/services/stripe-webhook.service";
 
 export const runtime = "nodejs";
 
@@ -29,14 +29,22 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripeClient();
     const config = getStripeConfig();
-    const { event, channel } = verifyStripeWebhook(stripe, payload, signature, config);
+    const verified = verifyStripeWebhook(stripe, payload, signature, config);
 
-    assertStripeEventMode(event.livemode);
+    assertStripeEventMode(verified.event.livemode);
 
-    await processStripeWebhookEventBestEffort(event, channel);
+    if (verified.kind === "CONNECT_V2_THIN") {
+      await processStripeAccountThinWebhook(verified.event, stripe);
+    } else {
+      await processStripeWebhookEventBestEffort(verified.event, verified.channel);
+    }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof StripeThinWebhookServiceError) {
+      logDiagnosticEvent("stripe-webhook-thin", "Thin account event rejected.", { code: error.code });
+      return NextResponse.json({ error: error.code }, { status: error.code === "UNOWNED_ACCOUNT" ? 400 : 503 });
+    }
     if (error instanceof StripeIsolationError) {
       return NextResponse.json({ error: error.code }, { status: 400 });
     }

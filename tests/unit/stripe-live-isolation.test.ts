@@ -81,15 +81,18 @@ describe("minimal Stripe LIVE isolation", () => {
     expect(mocks.reserve).not.toHaveBeenCalled(); expect(mocks.updateMany).not.toHaveBeenCalled(); expect(mocks.audit).not.toHaveBeenCalled();
   });
   it("route rejects signed mode mismatch before reservation or audit", async () => {
-    mocks.stripe.mockReturnValue({ webhooks: { constructEvent: () => ({ id: "evt_unit", type: "charge.refunded", livemode: false, data: { object: {} } }) } });
-    const response = await POST(new NextRequest("https://example.com/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": "unit" }, body: "unit" }));
+    const sdk = new Stripe("sk_live_unit_placeholder");
+    const body = JSON.stringify({ id: "evt_unit", type: "charge.refunded", livemode: false, data: { object: {} } });
+    const signature = sdk.webhooks.generateTestHeaderString({ payload: body, secret: "unit-placeholder" });
+    mocks.stripe.mockReturnValue(sdk);
+    const response = await POST(new NextRequest("https://example.com/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": signature }, body }));
     expect(response.status).toBe(400);
     expect(mocks.reserve).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
   });
   it("signature failure never records sensitive exception text", async () => {
     const error = Object.setPrototypeOf(new Error("private-payload-must-not-log"), Stripe.errors.StripeSignatureVerificationError.prototype);
-    mocks.stripe.mockReturnValue({ webhooks: { constructEvent: () => { throw error; } } });
+    mocks.stripe.mockReturnValue({ webhooks: { signature: { verifyHeader: () => { throw error; } } } });
     const response = await POST(new NextRequest("https://example.com/api/stripe/webhook", { method: "POST", headers: { "stripe-signature": "unit" }, body: "private-payload-must-not-log" }));
     expect(response.status).toBe(400);
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("private-payload-must-not-log");

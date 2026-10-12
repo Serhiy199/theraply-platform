@@ -74,7 +74,11 @@ const criticalFiles: Array<{
   },
   {
     file: "src/lib/stripe/webhook-channel.ts",
-    patterns: ["constructEvent(payload, signature, secret)", "StripeSignatureVerificationError", "PLATFORM", "CONNECTED_ACCOUNT", "isWebhookEventAllowed"],
+    patterns: ["constructEvent(payload, signature, secret)", "parseEventNotification(payload, signature, secret)", "verifyHeader(payload, signature, secret", "StripeSignatureVerificationError", "PLATFORM", "CONNECTED_ACCOUNT", "isWebhookEventAllowed", "validateThinPayload"],
+  },
+  {
+    file: "src/server/services/stripe-webhook.service.ts",
+    patterns: ["processStripeAccountThinWebhook", "assertStripeEventMode(event.livemode)", "stripe.accounts.retrieve(accountId", "stripeContext: event.context", "controller?.is_controller", "TRANSIENT_FETCH_FAILURE", "prisma.$transaction"],
   },
   {
     file: "src/app/api/integrations/google/connect/route.ts",
