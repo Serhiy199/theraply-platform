@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 
+export const ISOLATED_PROFILE_ID = "caaaaaaaaaaaaaaaaaaaaaaaa";
+
 export function enableWixStagingIsolation(profileId: string) {
   vi.stubEnv("WIX_STAGING_ISOLATED_PROFILE_ID", profileId);
   vi.stubEnv("VERCEL", "1");

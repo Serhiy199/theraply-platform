@@ -1,5 +1,5 @@
 import { TherapistApprovalStatus, WixSyncStatus } from "@prisma/client";
-import { isWixProfileIsolated } from "@/lib/wix/wix-staging-isolation";
+import { getWixProfileIsolationState } from "@/lib/wix/wix-staging-isolation";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import { AdminTherapistWixSyncAction } from "@/components/dashboard/admin/admin-therapist-wix-sync-action";
 import type {
@@ -51,8 +51,21 @@ function canRetryWixSync(therapist: AdminTherapistListItem) {
 }
 
 function WixSyncCell({ therapist }: { therapist: AdminTherapistListItem }) {
-  if (isWixProfileIsolated(therapist.id)) {
-    return <Badge variant="warning">Wix suppressed: staging isolation</Badge>;
+  const isolation = getWixProfileIsolationState(therapist.id);
+  if (isolation.status !== "NORMAL") {
+    return (
+      <div
+        data-wix-isolation-state={isolation.status}
+        data-wix-isolation-failed-checks={isolation.failedChecks.join(",")}
+        data-wix-isolation-legacy-failed-checks={isolation.legacyFailedChecks.join(",")}
+        className="flex min-w-56 flex-col gap-2"
+      >
+        <Badge variant="warning">
+          {isolation.status === "ISOLATED" ? "Wix suppressed: staging isolation" : "Wix blocked: staging configuration"}
+        </Badge>
+        {isolation.failedChecks.length ? <span className="max-w-64 break-words text-xs text-amber-800">{isolation.failedChecks.join(", ")}</span> : null}
+      </div>
+    );
   }
   return (
     <div className="flex min-w-56 flex-col gap-2">

@@ -2,8 +2,7 @@ import { TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { approveTherapistReview } from "@/server/services/admin-operations.service";
-import { assertWixProfileNotIsolated } from "@/lib/wix/wix-staging-isolation";
-import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
+import { enableWixStagingIsolation, ISOLATED_PROFILE_ID } from "../helpers/wix-staging-isolation";
 
 const findAdminMock = vi.hoisted(() => vi.fn());
 const findTherapistMock = vi.hoisted(() => vi.fn());
@@ -12,6 +11,12 @@ const createAuditMock = vi.hoisted(() => vi.fn());
 const transactionMock = vi.hoisted(() => vi.fn());
 const sendApprovedEmailMock = vi.hoisted(() => vi.fn());
 const syncApprovedTherapistToWixMock = vi.hoisted(() => vi.fn());
+const createWixSubmissionMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/services/wix-forms.service", () => ({
+  createWixTherapistApplicationSubmission: createWixSubmissionMock,
+  WixFormsServiceError: class WixFormsServiceError extends Error {},
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -99,15 +104,21 @@ afterEach(() => {
 
 describe("approveTherapistReview Wix integration", () => {
   it("preserves target-only approval, audit and notification while explicitly reporting suppression", async () => {
-    enableWixStagingIsolation("therapist-profile-id");
-    syncApprovedTherapistToWixMock.mockImplementation(async (id) => assertWixProfileNotIsolated(id));
-    const result = await approveTherapistReview("admin-id", "therapist-profile-id");
+    enableWixStagingIsolation(ISOLATED_PROFILE_ID);
+    findTherapistMock.mockResolvedValue({ ...buildReview(TherapistApprovalStatus.PENDING_REVIEW), id: ISOLATED_PROFILE_ID });
+    updateTherapistMock.mockResolvedValue({ ...buildReview(TherapistApprovalStatus.APPROVED), id: ISOLATED_PROFILE_ID });
+    syncApprovedTherapistToWixMock.mockImplementation(async (id) => {
+      const actual = await vi.importActual<typeof import("@/server/services/wix-therapist-sync.service")>("@/server/services/wix-therapist-sync.service");
+      return actual.syncApprovedTherapistToWix(id);
+    });
+    const result = await approveTherapistReview("admin-id", ISOLATED_PROFILE_ID);
     expect(result.wixSync.status).toBe("suppressed");
     expect(result.therapistProfile.approvalStatus).toBe(TherapistApprovalStatus.APPROVED);
     expect(updateTherapistMock).toHaveBeenCalledTimes(1);
-    expect(updateTherapistMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "therapist-profile-id" } }));
-    expect(createAuditMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "ADMIN_APPROVE_THERAPIST", actorUserId: "admin-id", entityId: "therapist-profile-id" }) }));
+    expect(updateTherapistMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: ISOLATED_PROFILE_ID } }));
+    expect(createAuditMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "ADMIN_APPROVE_THERAPIST", actorUserId: "admin-id", entityId: ISOLATED_PROFILE_ID }) }));
     expect(sendApprovedEmailMock).toHaveBeenCalledTimes(1);
+    expect(createWixSubmissionMock).not.toHaveBeenCalled();
   });
 
   it("rejects an unauthorized actor without DB changes, notification or Wix sync", async () => {

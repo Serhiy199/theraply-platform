@@ -7,7 +7,7 @@ import {
 } from "@/server/services/wix-therapist-sync.service";
 import { WixFormsServiceError } from "@/server/services/wix-forms.service";
 import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
-import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
+import { enableWixStagingIsolation, ISOLATED_PROFILE_ID } from "../helpers/wix-staging-isolation";
 
 const findUniqueMock = vi.hoisted(() => vi.fn());
 const updateMock = vi.hoisted(() => vi.fn());
@@ -76,17 +76,26 @@ afterEach(() => {
 
 describe("syncApprovedTherapistToWix", () => {
   it("stops isolated staging approval/retry before DB sync state, uploads or Wix requests", async () => {
-    enableWixStagingIsolation("therapist-profile-id");
-    await expect(syncApprovedTherapistToWix("therapist-profile-id")).rejects.toBeInstanceOf(WixStagingIsolationError);
+    enableWixStagingIsolation(ISOLATED_PROFILE_ID);
+    await expect(syncApprovedTherapistToWix(ISOLATED_PROFILE_ID)).rejects.toBeInstanceOf(WixStagingIsolationError);
     expect(createSubmissionMock).not.toHaveBeenCalled();
     expect(findUniqueMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
     expect(createAuditLogEntryBestEffortMock).not.toHaveBeenCalled();
   });
 
+  it.each(["", "unknown"])("blocks Forms sync and uploads with invalid staging isolation config %s", async (value) => {
+    enableWixStagingIsolation(value);
+    await expect(syncApprovedTherapistToWix(ISOLATED_PROFILE_ID)).rejects.toBeInstanceOf(WixStagingIsolationError);
+    expect(createSubmissionMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
   it("submits persisted therapist fields and records a successful Wix sync", async () => {
     enableWixStagingIsolation("therapist-profile-id");
     vi.stubEnv("APP_URL", "https://platform.theraply.online");
+    vi.stubEnv("WIX_CMS_ENVIRONMENT", "production");
+    vi.stubEnv("VERCEL_PROJECT_ID", "");
     findUniqueMock.mockResolvedValue(buildApprovedProfile());
     createSubmissionMock.mockResolvedValue({
       success: true,

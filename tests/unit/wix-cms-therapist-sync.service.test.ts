@@ -1,7 +1,7 @@
 import { TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
-import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
+import { enableWixStagingIsolation, ISOLATED_PROFILE_ID } from "../helpers/wix-staging-isolation";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -101,10 +101,19 @@ beforeEach(() => {
 
 describe("Wix CMS therapist reconciliation", () => {
   it("blocks isolated staging profiles before CMS queries or mutations, including targeted flows", async () => {
-    enableWixStagingIsolation("profile-id");
-    await expect(reconcileTherapistPublicProfile("profile-id")).rejects.toBeInstanceOf(WixStagingIsolationError);
-    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "item" })).rejects.toBeInstanceOf(WixStagingIsolationError);
+    enableWixStagingIsolation(ISOLATED_PROFILE_ID);
+    await expect(reconcileTherapistPublicProfile(ISOLATED_PROFILE_ID)).rejects.toBeInstanceOf(WixStagingIsolationError);
+    await expect(reconcileTherapistPublicProfile(ISOLATED_PROFILE_ID, { expectedWixItemId: "item" })).rejects.toBeInstanceOf(WixStagingIsolationError);
     expect(mocks.profileFindUnique).not.toHaveBeenCalled();
+    expect(mocks.findItems).not.toHaveBeenCalled();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "unknown"])("blocks CMS and targeted sync with invalid staging isolation config %s", async (value) => {
+    enableWixStagingIsolation(value);
+    await expect(reconcileTherapistPublicProfile(ISOLATED_PROFILE_ID)).rejects.toBeInstanceOf(WixStagingIsolationError);
+    await expect(reconcileTherapistPublicProfile(ISOLATED_PROFILE_ID, { expectedWixItemId: "item" })).rejects.toBeInstanceOf(WixStagingIsolationError);
     expect(mocks.findItems).not.toHaveBeenCalled();
     expect(mocks.createItem).not.toHaveBeenCalled();
     expect(mocks.updateItem).not.toHaveBeenCalled();
