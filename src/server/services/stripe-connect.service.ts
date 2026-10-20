@@ -235,7 +235,7 @@ export async function createTherapistStripeAccountLink(therapistUserId: string) 
           therapistUserId,
           therapistProfileId: therapistProfile.id,
         },
-      });
+      }, { idempotencyKey: `theraply:connect-account:v1:${therapistProfile.id}` });
 
       stripeAccountId = account.id;
 

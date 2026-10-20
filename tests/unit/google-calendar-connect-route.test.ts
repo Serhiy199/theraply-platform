@@ -2,7 +2,7 @@ import { UserRole } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET } from "@/app/api/integrations/google/connect/route";
+import { POST } from "@/app/api/integrations/google/connect/route";
 
 const getCurrentUserMock = vi.hoisted(() => vi.fn());
 const requireActionActiveTherapistFeaturesMock = vi.hoisted(() => vi.fn());
@@ -50,11 +50,17 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("GET /api/integrations/google/connect", () => {
+function connectRequest() {
+  return new NextRequest("https://localhost:3000/api/integrations/google/connect", {
+    method: "POST",
+    headers: { origin: "https://staging-or-test.example", cookie: "next-auth.session-token=test-session" },
+    body: new URLSearchParams({ intent: "google-connect" }),
+  });
+}
+
+describe("POST /api/integrations/google/connect", () => {
   it("preserves the external Google consent URL", async () => {
-    const response = await GET(
-      new NextRequest("https://localhost:3000/api/integrations/google/connect", { headers: { cookie: "next-auth.session-token=test-session" } }),
-    );
+    const response = await POST(connectRequest());
 
     expect(response.headers.get("location")).toBe(
       "https://accounts.google.test/o/oauth2/v2/auth",
@@ -67,9 +73,7 @@ describe("GET /api/integrations/google/connect", () => {
   it("uses the canonical host for local error redirects", async () => {
     checkRateLimitPresetMock.mockResolvedValue({ allowed: false });
 
-    const response = await GET(
-      new NextRequest("https://localhost:3000/api/integrations/google/connect"),
-    );
+    const response = await POST(connectRequest());
     const location = new URL(response.headers.get("location")!);
 
     expect(location.origin).toBe("https://staging-or-test.example");

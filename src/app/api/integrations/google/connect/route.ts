@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { integrationStartMethodNotAllowed, validateIntegrationStartRequest } from "@/lib/integrations/explicit-start-request";
 import { GOOGLE_STATE_TTL_SECONDS, safeGoogleReturnTo } from "@/lib/google/google-oauth-state";
 import { issueGoogleOAuthState, googleStateCookieName } from "@/server/services/google-oauth-state.service";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -29,15 +30,21 @@ function buildTherapistRedirect(status: "success" | "error", message: string) {
   return redirectUrl;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
+  return integrationStartMethodNotAllowed();
+}
+
+export async function POST(request: NextRequest) {
+  const denied = await validateIntegrationStartRequest(request, "google-connect");
+  if (denied) return denied;
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login), 303);
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"), 303);
   }
 
   let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
     activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE), 303);
     }
 
     throw error;
@@ -58,7 +65,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!rateLimit.allowed) {
-    return NextResponse.redirect(buildTherapistRedirect("error", AUTH_MESSAGES.rateLimited));
+    return NextResponse.redirect(buildTherapistRedirect("error", AUTH_MESSAGES.rateLimited), 303);
   }
 
   const returnTo = safeGoogleReturnTo(request.nextUrl.searchParams.get("returnTo"));
@@ -66,7 +73,7 @@ export async function GET(request: NextRequest) {
   try {
     const challenge = issueGoogleOAuthState(request, activeTherapist.id, returnTo);
     const consentUrl = await buildTherapistGoogleCalendarConnectUrl(activeTherapist.id, returnTo, challenge.state);
-    const response = NextResponse.redirect(consentUrl);
+    const response = NextResponse.redirect(consentUrl, 303);
     response.cookies.set(googleStateCookieName(), challenge.nonce, {
       httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax",
       path: "/", maxAge: GOOGLE_STATE_TTL_SECONDS,
@@ -91,12 +98,12 @@ export async function GET(request: NextRequest) {
 
     if (error instanceof GoogleCalendarServiceError) {
       return NextResponse.redirect(
-        buildTherapistRedirect("error", getSafeGoogleCalendarErrorMessage(error.code)),
+        buildTherapistRedirect("error", getSafeGoogleCalendarErrorMessage(error.code)), 303,
       );
     }
 
     return NextResponse.redirect(
-      buildTherapistRedirect("error", "Unable to start Google Calendar connection."),
+      buildTherapistRedirect("error", "Unable to start Google Calendar connection."), 303,
     );
   }
 }
