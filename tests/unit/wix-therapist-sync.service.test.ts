@@ -6,6 +6,8 @@ import {
   WixTherapistSyncServiceError,
 } from "@/server/services/wix-therapist-sync.service";
 import { WixFormsServiceError } from "@/server/services/wix-forms.service";
+import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
+import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
 
 const findUniqueMock = vi.hoisted(() => vi.fn());
 const updateMock = vi.hoisted(() => vi.fn());
@@ -69,10 +71,22 @@ function buildApprovedProfile() {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("syncApprovedTherapistToWix", () => {
+  it("stops isolated staging approval/retry before DB sync state, uploads or Wix requests", async () => {
+    enableWixStagingIsolation("therapist-profile-id");
+    await expect(syncApprovedTherapistToWix("therapist-profile-id")).rejects.toBeInstanceOf(WixStagingIsolationError);
+    expect(createSubmissionMock).not.toHaveBeenCalled();
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(createAuditLogEntryBestEffortMock).not.toHaveBeenCalled();
+  });
+
   it("submits persisted therapist fields and records a successful Wix sync", async () => {
+    enableWixStagingIsolation("therapist-profile-id");
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
     findUniqueMock.mockResolvedValue(buildApprovedProfile());
     createSubmissionMock.mockResolvedValue({
       success: true,

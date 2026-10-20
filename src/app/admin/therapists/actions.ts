@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
+import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
 import {
   SAFE_ERROR_MESSAGES,
   getSafeAdminOperationErrorMessage,
@@ -27,7 +28,7 @@ import {
 export type AdminTherapistReviewActionState = {
   status: "idle" | "success" | "error";
   message?: string;
-  wixSyncStatus?: "synced" | "failed";
+  wixSyncStatus?: "synced" | "failed" | "suppressed";
 };
 
 export type RetryWixTherapistSyncActionState = {
@@ -70,7 +71,7 @@ export async function approveTherapistAction(
     therapistProfileId: formData.get("therapistProfileId"),
   });
 
-  let wixSyncStatus: "synced" | "failed";
+  let wixSyncStatus: "synced" | "failed" | "suppressed";
 
   try {
     const user = await requireActionRole(
@@ -226,6 +227,9 @@ export async function retryWixTherapistSyncAction(
       message: "Therapist synchronized with Wix successfully.",
     };
   } catch (error) {
+    if (error instanceof WixStagingIsolationError) {
+      return { status: "error", message: error.message };
+    }
     if (error instanceof ActionPermissionError) {
       return {
         status: "error",

@@ -17,6 +17,7 @@ import {
   type WixApiRequestDiagnostic,
 } from "@/lib/wix/wix-client";
 import { prisma } from "@/lib/prisma";
+import { assertWixProfileNotIsolated } from "@/lib/wix/wix-staging-isolation";
 import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 
 export const wixCmsTherapistProfileSelect = {
@@ -154,6 +155,7 @@ export async function reconcileTherapistPublicProfile(
   therapistProfileId: string,
   depublishOnly?: { expectedWixItemId: string },
 ): Promise<WixCmsTherapistSyncResult> {
+  assertWixProfileNotIsolated(therapistProfileId);
   const profile = await prisma.therapistProfile.findUnique({
     where: { id: therapistProfileId },
     select: wixCmsTherapistProfileSelect,

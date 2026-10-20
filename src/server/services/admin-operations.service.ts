@@ -34,6 +34,7 @@ import {
 } from "@/server/services/therapist-onboarding-email.service";
 import { sendBookingCancelledEmailsBestEffort } from "@/server/services/transactional-email-events.service";
 import { syncApprovedTherapistToWix } from "@/server/services/wix-therapist-sync.service";
+import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
 
 export type AdminUserListItem = {
   id: string;
@@ -175,7 +176,7 @@ export type AdminBookingCancellationResult = {
 export type AdminTherapistApprovalResult = {
   therapistProfile: AdminTherapistReviewItem;
   wixSync: {
-    status: "synced" | "failed";
+    status: "synced" | "failed" | "suppressed";
     message: string;
   };
 };
@@ -426,13 +427,14 @@ export async function approveTherapistReview(
         message: "Therapist approved and synchronized with Wix.",
       },
     };
-  } catch {
+  } catch (error) {
     return {
       therapistProfile: updatedProfile,
       wixSync: {
-        status: "failed",
-        message:
-          "Therapist approved, but synchronization with Wix failed. Please retry the synchronization.",
+        status: error instanceof WixStagingIsolationError ? "suppressed" : "failed",
+        message: error instanceof WixStagingIsolationError
+          ? "Therapist approved. Wix synchronization suppressed by staging isolation; no Wix request was made."
+          : "Therapist approved, but synchronization with Wix failed. Please retry the synchronization.",
       },
     };
   }

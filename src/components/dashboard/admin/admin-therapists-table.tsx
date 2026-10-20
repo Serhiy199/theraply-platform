@@ -1,4 +1,5 @@
 import { TherapistApprovalStatus, WixSyncStatus } from "@prisma/client";
+import { isWixProfileIsolated } from "@/lib/wix/wix-staging-isolation";
 import { DashboardEmptyState } from "@/components/dashboard/shared/dashboard-empty-state";
 import { AdminTherapistWixSyncAction } from "@/components/dashboard/admin/admin-therapist-wix-sync-action";
 import type {
@@ -50,6 +51,9 @@ function canRetryWixSync(therapist: AdminTherapistListItem) {
 }
 
 function WixSyncCell({ therapist }: { therapist: AdminTherapistListItem }) {
+  if (isWixProfileIsolated(therapist.id)) {
+    return <Badge variant="warning">Wix suppressed: staging isolation</Badge>;
+  }
   return (
     <div className="flex min-w-56 flex-col gap-2">
       {therapist.wixSyncStatus === WixSyncStatus.SYNCED ? (
@@ -126,7 +130,7 @@ function CertificatesCell({ therapist }: { therapist: AdminTherapistListItem }) 
 type AdminTherapistsTableProps = {
   therapists: AdminTherapistListItem[];
   pendingReviews: AdminTherapistReviewItem[];
-  wixSyncStatus?: "synced" | "failed" | null;
+  wixSyncStatus?: "synced" | "failed" | "suppressed" | null;
 };
 
 export function AdminTherapistsTable({
@@ -155,7 +159,9 @@ export function AdminTherapistsTable({
         <Alert tone={wixSyncStatus === "synced" ? "success" : "warning"} className="mt-6">
           {wixSyncStatus === "synced"
             ? "Therapist approved and synchronized with Wix."
-            : "Therapist approved, but synchronization with Wix failed. Please retry the synchronization."}
+            : wixSyncStatus === "suppressed"
+              ? "Therapist approved. Wix synchronization suppressed by staging isolation; no Wix request was made."
+              : "Therapist approved, but synchronization with Wix failed. Please retry the synchronization."}
         </Alert>
       ) : null}
 

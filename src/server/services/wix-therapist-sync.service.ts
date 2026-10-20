@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma, TherapistApprovalStatus, WixSyncStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { assertWixProfileNotIsolated } from "@/lib/wix/wix-staging-isolation";
 import {
   createAuditLogEntryBestEffort,
   logDiagnosticEvent,
@@ -140,6 +141,7 @@ async function getTherapistProfileForWixSync(therapistProfileId: string) {
 export async function syncApprovedTherapistToWix(
   therapistProfileId: string,
 ): Promise<WixTherapistSyncResult> {
+  assertWixProfileNotIsolated(therapistProfileId);
   const therapistProfile = await getTherapistProfileForWixSync(therapistProfileId);
   const submissionInput = buildApprovedTherapistWixInput(therapistProfile);
 

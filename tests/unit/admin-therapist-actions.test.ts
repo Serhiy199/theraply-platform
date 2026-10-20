@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
 
 import {
   approveTherapistAction,
@@ -49,6 +50,24 @@ afterEach(() => {
 });
 
 describe("approveTherapistAction Wix message", () => {
+  it("preserves suppressed feedback instead of reporting successful Wix sync", async () => {
+    requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
+    approveTherapistReviewMock.mockResolvedValue({ wixSync: { status: "suppressed" } });
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    await approveTherapistAction({ status: "idle" }, formData);
+    expect(redirectMock).toHaveBeenCalledWith("/admin/therapists?wixSync=suppressed");
+  });
+
+  it("does not call approval for an unauthorized actor", async () => {
+    requireActionRoleMock.mockRejectedValue(new errorClasses.ActionPermissionError());
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    expect((await approveTherapistAction({ status: "idle" }, formData)).status).toBe("error");
+    expect(approveTherapistReviewMock).not.toHaveBeenCalled();
+    expect(syncApprovedTherapistToWixMock).not.toHaveBeenCalled();
+  });
+
   it("redirects to a synchronized feedback banner after approval", async () => {
     requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
     approveTherapistReviewMock.mockResolvedValue({
@@ -86,6 +105,14 @@ describe("approveTherapistAction Wix message", () => {
 });
 
 describe("retryWixTherapistSyncAction", () => {
+  it("reports isolation without success or retry encouragement", async () => {
+    requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
+    syncApprovedTherapistToWixMock.mockRejectedValue(new WixStagingIsolationError());
+    const formData = new FormData();
+    formData.set("therapistProfileId", "therapist-profile-id");
+    expect(await retryWixTherapistSyncAction({ status: "idle" }, formData)).toEqual({ status: "error", message: new WixStagingIsolationError().message });
+  });
+
   it("retries Wix sync for an authenticated admin and revalidates admin surfaces", async () => {
     requireActionRoleMock.mockResolvedValue({ id: "admin-id" });
     syncApprovedTherapistToWixMock.mockResolvedValue({

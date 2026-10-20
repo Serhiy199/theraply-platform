@@ -26,7 +26,7 @@ export default async function AdminTherapistsPage({
     <AdminTherapistsTable
       therapists={therapists}
       pendingReviews={pendingReviews}
-      wixSyncStatus={wixSync === "synced" || wixSync === "failed" ? wixSync : null}
+      wixSyncStatus={wixSync === "synced" || wixSync === "failed" || wixSync === "suppressed" ? wixSync : null}
     />
   );
 }

@@ -1,5 +1,9 @@
 import { TherapistApprovalStatus, UserRole } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WixStagingIsolationError } from "@/lib/wix/wix-staging-isolation";
+import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const mocks = vi.hoisted(() => ({
   profileFindUnique: vi.fn(),
@@ -96,6 +100,16 @@ beforeEach(() => {
 });
 
 describe("Wix CMS therapist reconciliation", () => {
+  it("blocks isolated staging profiles before CMS queries or mutations, including targeted flows", async () => {
+    enableWixStagingIsolation("profile-id");
+    await expect(reconcileTherapistPublicProfile("profile-id")).rejects.toBeInstanceOf(WixStagingIsolationError);
+    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "item" })).rejects.toBeInstanceOf(WixStagingIsolationError);
+    expect(mocks.profileFindUnique).not.toHaveBeenCalled();
+    expect(mocks.findItems).not.toHaveBeenCalled();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
   it("creates one item when canonical public readiness passes", async () => {
     await expect(reconcileTherapistPublicProfile("profile-id")).resolves.toMatchObject({
       status: "CREATED",

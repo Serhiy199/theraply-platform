@@ -2,6 +2,8 @@ import { TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { approveTherapistReview } from "@/server/services/admin-operations.service";
+import { assertWixProfileNotIsolated } from "@/lib/wix/wix-staging-isolation";
+import { enableWixStagingIsolation } from "../helpers/wix-staging-isolation";
 
 const findAdminMock = vi.hoisted(() => vi.fn());
 const findTherapistMock = vi.hoisted(() => vi.fn());
@@ -68,6 +70,7 @@ function buildReview(approvalStatus: TherapistApprovalStatus) {
 }
 
 beforeEach(() => {
+  syncApprovedTherapistToWixMock.mockReset();
   findAdminMock.mockResolvedValue({
     id: "admin-id",
     email: "admin@example.com",
@@ -91,9 +94,43 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("approveTherapistReview Wix integration", () => {
+  it("preserves target-only approval, audit and notification while explicitly reporting suppression", async () => {
+    enableWixStagingIsolation("therapist-profile-id");
+    syncApprovedTherapistToWixMock.mockImplementation(async (id) => assertWixProfileNotIsolated(id));
+    const result = await approveTherapistReview("admin-id", "therapist-profile-id");
+    expect(result.wixSync.status).toBe("suppressed");
+    expect(result.therapistProfile.approvalStatus).toBe(TherapistApprovalStatus.APPROVED);
+    expect(updateTherapistMock).toHaveBeenCalledTimes(1);
+    expect(updateTherapistMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "therapist-profile-id" } }));
+    expect(createAuditMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "ADMIN_APPROVE_THERAPIST", actorUserId: "admin-id", entityId: "therapist-profile-id" }) }));
+    expect(sendApprovedEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an unauthorized actor without DB changes, notification or Wix sync", async () => {
+    findAdminMock.mockResolvedValue(null);
+    await expect(approveTherapistReview("unauthorized", "therapist-profile-id")).rejects.toThrow();
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(updateTherapistMock).not.toHaveBeenCalled();
+    expect(createAuditMock).not.toHaveBeenCalled();
+    expect(sendApprovedEmailMock).not.toHaveBeenCalled();
+    expect(syncApprovedTherapistToWixMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects repeated approval without duplicate approval, audit, email or sync", async () => {
+    syncApprovedTherapistToWixMock.mockResolvedValue({ success: true });
+    await approveTherapistReview("admin-id", "therapist-profile-id");
+    findTherapistMock.mockResolvedValue(buildReview(TherapistApprovalStatus.APPROVED));
+    await expect(approveTherapistReview("admin-id", "therapist-profile-id")).rejects.toMatchObject({ code: "THERAPIST_PROFILE_NOT_PENDING_REVIEW" });
+    expect(updateTherapistMock).toHaveBeenCalledTimes(1);
+    expect(createAuditMock).toHaveBeenCalledTimes(1);
+    expect(sendApprovedEmailMock).toHaveBeenCalledTimes(1);
+    expect(syncApprovedTherapistToWixMock).toHaveBeenCalledTimes(1);
+  });
+
   it("commits approval and sends the approved email before syncing to Wix", async () => {
     syncApprovedTherapistToWixMock.mockResolvedValue({
       success: true,
