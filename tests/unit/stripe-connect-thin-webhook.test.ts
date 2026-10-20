@@ -21,11 +21,6 @@ let committedUpdates: unknown[] = [];
 let stagedEvents: Set<string>;
 let stagedUpdates: unknown[];
 
-function thin(livemode = false) {
-  return { id: "evt_thin_unit", object: "v2.core.event", type: "v2.core.account.updated", livemode,
-    created: "2026-10-12T08:00:00.435Z", context: null,
-    related_object: { id: "acct_owned", type: "v2.core.account", url: "/v2/core/accounts/acct_owned" } };
-}
 function account(ready = true) {
   return { id: "acct_owned", object: "account", controller: { is_controller: true },
     details_submitted: ready, payouts_enabled: ready, charges_enabled: ready,
@@ -67,7 +62,22 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-describe("Connect V2 thin webhook (signed offline, mocked API/DB)", () => {
+const readinessNotifications = [
+  ["v2.core.account.updated", null],
+  ["v2.core.account[identity].updated", "identity"],
+  ["v2.core.account[requirements].updated", "requirements"],
+  ["v2.core.account[configuration.recipient].capability_status_updated", "configuration.recipient"],
+  ["v2.core.account[configuration.merchant].capability_status_updated", "configuration.merchant"],
+] as const;
+
+describe.each(readinessNotifications)("Connect V2 thin webhook %s (signed offline, mocked API/DB)", (type, include) => {
+  function thin(livemode = false) {
+    const query = include ? `?include=${include}` : "";
+    return { id: "evt_thin_unit", object: "v2.core.event", type, livemode,
+      created: "2026-10-12T08:00:00.435Z", context: null,
+      related_object: { id: "acct_owned", type: "v2.core.account", url: `/v2/core/accounts/acct_owned${query}` } };
+  }
+
   it("uses the thin SDK parser without requiring data.object", () => {
     const body = JSON.stringify(thin());
     const header = sdk.webhooks.generateTestHeaderString({ payload: body, secret: connectSecret });
@@ -91,7 +101,34 @@ describe("Connect V2 thin webhook (signed offline, mocked API/DB)", () => {
     expect(mocks.reserve.mock.invocationCallOrder[0]).toBeLessThan(mocks.retrieve.mock.invocationCallOrder[0]);
     expect(mocks.retrieve.mock.invocationCallOrder[0]).toBeLessThan(mocks.update.mock.invocationCallOrder[0]);
     expect(committedEvents.size).toBe(1); expect(committedUpdates).toHaveLength(1);
+    expect(mocks.reserve).toHaveBeenCalledWith({ data: { id: "evt_thin_unit", eventType: type } });
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ entityType: "TherapistProfile", entityId: "profile", action: "STRIPE_CONNECT_ACCOUNT_UPDATED" }));
+  });
+  it("also accepts the base account URL without an include query", async () => {
+    const event = thin();
+    event.related_object.url = "/v2/core/accounts/acct_owned";
+    expect((await send(event)).status).toBe(200);
+    expect(mocks.retrieve).toHaveBeenCalledExactlyOnceWith("acct_owned", {}, { timeout: 5000, maxNetworkRetries: 0 });
+  });
+  it.each([
+    "?include=configuration.customer", "?include=identity&include=requirements",
+    "?include=identity&api_key=private", "?expand=identity", "#private",
+    "?include=identity#private", "/../acct_other", "%0d%0aPrivate:header",
+  ])("rejects non-contract related account URL suffix %s", async suffix => {
+    const event = thin();
+    event.related_object.url = `/v2/core/accounts/acct_owned${suffix}`;
+    expect((await send(event)).status).toBe(400);
+    expect(mocks.transaction).not.toHaveBeenCalled(); expect(mocks.retrieve).not.toHaveBeenCalled(); noState();
+  });
+  it.each(["v2.core.account[configuration.customer].updated", "v2.core.account_person.updated", "v1.billing.meter.error_report_triggered"])("does not allow an unrelated event family: %s", async unsupported => {
+    expect((await send({ ...thin(), type: unsupported })).status).toBe(400);
+    expect(mocks.retrieve).not.toHaveBeenCalled(); noState();
+  });
+  it("uses current authoritative state instead of notification data", async () => {
+    expect((await send({ ...thin(), data: { object: { ...account(false), id: "acct_untrusted" } } })).status).toBe(200);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      stripeDetailsSubmitted: true, stripePayoutsEnabled: true, stripeChargesEnabled: true,
+    }) }));
   });
   it.each([false, true])("mode mismatch %s performs neither reservation nor fetch", async livemode => {
     vi.stubEnv("STRIPE_SECRET_KEY", `sk_${livemode ? "test" : "live"}_unit_placeholder`);
