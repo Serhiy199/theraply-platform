@@ -1,5 +1,8 @@
 import { BookingStatus, PaymentStatus, PaymentTransferStatus } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type Stripe from "stripe";
+import { processStripeWebhookEvent } from "@/server/services/stripe-webhook.service";
+import { enableWebhookFirstStagingGuard, WEBHOOK_FIRST_BOOKING_ID } from "../helpers/webhook-first-staging";
 import {
   markStripeCheckoutSessionCompleted,
   markStripePaymentIntentSucceeded,
@@ -13,6 +16,9 @@ const updatePaymentMock = vi.hoisted(() => vi.fn());
 const updateBookingMock = vi.hoisted(() => vi.fn());
 const successEmailMock = vi.hoisted(() => vi.fn());
 const retrieveCheckoutSessionMock = vi.hoisted(() => vi.fn());
+const reserveEventMock = vi.hoisted(() => vi.fn());
+const releaseEventMock = vi.hoisted(() => vi.fn());
+const auditMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -24,7 +30,13 @@ vi.mock("@/lib/prisma", () => ({
     payment: {
       update: updatePaymentMock,
     },
+    stripeWebhookEvent: { create: reserveEventMock, delete: releaseEventMock },
   },
+}));
+
+vi.mock("@/server/services/audit-log.service", () => ({
+  createAuditLogEntryBestEffort: auditMock,
+  logDiagnosticEvent: vi.fn(),
 }));
 
 vi.mock("@/server/services/transactional-email-events.service", () => ({
@@ -81,6 +93,8 @@ function resetPayment() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("STRIPE_STAGING_WEBHOOK_FIRST_BOOKING_ID", "");
+  releaseEventMock.mockResolvedValue({});
   resetPayment();
   deliveredEmailBookings = new Set();
   findBookingMock.mockImplementation(async () => ({
@@ -119,6 +133,8 @@ beforeEach(() => {
     currency: "gbp",
   });
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 const checkoutSuccess = {
   checkoutSessionId: "cs_123",
@@ -349,5 +365,112 @@ describe("payment snapshot reconciliation", () => {
       }),
     ).rejects.toMatchObject({ code: "PAYMENT_SNAPSHOT_MISMATCH" });
     expect(updatePaymentMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("webhook-first success-return isolation", () => {
+  function prepareSelectedBooking() {
+    enableWebhookFirstStagingGuard();
+    Object.assign(payment, {
+      amount: 100, bookingFeeAmount: 199, creditAppliedAmount: 0,
+      promoDiscountAmount: 0,
+      clientPayableAmount: 100, stripeChargeAmount: 299,
+      platformFeeAmount: 10, therapistAmount: 90,
+      stripeCheckoutSessionId: "cs_test_webhook_first",
+    });
+    const booking = () => ({
+      id: WEBHOOK_FIRST_BOOKING_ID, clientId: "client-id",
+      bookingStatus: BookingStatus.CONFIRMED, payment,
+    });
+    findClientBookingMock.mockResolvedValue(booking());
+    findBookingMock.mockImplementation(async () => booking());
+    updatePaymentMock.mockImplementation(async ({ data }) => {
+      payment = { ...payment, ...data };
+      return { id: "payment-id", bookingId: WEBHOOK_FIRST_BOOKING_ID, paymentStatus: payment.paymentStatus };
+    });
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  }
+
+  it("leaves the selected owned Payment pending without Stripe reads, emails or writes", async () => {
+    prepareSelectedBooking();
+    const before = { ...payment };
+    const result = await syncClientStripeCheckoutSuccess("client-id", WEBHOOK_FIRST_BOOKING_ID, "cs_test_webhook_first");
+    expect(result).toEqual({ status: "pending", bookingId: WEBHOOK_FIRST_BOOKING_ID, reason: "WEBHOOK_FIRST_TEST" });
+    expect(findClientBookingMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: WEBHOOK_FIRST_BOOKING_ID, clientId: "client-id" },
+    }));
+    expect(payment).toEqual(before);
+    for (const mock of [retrieveCheckoutSessionMock, updatePaymentMock, updateBookingMock, successEmailMock, auditMock]) {
+      expect(mock).not.toHaveBeenCalled();
+    }
+    expect(console.info).toHaveBeenCalledWith("STAGING_WEBHOOK_FIRST_SUCCESS_RETURN_SKIPPED", { bookingId: WEBHOOK_FIRST_BOOKING_ID });
+  });
+
+  it("does not bypass booking ownership for a configured ID", async () => {
+    prepareSelectedBooking();
+    findClientBookingMock.mockResolvedValueOnce(null);
+    await expect(syncClientStripeCheckoutSuccess("other-client", WEBHOOK_FIRST_BOOKING_ID, "cs_test_webhook_first"))
+      .rejects.toMatchObject({ code: "BOOKING_NOT_FOUND" });
+    expect(console.info).not.toHaveBeenCalled();
+    expect(updatePaymentMock).not.toHaveBeenCalled();
+    expect(retrieveCheckoutSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send email or mutate an already-paid selected Payment", async () => {
+    prepareSelectedBooking();
+    payment.paymentStatus = PaymentStatus.PAID;
+    findClientBookingMock.mockResolvedValueOnce({ id: WEBHOOK_FIRST_BOOKING_ID, payment });
+    expect((await syncClientStripeCheckoutSuccess("client-id", WEBHOOK_FIRST_BOOKING_ID, "cs_test_webhook_first")).status).toBe("paid");
+    expect(successEmailMock).not.toHaveBeenCalled();
+    expect(updatePaymentMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["absent", "another-booking"])("preserves normal success-return reconciliation: %s", async configuration => {
+    enableWebhookFirstStagingGuard();
+    if (configuration === "absent") vi.stubEnv("STRIPE_STAGING_WEBHOOK_FIRST_BOOKING_ID", "");
+    findClientBookingMock.mockResolvedValue({ id: "booking-id", payment });
+    await syncClientStripeCheckoutSuccess("client-id", "booking-id", "cs_123");
+    expect(retrieveCheckoutSessionMock).toHaveBeenCalledOnce();
+    expect(payment.paymentStatus).toBe(PaymentStatus.PAID);
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "STRIPE_CHECKOUT_SESSION_RECONCILED_ON_SUCCESS_RETURN" }));
+  });
+
+  it("reconciles even the configured booking normally outside staging", async () => {
+    prepareSelectedBooking();
+    vi.stubEnv("APP_URL", "https://platform.theraply.online");
+    retrieveCheckoutSessionMock.mockResolvedValueOnce({
+      id: "cs_test_webhook_first", status: "complete", payment_status: "paid",
+      metadata: { bookingId: WEBHOOK_FIRST_BOOKING_ID },
+      payment_intent: { id: "pi_test_first", latest_charge: "ch_test_first" },
+      amount_total: 299, currency: "gbp",
+    });
+    await syncClientStripeCheckoutSuccess("client-id", WEBHOOK_FIRST_BOOKING_ID, "cs_test_webhook_first");
+    expect(retrieveCheckoutSessionMock).toHaveBeenCalledOnce();
+    expect(payment.paymentStatus).toBe(PaymentStatus.PAID);
+    expect(console.info).not.toHaveBeenCalled();
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "STRIPE_CHECKOUT_SESSION_RECONCILED_ON_SUCCESS_RETURN" }));
+  });
+
+  it.each(["checkout.session.completed", "payment_intent.succeeded"])("keeps the real PLATFORM handler writing PAID for the selected booking: %s", async type => {
+    prepareSelectedBooking();
+    await syncClientStripeCheckoutSuccess("client-id", WEBHOOK_FIRST_BOOKING_ID, "cs_test_webhook_first");
+    expect(payment.paymentStatus).toBe(PaymentStatus.PENDING);
+    expect(payment.paidAt).toBeNull();
+    const metadata = { bookingId: WEBHOOK_FIRST_BOOKING_ID, paymentId: "payment-id", bookingFeeAmount: "199" };
+    const object = type === "checkout.session.completed"
+      ? { id: "cs_test_webhook_first", amount_total: 299, currency: "gbp", payment_intent: "pi_test_first", metadata }
+      : { id: "pi_test_first", amount: 299, amount_received: 299, currency: "gbp", latest_charge: "ch_test_first", metadata };
+    await processStripeWebhookEvent({ id: "evt_test_first", type, livemode: false, data: { object } } as unknown as Stripe.Event, "PLATFORM");
+    expect(reserveEventMock).toHaveBeenCalledOnce();
+    expect(updatePaymentMock).toHaveBeenCalledOnce();
+    expect(payment).toMatchObject({ paymentStatus: PaymentStatus.PAID, bookingFeeAmount: 199,
+      stripeChargeAmount: 299, therapistAmount: 90, platformFeeAmount: 10 });
+    expect(payment.paidAt).toBeInstanceOf(Date);
+    expect(successEmailMock).toHaveBeenCalledWith(WEBHOOK_FIRST_BOOKING_ID);
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({
+      entityId: "payment-id", action: type === "checkout.session.completed" ? "STRIPE_CHECKOUT_SESSION_COMPLETED" : "STRIPE_PAYMENT_INTENT_SUCCEEDED",
+    }));
+    expect(auditMock).not.toHaveBeenCalledWith(expect.objectContaining({ action: "STRIPE_CHECKOUT_SESSION_RECONCILED_ON_SUCCESS_RETURN" }));
+    expect(retrieveCheckoutSessionMock).not.toHaveBeenCalled();
   });
 });

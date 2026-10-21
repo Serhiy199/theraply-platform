@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { getStripeConfig, isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { PLATFORM_WEBHOOK_EVENTS, verifyStripeWebhook } from "@/lib/stripe/webhook-channel";
+import { enableWebhookFirstStagingGuard, WEBHOOK_FIRST_BOOKING_ID } from "../helpers/webhook-first-staging";
 
 const mocks = vi.hoisted(() => ({
   owner: vi.fn(), update: vi.fn(), reserve: vi.fn(), release: vi.fn(), payment: vi.fn(),
@@ -76,6 +77,14 @@ describe("two signed Stripe destinations (offline SDK signatures)", () => {
     expect(getStripeConfig().connectWebhookSecret).toBeNull();
     expect((await send(event("checkout.session.completed"), platform)).status).toBe(200);
     expect(mocks.completed).toHaveBeenCalledOnce();
+  });
+  it.each(["checkout.session.completed", "payment_intent.succeeded"])("preserves signed PLATFORM processing with the booking guard active: %s", async type => {
+    enableWebhookFirstStagingGuard();
+    const value = event(type);
+    value.data.object.metadata.bookingId = WEBHOOK_FIRST_BOOKING_ID;
+    expect((await send(value, platform)).status).toBe(200);
+    expect(mocks.reserve).toHaveBeenCalledOnce();
+    expect(type === "checkout.session.completed" ? mocks.completed : mocks.succeeded).toHaveBeenCalledOnce();
   });
   it("rejects Connect signatures when absent", async () => {
     vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "");
