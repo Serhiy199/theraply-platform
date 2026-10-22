@@ -13,7 +13,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { assertFinancialReferencesAllowed } from "@/server/services/stripe-financial-guard.service";
 import { buildBookableTherapistWhere } from "@/lib/therapist-readiness";
-import { createAuditLogEntryBestEffort } from "@/server/services/audit-log.service";
+import { createAuditLogEntryBestEffort, logDiagnosticEvent } from "@/server/services/audit-log.service";
 import {
   GoogleAvailabilityServiceError,
   getTherapistGoogleAvailability,
@@ -422,7 +422,14 @@ export async function createBookingRequest(
     });
   });
 
-  await sendBookingRequestCreatedEmailsBestEffort(booking.id);
+  try {
+    await sendBookingRequestCreatedEmailsBestEffort(booking.id);
+  } catch {
+    logDiagnosticEvent("booking-flow", "Booking created but request notification failed.", {
+      bookingId: booking.id,
+      phase: "post_commit_notification",
+    });
+  }
 
   return booking;
 }

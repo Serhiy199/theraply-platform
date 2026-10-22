@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getGoogleAvailability: vi.fn(),
   hasGoogleConflict: vi.fn(),
   sendRequestEmails: vi.fn(),
+  diagnostic: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -26,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/server/services/audit-log.service", () => ({
   createAuditLogEntryBestEffort: vi.fn(),
+  logDiagnosticEvent: mocks.diagnostic,
 }));
 
 vi.mock("@/server/services/google-availability.service", () => {
@@ -179,5 +181,88 @@ describe("booking flow canonical therapist readiness", () => {
     );
     expect(tx.booking.create).toHaveBeenCalledOnce();
     expect(mocks.sendRequestEmails).toHaveBeenCalledWith("booking-1");
+  });
+});
+
+describe("booking creation transaction and notification boundary", () => {
+  const input = {
+    therapistId: "therapist-1",
+    startsAt: new Date("2030-08-25T09:00:00Z"),
+    endsAt: new Date("2030-08-25T10:00:00Z"),
+  };
+  const createdBooking = { id: "booking-1" };
+  const tx = {
+    $queryRaw: vi.fn(),
+    booking: { create: vi.fn() },
+  };
+  let sequence: string[];
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sequence = [];
+    mocks.userFindFirst.mockResolvedValueOnce({ id: "client-1" }).mockResolvedValueOnce(therapist);
+    mocks.bookingFindFirst.mockResolvedValue(null);
+    mocks.hasGoogleConflict.mockResolvedValue(false);
+    tx.$queryRaw.mockResolvedValue([{ locked: true }]);
+    tx.booking.create.mockResolvedValue(createdBooking);
+    mocks.transaction.mockImplementation(async callback => {
+      const result = await callback(tx);
+      sequence.push("commit");
+      return result;
+    });
+    mocks.sendRequestEmails.mockImplementation(async () => { sequence.push("notification"); });
+  });
+
+  it("returns the committed booking after sending notifications in the normal order", async () => {
+    await expect(createBookingRequest("client-1", input)).resolves.toEqual(createdBooking);
+    expect(sequence).toEqual(["commit", "notification"]);
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+    expect(mocks.transaction).toHaveBeenCalledOnce();
+    expect(mocks.sendRequestEmails).toHaveBeenCalledExactlyOnceWith("booking-1");
+  });
+
+  it("preserves committed creation when the best-effort notification unexpectedly rejects", async () => {
+    mocks.sendRequestEmails.mockImplementation(async () => {
+      sequence.push("notification");
+      throw new Error("PRIVATE_EMAIL_SENTINEL PRIVATE_OAUTH_SENTINEL");
+    });
+    await expect(createBookingRequest("client-1", input)).resolves.toEqual(createdBooking);
+    expect(sequence).toEqual(["commit", "notification"]);
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+    expect(mocks.transaction).toHaveBeenCalledOnce();
+    expect(mocks.sendRequestEmails).toHaveBeenCalledOnce();
+    expect(mocks.diagnostic).toHaveBeenCalledExactlyOnceWith(
+      "booking-flow", expect.any(String), { bookingId: "booking-1", phase: "post_commit_notification" },
+    );
+    expect(JSON.stringify(mocks.diagnostic.mock.calls)).not.toContain("PRIVATE_");
+  });
+
+  it.each(["insert", "commit"])("propagates %s failure without notification, retry or inferred success", async phase => {
+    const failure = new Error("transaction failure");
+    if (phase === "insert") tx.booking.create.mockRejectedValue(failure);
+    else mocks.transaction.mockImplementation(async callback => { await callback(tx); throw failure; });
+    await expect(createBookingRequest("client-1", input)).rejects.toBe(failure);
+    expect(mocks.transaction).toHaveBeenCalledOnce();
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+    expect(mocks.sendRequestEmails).not.toHaveBeenCalled();
+    expect(mocks.diagnostic).not.toHaveBeenCalled();
+  });
+
+  it.each(["slot-lock", "existing-booking", "google-busy"])("preserves conflict prevention: %s", async conflict => {
+    if (conflict === "slot-lock") tx.$queryRaw.mockResolvedValue([{ locked: false }]);
+    if (conflict === "existing-booking") mocks.bookingFindFirst.mockResolvedValue({ id: "existing-booking" });
+    if (conflict === "google-busy") mocks.hasGoogleConflict.mockResolvedValue(true);
+    await expect(createBookingRequest("client-1", input)).rejects.toMatchObject({ code: "SLOT_CONFLICT" });
+    expect(mocks.transaction).toHaveBeenCalledOnce();
+    expect(tx.booking.create).not.toHaveBeenCalled();
+    expect(mocks.sendRequestEmails).not.toHaveBeenCalled();
+  });
+
+  it("rejects an ineligible client before starting a transaction", async () => {
+    mocks.userFindFirst.mockReset().mockResolvedValue(null);
+    await expect(createBookingRequest("client-1", input)).rejects.toMatchObject({ code: "CLIENT_NOT_ELIGIBLE" });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(tx.booking.create).not.toHaveBeenCalled();
+    expect(mocks.sendRequestEmails).not.toHaveBeenCalled();
   });
 });

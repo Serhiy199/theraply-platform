@@ -10,6 +10,7 @@ import {
 } from "@/lib/errors/safe-error-messages";
 import { ActionPermissionError, requireActionRole } from "@/lib/permissions";
 import { bookingRequestSchema } from "@/lib/validations/booking-flow";
+import { logDiagnosticEvent } from "@/server/services/audit-log.service";
 import {
   BookingFlowServiceError,
   createBookingRequest,
@@ -54,14 +55,6 @@ export async function createBookingRequestAction(
     const booking = await createBookingRequest(user.id, parsed.data);
     bookingId = booking.id;
     therapistId = parsed.data.therapistId;
-
-    revalidatePath("/client/bookings");
-    revalidatePath("/client/dashboard");
-    revalidatePath(`/client/book/${parsed.data.therapistId}`);
-    revalidatePath("/therapist/requests");
-    revalidatePath("/therapist/dashboard");
-    revalidatePath("/admin/bookings");
-    revalidatePath("/admin/dashboard");
   } catch (error) {
     if (error instanceof ActionPermissionError) {
       return {
@@ -84,6 +77,12 @@ export async function createBookingRequestAction(
       };
     }
 
+    // Raw exceptions may contain credentials or request contents.
+    logDiagnosticEvent("booking-request-action", "Booking creation was not confirmed.", {
+      phase: "creation",
+      outcome: "not_confirmed",
+    });
+
     return {
       status: "error",
       code: "unknown",
@@ -97,6 +96,27 @@ export async function createBookingRequestAction(
       code: "unknown",
       message: "Something went wrong while creating the booking request.",
     };
+  }
+
+  // Creation has committed; cache failures must not turn it into a failed request.
+  for (const path of [
+    "/client/bookings",
+    "/client/dashboard",
+    `/client/book/${therapistId}`,
+    "/therapist/requests",
+    "/therapist/dashboard",
+    "/admin/bookings",
+    "/admin/dashboard",
+  ]) {
+    try {
+      revalidatePath(path);
+    } catch {
+      logDiagnosticEvent("booking-request-action", "Booking created but cache invalidation failed.", {
+        bookingId,
+        phase: "post_commit_revalidation",
+        path,
+      });
+    }
   }
 
   redirect(`/client/bookings/${bookingId}`);
