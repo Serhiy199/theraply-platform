@@ -20,7 +20,6 @@ import {
 } from "@/lib/promo-code";
 import { isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { getStripeClient } from "@/lib/stripe/stripe";
-import { shouldSkipStagingSuccessReconciliation } from "@/lib/stripe/webhook-first-staging-guard";
 import { DEFAULT_APP_TIME_ZONE } from "@/lib/time-zone";
 import { formatAppDateTime } from "@/lib/utils/date-time";
 import {
@@ -236,7 +235,6 @@ export type StripeCheckoutSuccessSyncResult =
         | "SESSION_NOT_COMPLETE"
         | "SESSION_NOT_PAID"
         | "BOOKING_MISMATCH"
-        | "WEBHOOK_FIRST_TEST"
         | "NOT_FOUND";
     };
 
@@ -1230,14 +1228,6 @@ export async function syncClientStripeCheckoutSuccess(
 
   if (!booking) {
     throw new PaymentFlowServiceError("Booking not found for payment flow.", "BOOKING_NOT_FOUND");
-  }
-
-  // Ownership is checked before this server-configured, staging-only opt-out.
-  if (shouldSkipStagingSuccessReconciliation(booking.id)) {
-    console.info("STAGING_WEBHOOK_FIRST_SUCCESS_RETURN_SKIPPED", { bookingId: booking.id });
-    return booking.payment?.paymentStatus === PaymentStatus.PAID
-      ? { status: "paid", paymentId: booking.payment.id, bookingId: booking.id }
-      : { status: "pending", bookingId: booking.id, reason: "WEBHOOK_FIRST_TEST" };
   }
 
   if (booking.payment?.paymentStatus === PaymentStatus.PAID) {

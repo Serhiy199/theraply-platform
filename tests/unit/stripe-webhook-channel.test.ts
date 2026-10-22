@@ -4,7 +4,6 @@ import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { getStripeConfig, isStripeConfigured } from "@/lib/stripe/stripe-config";
 import { PLATFORM_WEBHOOK_EVENTS, verifyStripeWebhook } from "@/lib/stripe/webhook-channel";
-import { enableWebhookFirstStagingGuard, WEBHOOK_FIRST_BOOKING_ID } from "../helpers/webhook-first-staging";
 
 const mocks = vi.hoisted(() => ({
   owner: vi.fn(), update: vi.fn(), reserve: vi.fn(), release: vi.fn(), payment: vi.fn(),
@@ -78,10 +77,9 @@ describe("two signed Stripe destinations (offline SDK signatures)", () => {
     expect((await send(event("checkout.session.completed"), platform)).status).toBe(200);
     expect(mocks.completed).toHaveBeenCalledOnce();
   });
-  it.each(["checkout.session.completed", "payment_intent.succeeded"])("preserves signed PLATFORM processing with the booking guard active: %s", async type => {
-    enableWebhookFirstStagingGuard();
+  it.each(["checkout.session.completed", "payment_intent.succeeded"])("processes signed PLATFORM payment events: %s", async type => {
     const value = event(type);
-    value.data.object.metadata.bookingId = WEBHOOK_FIRST_BOOKING_ID;
+    value.data.object.metadata.bookingId = "booking-id";
     expect((await send(value, platform)).status).toBe(200);
     expect(mocks.reserve).toHaveBeenCalledOnce();
     expect(type === "checkout.session.completed" ? mocks.completed : mocks.succeeded).toHaveBeenCalledOnce();
