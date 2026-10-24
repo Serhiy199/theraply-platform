@@ -299,7 +299,7 @@ export async function confirmTherapistBooking(
 
   return prisma.$transaction(async (tx) => {
     await tx.booking.update({
-      where: { id: booking.id },
+      where: { id: booking.id, therapistId: userId, bookingStatus: BookingStatus.PENDING_THERAPIST },
       data: {
         bookingStatus: BookingStatus.CONFIRMED,
       },

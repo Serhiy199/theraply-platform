@@ -1407,9 +1407,11 @@ export async function markStripeCheckoutSessionCompleted(
     booking.bookingStatus !== BookingStatus.CONFIRMED &&
     !isClosedBookingStatus(booking.bookingStatus)
   ) {
-    await prisma.booking.update({
+    // Only an active pending request can advance; a concurrent cancellation wins.
+    await prisma.booking.updateMany({
       where: {
         id: bookingId,
+        bookingStatus: BookingStatus.PENDING_THERAPIST,
       },
       data: {
         bookingStatus: BookingStatus.CONFIRMED,

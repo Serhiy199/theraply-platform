@@ -128,6 +128,7 @@ export class BookingFlowServiceError extends Error {
       | "SESSION_NOT_SETTLEABLE"
       | "SLOT_CONFLICT"
       | "THERAPIST_NOT_BOOKABLE"
+      | "GOOGLE_CALENDAR_UNAVAILABLE"
       | "GOOGLE_CALENDAR_SYNC_FAILED",
   ) {
     super(message);
@@ -206,10 +207,6 @@ function getUserDisplayName(user: {
   return fullName || user.email?.trim() || null;
 }
 
-function buildBookingSlotLockKey(therapistId: string, startsAt: Date, endsAt: Date) {
-  return `${therapistId}:${startsAt.toISOString()}:${endsAt.toISOString()}`;
-}
-
 function assertBookingLeadTime(startsAt: Date, now = new Date()) {
   if (!meetsBookingLeadTime(startsAt, now)) {
     throw new BookingFlowServiceError(
@@ -222,18 +219,18 @@ function assertBookingLeadTime(startsAt: Date, now = new Date()) {
 async function acquireBookingSlotCreationLock(
   tx: Prisma.TransactionClient,
   therapistId: string,
-  startsAt: Date,
-  endsAt: Date,
 ) {
-  const lockKey = buildBookingSlotLockKey(therapistId, startsAt, endsAt);
-  const lockResult = await tx.$queryRaw<Array<{ locked: boolean }>>`
-    SELECT pg_try_advisory_xact_lock(
-      hashtext(${therapistId}),
-      hashtext(${lockKey})
-    ) AS "locked"
-  `;
-
-  if (!lockResult[0]?.locked) {
+  // All slots for a therapist share a transaction lock, including partial overlaps.
+  // READ COMMITTED gives the subsequent overlap query a fresh post-lock snapshot.
+  await tx.$executeRaw`SET LOCAL lock_timeout = '1000ms'`;
+  try {
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtext('theraply-booking'), hashtext(${therapistId}))::text
+    `;
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.meta?.code !== "55P03") {
+      throw error;
+    }
     throw new BookingFlowServiceError(
       "The selected slot is being booked right now. Please try again.",
       "SLOT_CONFLICT",
@@ -241,8 +238,8 @@ async function acquireBookingSlotCreationLock(
   }
 }
 
-async function getBookableTherapistOrThrow(therapistId: string) {
-  const therapist = await prisma.user.findFirst({
+async function getBookableTherapistOrThrow(therapistId: string, db: Pick<Prisma.TransactionClient, "user"> = prisma) {
+  const therapist = await db.user.findFirst({
     where: {
       ...bookableTherapistWhere,
       id: therapistId,
@@ -260,8 +257,8 @@ async function getBookableTherapistOrThrow(therapistId: string) {
   return therapist;
 }
 
-async function assertClientCanBook(clientUserId: string) {
-  const client = await prisma.user.findFirst({
+async function assertClientCanBook(clientUserId: string, db: Pick<Prisma.TransactionClient, "user"> = prisma) {
+  const client = await db.user.findFirst({
     where: {
       id: clientUserId,
       role: UserRole.CLIENT,
@@ -286,12 +283,13 @@ async function assertClientCanBook(clientUserId: string) {
 }
 
 async function assertSlotIsAvailable(
+  db: Pick<Prisma.TransactionClient, "booking">,
   therapistId: string,
   startsAt: Date,
   endsAt: Date,
   excludeBookingId?: string,
 ) {
-  const conflictingBooking = await prisma.booking.findFirst({
+  const conflictingBooking = await db.booking.findFirst({
     where: {
       therapistId,
       bookingStatus: {
@@ -339,8 +337,8 @@ async function assertTherapistGoogleSlotIsAvailable(
 
     if (error instanceof GoogleAvailabilityServiceError) {
       throw new BookingFlowServiceError(
-        "The selected slot is no longer available.",
-        "SLOT_CONFLICT",
+        "We could not verify calendar availability right now. Please try again.",
+        "GOOGLE_CALENDAR_UNAVAILABLE",
       );
     }
 
@@ -403,11 +401,14 @@ export async function createBookingRequest(
   }
 
   assertBookingLeadTime(input.startsAt);
+  await assertTherapistGoogleSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
 
   const booking = await prisma.$transaction(async (tx) => {
-    await acquireBookingSlotCreationLock(tx, input.therapistId, input.startsAt, input.endsAt);
-    await assertSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
-    await assertTherapistGoogleSlotIsAvailable(input.therapistId, input.startsAt, input.endsAt);
+    await acquireBookingSlotCreationLock(tx, input.therapistId);
+    await assertClientCanBook(clientUserId, tx);
+    await getBookableTherapistOrThrow(input.therapistId, tx);
+    await assertSlotIsAvailable(tx, input.therapistId, input.startsAt, input.endsAt);
+    assertBookingLeadTime(input.startsAt);
 
     return tx.booking.create({
       data: {
@@ -420,7 +421,7 @@ export async function createBookingRequest(
       },
       select: bookingDetailsSelect,
     });
-  });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
   try {
     await sendBookingRequestCreatedEmailsBestEffort(booking.id);
@@ -494,7 +495,7 @@ export async function confirmBookingRequest(
     );
   }
 
-  await assertSlotIsAvailable(booking.therapistId, booking.startsAt, booking.endsAt, booking.id);
+  await assertSlotIsAvailable(prisma, booking.therapistId, booking.startsAt, booking.endsAt, booking.id);
   await assertTherapistGoogleSlotIsAvailable(booking.therapistId, booking.startsAt, booking.endsAt);
 
   const clientDisplayName = getUserDisplayName(booking.client);
@@ -521,13 +522,16 @@ export async function confirmBookingRequest(
     const confirmedEvent = createdEvent;
 
     const updatedBooking = await prisma.$transaction(async (tx) => {
+      await acquireBookingSlotCreationLock(tx, booking.therapistId);
+      await assertSlotIsAvailable(tx, booking.therapistId, booking.startsAt, booking.endsAt, booking.id);
       const generatedMeetingUrl =
         confirmedEvent.meetingUrl ||
         booking.session?.meetingUrl?.trim() ||
         buildGeneratedMeetingUrl(booking.id);
 
       await tx.booking.update({
-        where: { id: booking.id },
+        // A stale confirmation must never resurrect a cancelled/rejected booking.
+        where: { id: booking.id, therapistId: therapistUserId, bookingStatus: BookingStatus.PENDING_THERAPIST },
         data: {
           bookingStatus: BookingStatus.CONFIRMED,
           paymentDueBy: getPaymentDueBy(booking.startsAt),
@@ -592,7 +596,7 @@ export async function confirmBookingRequest(
       }
 
       return updatedBooking;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
     await sendBookingConfirmedEmailBestEffort(updatedBooking.id);
 

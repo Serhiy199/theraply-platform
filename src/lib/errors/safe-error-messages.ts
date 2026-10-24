@@ -64,6 +64,8 @@ export function getSafeBookingFlowErrorMessage(code: string) {
       return "This therapist is not available for booking right now.";
     case "GOOGLE_CALENDAR_SYNC_FAILED":
       return "Google Calendar could not be updated right now. Please try again.";
+    case "GOOGLE_CALENDAR_UNAVAILABLE":
+      return "We could not verify calendar availability right now. Please try again.";
     default:
       return SAFE_ERROR_MESSAGES.genericBooking;
   }

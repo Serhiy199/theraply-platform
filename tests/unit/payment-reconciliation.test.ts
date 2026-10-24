@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: findClientBookingMock,
       findUnique: findBookingMock,
       update: updateBookingMock,
+      updateMany: updateBookingMock,
     },
     payment: {
       update: updatePaymentMock,
@@ -149,6 +150,18 @@ const intentSuccess = {
 };
 
 describe("payment snapshot reconciliation", () => {
+  it("does not resurrect a cancelled booking from a stale pending payment snapshot", async () => {
+    const original = await findBookingMock();
+    findBookingMock.mockResolvedValueOnce({ ...original, bookingStatus: BookingStatus.PENDING_THERAPIST });
+    // The row is now cancelled; the predicate must be applied by the DB, not the stale snapshot.
+    updateBookingMock.mockResolvedValueOnce({ count: 0 });
+    await markStripeCheckoutSessionCompleted("booking-id", checkoutSuccess);
+    expect(updateBookingMock).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "booking-id", bookingStatus: BookingStatus.PENDING_THERAPIST },
+      data: { bookingStatus: BookingStatus.CONFIRMED },
+    });
+    expect(payment.paymentStatus).toBe(PaymentStatus.PAID);
+  });
   it("converges across duplicate success events without adding the booking fee again", async () => {
     Object.assign(payment, { amount: 8000, bookingFeeAmount: 199, creditAppliedAmount: 8000,
       clientPayableAmount: 8000, stripeChargeAmount: 199, promoDiscountAmount: 0,

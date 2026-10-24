@@ -24,6 +24,45 @@ const DEFAULT_SLOT_DURATION_MINUTES = 60;
 const DEFAULT_BOOKING_WINDOW_DAYS = 14;
 const BUSINESS_HOURS_START = 9;
 const BUSINESS_HOURS_END = 17;
+const FREEBUSY_TIMEOUT_MS = 5_000;
+
+function calendarUnavailable() {
+  return new GoogleAvailabilityServiceError(
+    "We could not verify calendar availability right now. Please try again.",
+    "GOOGLE_CALENDAR_UNAVAILABLE",
+  );
+}
+
+function parseBusyRanges(value: unknown): AvailabilityTimeRange[] {
+  if (!value || typeof value !== "object") throw calendarUnavailable();
+  const entry = value as { busy?: unknown; errors?: unknown };
+  if (entry.errors !== undefined && (!Array.isArray(entry.errors) || entry.errors.length > 0)) {
+    throw calendarUnavailable();
+  }
+  if (!Array.isArray(entry.busy)) throw calendarUnavailable();
+  return entry.busy.map((range: unknown) => {
+    if (!range || typeof range !== "object") throw calendarUnavailable();
+    const { start, end } = range as { start?: unknown; end?: unknown };
+    // Require RFC3339 offsets: never interpret a Google response in the server's local zone.
+    const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+    if (typeof start !== "string" || typeof end !== "string" || !timestamp.test(start) || !timestamp.test(end)) {
+      throw calendarUnavailable();
+    }
+    for (const value of [start, end]) {
+      const [year, month, day, hour, minute, second] = value.slice(0, 19).split(/[-T:]/).map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day || hour > 23 || minute > 59 || second > 59) {
+        throw calendarUnavailable();
+      }
+    }
+    const startsAt = new Date(start);
+    const endsAt = new Date(end);
+    if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
+      throw calendarUnavailable();
+    }
+    return { startsAt, endsAt };
+  });
+}
 
 export type TherapistGoogleAvailabilitySlot = {
   therapistId: string;
@@ -168,28 +207,13 @@ async function getGoogleCalendarBusyRanges(
         timeZone: DEFAULT_APP_TIME_ZONE,
         items: [{ id: connection.googleCalendarId }],
       },
-    });
+    }, { timeout: FREEBUSY_TIMEOUT_MS, retry: false });
 
-    const busyRanges =
-      response.data.calendars?.[connection.googleCalendarId]?.busy ?? [];
+    const busyRanges = parseBusyRanges(response.data?.calendars?.[connection.googleCalendarId]);
 
     return {
       timeZone: DEFAULT_APP_TIME_ZONE,
-      busyRanges: busyRanges
-      .map((range) => {
-        const startsAt = range.start ? new Date(range.start) : null;
-        const endsAt = range.end ? new Date(range.end) : null;
-
-        if (!startsAt || !endsAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-          return null;
-        }
-
-        return {
-          startsAt,
-          endsAt,
-        };
-      })
-      .filter((range): range is AvailabilityTimeRange => Boolean(range)),
+      busyRanges,
     };
   } catch (error) {
     if (error instanceof GoogleAvailabilityServiceError) {
@@ -210,7 +234,7 @@ async function getGoogleCalendarBusyRanges(
         });
 
         throw new GoogleAvailabilityServiceError(
-          error.message,
+          "Google Calendar is not connected.",
           "GOOGLE_CALENDAR_NOT_CONNECTED",
         );
       }
@@ -232,7 +256,7 @@ async function getGoogleCalendarBusyRanges(
         });
 
         throw new GoogleAvailabilityServiceError(
-          error.message,
+          "Google Calendar authorization is unavailable.",
           "GOOGLE_CALENDAR_UNAVAILABLE",
         );
       }
@@ -242,7 +266,7 @@ async function getGoogleCalendarBusyRanges(
       therapistId,
       from: from.toISOString(),
       to: to.toISOString(),
-      error: error instanceof Error ? error.message : String(error),
+      code: "GOOGLE_CALENDAR_UNAVAILABLE",
     });
     await createAuditLogEntryBestEffort({
       actorUserId: therapistId,
@@ -252,11 +276,11 @@ async function getGoogleCalendarBusyRanges(
       after: {
         from: from.toISOString(),
         to: to.toISOString(),
-        error: error instanceof Error ? error.message : String(error),
+        code: "GOOGLE_CALENDAR_UNAVAILABLE",
       },
     });
 
-    throw error;
+    throw calendarUnavailable();
   }
 }
 

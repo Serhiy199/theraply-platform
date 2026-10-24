@@ -109,4 +109,20 @@ describe("booking request commit boundary", () => {
     expect(mocks.revalidate).not.toHaveBeenCalled();
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
+
+  it("reports temporary calendar verification failure separately from a busy slot", async () => {
+    mocks.create.mockRejectedValue(new BookingFlowServiceError("PRIVATE_PROVIDER_SENTINEL", "GOOGLE_CALENDAR_UNAVAILABLE"));
+    expect(await createBookingRequestAction({ status: "idle" }, form())).toEqual({
+      status: "error", code: "unknown",
+      message: "We could not verify calendar availability right now. Please try again.",
+    });
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.revalidate).not.toHaveBeenCalled();
+  });
+
+  it("preserves the 60-minute duration requirement", async () => {
+    const data = form(); data.set("endsAt", "2030-08-25T10:30:00Z");
+    expect(await createBookingRequestAction({ status: "idle" }, data)).toMatchObject({ code: "validation" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
 });
