@@ -103,6 +103,31 @@ function projection(id = "profile-1") {
   };
 }
 
+describe("batch depublishing", () => {
+  it("includes an existing formerly public profile in dry run even with zero eligible", async () => {
+    mocks.findMany.mockResolvedValue([{ ...buildProfile(), isGoogleCalendarConnected: false }]);
+    mocks.listItems.mockResolvedValue([{ id: "existing", data: projection() }]);
+    const report = await runWixCmsProductionReconciliation();
+    expect(report.eligibleCount).toBe(0);
+    expect(report.reconciliationProfileIds).toEqual(["profile-1"]);
+    expect(report.plans).toEqual([{ therapistProfileId: "profile-1", action: "HIDDEN", wixItemId: "existing" }]);
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
+  it("does not silently broaden an old eligible-only write allowlist", async () => {
+    mocks.findMany.mockResolvedValue([buildProfile(), { ...buildProfile("inactive"), user: { ...buildProfile().user, isActive: false } }]);
+    mocks.listItems.mockResolvedValue([{ id: "existing", data: projection("inactive") }]);
+    await expect(runWixCmsProductionReconciliation({ write: true, expectedCount: 1,
+      allowProfileIds: ["profile-1"], confirmation: WIX_PRODUCTION_RECONCILIATION_CONFIRMATION })).rejects.toMatchObject({ code: "ALLOWLIST_MISMATCH" });
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
+  it("keeps already hidden items unchanged and preserves untracked/orphan items", async () => {
+    mocks.findMany.mockResolvedValue([{ ...buildProfile(), isGoogleCalendarConnected: false }]);
+    mocks.listItems.mockResolvedValue([{ id: "hidden", data: { ...projection(), isPublished: false, isBookable: false } },
+      { id: "orphan", data: { theraplyId: "missing-profile" } }]);
+    expect((await runWixCmsProductionReconciliation()).plans).toEqual([{ therapistProfileId: "profile-1", action: "NO_CHANGE", wixItemId: "hidden" }]);
+  });
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("APP_URL", "https://platform.theraply.online");

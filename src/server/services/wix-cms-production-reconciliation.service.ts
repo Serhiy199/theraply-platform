@@ -53,6 +53,7 @@ export type WixProductionReconciliationReport = {
   collectionId: typeof WIX_THERAPISTS_COLLECTION_ID;
   eligibleCount: number;
   eligibleProfileIds: string[];
+  reconciliationProfileIds: string[];
   wixItemCount: number;
   plans: WixProductionReconciliationPlan[];
   results: Array<{
@@ -154,6 +155,14 @@ function buildPlans(
   return profiles.map((profile): WixProductionReconciliationPlan => {
     const existingItem = wixItemsByTheraplyId.get(profile.id);
 
+    if (!evaluateTherapistReadiness({ user: profile.user, profile }).publicReady) {
+      return {
+        therapistProfileId: profile.id,
+        action: existingItem && (existingItem.data.isPublished !== false || existingItem.data.isBookable !== false) ? "HIDDEN" : "NO_CHANGE",
+        wixItemId: existingItem?.id ?? null,
+      };
+    }
+
     if (!existingItem) {
       return { therapistProfileId: profile.id, action: "CREATE", wixItemId: null };
     }
@@ -240,7 +249,10 @@ export async function runWixCmsProductionReconciliation(
     );
   }
 
-  const plans = buildPlans(eligibleProfiles, wixItemsByTheraplyId);
+  const reconciliationProfiles = profiles.filter(profile =>
+    eligibleProfileIds.includes(profile.id) || wixItemsByTheraplyId.has(profile.id));
+  const plans = buildPlans(reconciliationProfiles, wixItemsByTheraplyId);
+  const reconciliationProfileIds = reconciliationProfiles.map(profile => profile.id).sort();
   const report: WixProductionReconciliationReport = {
     mode: options.write ? "WRITE" : "DRY_RUN",
     environment: "production",
@@ -248,6 +260,7 @@ export async function runWixCmsProductionReconciliation(
     collectionId: WIX_THERAPISTS_COLLECTION_ID,
     eligibleCount: eligibleProfileIds.length,
     eligibleProfileIds,
+    reconciliationProfileIds,
     wixItemCount: wixItems.length,
     plans,
     results: [],
@@ -272,9 +285,9 @@ export async function runWixCmsProductionReconciliation(
   }
 
   const allowProfileIds = normalizedUniqueIds(options.allowProfileIds ?? []);
-  if (!allowProfileIds.length || !sameIds(allowProfileIds, eligibleProfileIds)) {
+  if (!allowProfileIds.length || !sameIds(allowProfileIds, reconciliationProfileIds)) {
     throw new WixProductionReconciliationError(
-      "The write allowlist must exactly match the canonical eligible profile set.",
+      "The write allowlist must exactly match the reconciliation set, including existing non-public profiles.",
       "ALLOWLIST_MISMATCH",
     );
   }

@@ -1,4 +1,5 @@
 import "server-only";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -328,6 +329,7 @@ export async function saveTherapistGoogleCalendarConnection(
     },
   );
 
+  scheduleWixCmsReconciliation(connection.id);
   return updatedConnection;
 }
 
@@ -362,6 +364,7 @@ export async function disconnectTherapistGoogleCalendarConnection(therapistUserI
     },
   );
 
+  scheduleWixCmsReconciliation(connection.id);
   return updatedConnection;
 }
 
@@ -443,6 +446,7 @@ export async function refreshTherapistGoogleCalendarAccessToken(therapistUserId:
         },
       );
 
+      scheduleWixCmsReconciliation(connection.id);
       throw new GoogleCalendarServiceError(
         "Google Calendar authorization expired or was revoked. The therapist needs to reconnect Google Calendar.",
         "GOOGLE_CALENDAR_REAUTH_REQUIRED",
@@ -604,6 +608,7 @@ export async function updateTherapistSelectedGoogleCalendar(
     },
   );
 
+  scheduleWixCmsReconciliation(connection.id);
   return updatedConnection;
 }
 

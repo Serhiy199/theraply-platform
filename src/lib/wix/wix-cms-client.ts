@@ -54,6 +54,7 @@ export type WixCmsCollectionField = {
 export type WixCmsCollection = {
   id: string;
   fields: WixCmsCollectionField[];
+  plugins?: unknown[];
 };
 
 export class WixCmsClientError extends Error {
@@ -108,6 +109,9 @@ function parseCollection(value: unknown): WixCmsCollection {
   if (!isRecord(value) || typeof value.id !== "string" || !Array.isArray(value.fields)) {
     throw new WixCmsClientError("Wix CMS returned an invalid collection response.");
   }
+  if (value.plugins !== undefined && !Array.isArray(value.plugins)) {
+    throw new WixCmsClientError("Wix CMS returned invalid collection plugins.");
+  }
 
   const fields = value.fields.flatMap((field) =>
     isRecord(field) && typeof field.key === "string" && typeof field.type === "string"
@@ -119,7 +123,7 @@ function parseCollection(value: unknown): WixCmsCollection {
     throw new WixCmsClientError("Wix CMS returned an invalid collection field.");
   }
 
-  return { id: value.id, fields };
+  return { id: value.id, fields, ...(Array.isArray(value.plugins) ? { plugins: value.plugins } : {}) };
 }
 
 export async function getWixCmsTherapistsCollection() {
@@ -128,7 +132,7 @@ export async function getWixCmsTherapistsCollection() {
     config.siteId,
     config.apiToken,
     `/wix-data/v2/collections/${encodeURIComponent(WIX_THERAPISTS_COLLECTION_ID)}?consistentRead=true`,
-    { method: "GET" },
+    { method: "GET", signal: AbortSignal.timeout(8_000) },
   );
 
   return parseCollection(response.collection);
@@ -140,7 +144,7 @@ export async function listWixCmsTherapistIndexes() {
     config.siteId,
     config.apiToken,
     `/wix-data/v2/indexes?dataCollectionId=${encodeURIComponent(WIX_THERAPISTS_COLLECTION_ID)}&paging.limit=100`,
-    { method: "GET" },
+    { method: "GET", signal: AbortSignal.timeout(8_000) },
   );
 
   if (!Array.isArray(response.indexes)) {
@@ -164,6 +168,7 @@ export async function listAllWixCmsTherapists() {
       "/wix-data/v2/items/query",
       {
         method: "POST",
+        signal: AbortSignal.timeout(8_000),
         body: {
           dataCollectionId: WIX_THERAPISTS_COLLECTION_ID,
           consistentRead: true,
@@ -193,6 +198,7 @@ export async function findWixCmsTherapistsByTheraplyId(theraplyId: string) {
     "/wix-data/v2/items/query",
     {
       method: "POST",
+      signal: AbortSignal.timeout(8_000),
       body: {
         dataCollectionId: WIX_THERAPISTS_COLLECTION_ID,
         consistentRead: true,
@@ -221,6 +227,7 @@ export async function createWixCmsTherapist(data: WixCmsTherapistData) {
     "/wix-data/v2/items",
     {
       method: "POST",
+      signal: AbortSignal.timeout(8_000),
       body: {
         dataCollectionId: WIX_THERAPISTS_COLLECTION_ID,
         dataItem: {
@@ -244,6 +251,7 @@ export async function updateWixCmsTherapist(
     `/wix-data/v2/items/${encodeURIComponent(item.id)}`,
     {
       method: "PUT",
+      signal: AbortSignal.timeout(8_000),
       body: {
         dataCollectionId: WIX_THERAPISTS_COLLECTION_ID,
         dataItem: {

@@ -141,6 +141,12 @@ function dataMatches(item: WixCmsDataItem, expected: Record<string, unknown>) {
   return Object.entries(expected).every(([key, value]) => item.data[key] === value);
 }
 
+function assertItemIdentity(item: WixCmsDataItem, profileId: string, expectedId?: string) {
+  if (!item.id || item.data.theraplyId !== profileId || (expectedId && item.id !== expectedId)) {
+    throw new WixCmsTherapistSyncError("Wix CMS returned an unexpected therapist identity.", "WIX_CMS_SYNC_FAILED");
+  }
+}
+
 function logSyncResult(result: WixCmsTherapistSyncResult) {
   console.info("[wix-cms-therapist-sync] reconciliation completed", {
     therapistProfileId: result.therapistProfileId,
@@ -190,6 +196,8 @@ export async function reconcileTherapistPublicProfile(
       );
     }
 
+    for (const item of matches) assertItemIdentity(item, profile.id);
+
     if (!readiness.publicReady && matches.length === 0) {
       const result: WixCmsTherapistSyncResult = {
         status: "SKIPPED_NOT_PUBLIC_READY",
@@ -211,6 +219,8 @@ export async function reconcileTherapistPublicProfile(
         status === "NO_CHANGE"
           ? existingItem
           : await updateWixCmsTherapist(existingItem, hiddenData);
+      assertItemIdentity(item, profile.id, existingItem.id);
+      if (!dataMatches(item, { isBookable: false, isPublished: false })) throw new Error("WIX_CMS_RESPONSE_MISMATCH");
       const result: WixCmsTherapistSyncResult = {
         status,
         therapistProfileId: profile.id,
@@ -227,6 +237,8 @@ export async function reconcileTherapistPublicProfile(
     if (matches.length === 0) {
       operation = "CREATE_THERAPIST";
       const item = await createWixCmsTherapist(projection);
+      assertItemIdentity(item, profile.id);
+      if (!dataMatches(item, projection)) throw new Error("WIX_CMS_RESPONSE_MISMATCH");
       const result: WixCmsTherapistSyncResult = {
         status: "CREATED",
         therapistProfileId: profile.id,
@@ -244,7 +256,9 @@ export async function reconcileTherapistPublicProfile(
     const item =
       status === "NO_CHANGE"
         ? existingItem
-        : await updateWixCmsTherapist(existingItem, projection);
+        : await updateWixCmsTherapist(existingItem, { ...existingItem.data, ...projection });
+    assertItemIdentity(item, profile.id, existingItem.id);
+    if (!dataMatches(item, projection)) throw new Error("WIX_CMS_RESPONSE_MISMATCH");
     const result: WixCmsTherapistSyncResult = {
       status,
       therapistProfileId: profile.id,

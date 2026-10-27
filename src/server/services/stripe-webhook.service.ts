@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import { isWebhookEventAllowed, type StripeAccountThinNotification, type StripeWebhookChannel } from "@/lib/stripe/webhook-channel";
 import { assertStripeEventMode, StripeIsolationError } from "@/lib/stripe/runtime-mode";
 import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
@@ -339,6 +340,7 @@ async function updateCanonicalAccountStatus(
 }
 
 async function auditAccountUpdated(account: Stripe.Account, owner: { id: string; userId: string }) {
+  scheduleWixCmsReconciliation(owner.id);
   await createAuditLogEntryBestEffort({
     entityType: "TherapistProfile",
     entityId: owner.id,

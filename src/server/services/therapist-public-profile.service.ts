@@ -1,4 +1,5 @@
 import "server-only";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import { Prisma, TherapistApprovalStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { therapistPublicProfileSchema } from "@/lib/validations/therapist-public-profile";
@@ -24,7 +25,7 @@ export async function getTherapistPublicProfile(userId: string) {
 export async function updateTherapistPublicProfile(userId: string, input: unknown) {
   const data = therapistPublicProfileSchema.parse(input);
   const where = ownApprovedProfile(userId);
-  return prisma.$transaction(async tx => {
+  const profileId = await prisma.$transaction(async tx => {
     const profile = await tx.therapistProfile.findFirst({ where, select: { id: true, ...publicFields } });
     if (!profile) throw new Error("Profile access denied.");
     const updated = await tx.therapistProfile.updateMany({ where: { ...where, id: profile.id }, data });
@@ -34,6 +35,8 @@ export async function updateTherapistPublicProfile(userId: string, input: unknow
       action: "THERAPIST_PUBLIC_PROFILE_UPDATED",
       after: { changedFields: Object.keys(data).filter(key => data[key as keyof typeof data] !== profile[key as keyof typeof data]) },
     } });
-    return data;
+    return profile.id;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  scheduleWixCmsReconciliation(profileId);
+  return data;
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 
 import {
   THERAPIST_PROFILE_PHOTO_ALLOWED_MIME_TYPES,
@@ -152,5 +153,6 @@ export async function updateTherapistProfilePhotoFromCloudinaryUpload(
     },
   });
 
+  scheduleWixCmsReconciliation(profile.id);
   return updatedProfile;
 }

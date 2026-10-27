@@ -3,6 +3,7 @@
   SessionStatus,
   TherapistApprovalStatus,
 } from "@prisma/client";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import {
   bookingDetailsSelect,
   therapistRequestItemSelect,
@@ -535,6 +536,7 @@ export async function updateTherapistPayoutDetails(
     },
   });
 
+  scheduleWixCmsReconciliation(therapistProfile.id);
   return updatedPayoutDetails;
 }
 
@@ -570,5 +572,6 @@ export async function updateTherapistSessionPrice(
     },
   });
 
+  scheduleWixCmsReconciliation(therapistProfile.id);
   return updatedProfile;
 }

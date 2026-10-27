@@ -1,4 +1,5 @@
 import { Prisma, TherapistApprovalStatus } from "@prisma/client";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import type { TherapistOnboardingDraft } from "@/lib/contracts/therapist-onboarding";
 import { canEditTherapistOnboardingDraft } from "@/lib/therapist-lifecycle";
 import {
@@ -251,6 +252,7 @@ export async function submitTherapistOnboardingForReview(
     },
   });
 
+  scheduleWixCmsReconciliation(updatedProfile.id);
   await sendTherapistOnboardingPendingReviewEmail({
     userId: updatedProfile.userId,
     email: updatedProfile.user.email,

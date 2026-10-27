@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/wix-cms",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/booking-rules",
       "schedule": "0 8 * * *"
     },

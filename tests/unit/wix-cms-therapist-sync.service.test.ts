@@ -100,6 +100,50 @@ beforeEach(() => {
 });
 
 describe("Wix CMS therapist reconciliation", () => {
+  it("preserves custom fields and the CMS ID across create/edit/hide/restore/retry", async () => {
+    let stored: { id: string; data: Record<string, unknown> } | null = null;
+    mocks.findItems.mockImplementation(async () => stored ? [stored] : []);
+    mocks.createItem.mockImplementation(async data => {
+      stored = { id: "stable-id", data: { ...data, customerField: "preserved" } };
+      return stored;
+    });
+    mocks.updateItem.mockImplementation(async (item, data) => {
+      stored = { ...item, data };
+      return stored;
+    });
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("CREATED");
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("NO_CHANGE");
+    mocks.profileFindUnique.mockResolvedValue(buildProfile({ bio: "Edited bio", sessionPricePence: 6500 }));
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("UPDATED");
+    mocks.profileFindUnique.mockResolvedValue(buildProfile({ isGoogleCalendarConnected: false }));
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("HIDDEN");
+    expect(stored!.data.isPublished).toBe(false);
+    expect(stored!.data.isBookable).toBe(false);
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("NO_CHANGE");
+    mocks.profileFindUnique.mockResolvedValue(buildProfile());
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("UPDATED");
+    expect(stored!.id).toBe("stable-id");
+    expect(stored!.data.customerField).toBe("preserved");
+    expect(stored!.data.bookingUrl).toBe("https://staging.example/client/book/user-id");
+    expect(mocks.createItem).toHaveBeenCalledTimes(1);
+  });
+
+  it("queries again after ambiguous CREATE failure instead of blindly creating twice", async () => {
+    mocks.createItem.mockRejectedValueOnce(new Error("response lost"));
+    await expect(reconcileTherapistPublicProfile("profile-id")).rejects.toThrow();
+    mocks.findItems.mockResolvedValue([{ id: "created-before-timeout", data: existingData }]);
+    expect((await reconcileTherapistPublicProfile("profile-id")).status).toBe("NO_CHANGE");
+    expect(mocks.createItem).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a mismatched query or mutation identity without changing Theraply data", async () => {
+    mocks.findItems.mockResolvedValue([{ id: "wrong", data: { theraplyId: "other" } }]);
+    await expect(reconcileTherapistPublicProfile("profile-id")).rejects.toThrow("unexpected therapist identity");
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+    mocks.findItems.mockResolvedValue([]);
+    mocks.createItem.mockResolvedValue({ id: "wrong", data: { ...existingData, theraplyId: "other" } });
+    await expect(reconcileTherapistPublicProfile("profile-id")).rejects.toThrow("unexpected therapist identity");
+  });
   it("blocks isolated staging profiles before CMS queries or mutations, including targeted flows", async () => {
     enableWixStagingIsolation(ISOLATED_PROFILE_ID);
     await expect(reconcileTherapistPublicProfile(ISOLATED_PROFILE_ID)).rejects.toBeInstanceOf(WixStagingIsolationError);

@@ -1,4 +1,5 @@
 import "server-only";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import { assertStripeFinancialContext } from "@/lib/stripe/test-fixture";
 import { Prisma, StripeConnectOnboardingStatus, UserRole } from "@prisma/client";
 import Stripe from "stripe";
@@ -192,6 +193,10 @@ export async function syncTherapistStripeAccountStatus(therapistUserId: string):
       },
     });
 
+    if (therapistProfile.stripePayoutsEnabled !== account.payouts_enabled ||
+      therapistProfile.stripeDetailsSubmitted !== account.details_submitted) {
+      scheduleWixCmsReconciliation(therapistProfile.id);
+    }
     return {
       ...updated,
       isReady: isStripeConnectReady(updated),

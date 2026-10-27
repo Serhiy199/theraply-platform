@@ -4,7 +4,8 @@ import { updateTherapistPublicProfile } from "@/server/services/therapist-public
 import { updatePublicProfileAction } from "@/app/therapist/dashboard/actions";
 import { evaluateTherapistReadiness } from "@/lib/therapist-readiness";
 
-const mocks = vi.hoisted(() => ({ find: vi.fn(), update: vi.fn(), audit: vi.fn(), transaction: vi.fn(), user: vi.fn(), guard: vi.fn(), revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ find: vi.fn(), update: vi.fn(), audit: vi.fn(), transaction: vi.fn(), user: vi.fn(), guard: vi.fn(), revalidate: vi.fn(), schedule: vi.fn() }));
+vi.mock("@/server/services/wix-cms-automation.service", () => ({ scheduleWixCmsReconciliation: mocks.schedule }));
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: mocks.user }));
 vi.mock("@/lib/permissions", () => ({ requireActionActiveTherapistFeatures: mocks.guard }));
@@ -42,10 +43,13 @@ describe("approved public profile editing", () => {
     expect(result.isApproved).toBe(true);
     expect(result.isGoogleCalendarConnected).toBe(false);
     expect(result.stripeAccountId).toBeNull();
+    expect(mocks.schedule).toHaveBeenCalledWith("own-profile");
+    expect(mocks.schedule.mock.invocationCallOrder[0]).toBeGreaterThan(mocks.audit.mock.invocationCallOrder[0]);
   });
   it.each(["userId", "id", "therapistProfileId", "approvalStatus", "isApproved", "role", "publicReady", "onboardingCompleted", "googleRefreshToken", "stripePayoutsEnabled", "sessionPricePence", "profilePhotoUrl"])("rejects protected/unowned field %s", async field => {
     await expect(updateTherapistPublicProfile("own-user", { ...input, [field]: "other" })).rejects.toThrow();
     expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.schedule).not.toHaveBeenCalled();
   });
   it("denies missing or freshly ineligible owner and stale update", async () => {
     mocks.find.mockResolvedValueOnce(null);
@@ -58,6 +62,7 @@ describe("approved public profile editing", () => {
   it("fails the transaction when auditing fails", async () => {
     mocks.audit.mockRejectedValueOnce(new Error("audit unavailable"));
     await expect(updateTherapistPublicProfile("own-user", input)).rejects.toThrow("audit unavailable");
+    expect(mocks.schedule).not.toHaveBeenCalled();
   });
   it("removes only public completeness blocker, leaving integration blockers", async () => {
     const before = evaluateTherapistReadiness({ user, profile: approved });

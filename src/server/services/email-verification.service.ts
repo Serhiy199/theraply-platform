@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import { TherapistApprovalStatus, UserRole } from "@prisma/client";
 import {
   AUTH_MESSAGES,
@@ -475,6 +476,9 @@ export async function verifyEmailToken(token: string): Promise<EmailVerification
     );
   }
 
+  if (tokenRecord.user.role === UserRole.THERAPIST && tokenRecord.user.therapistProfile) {
+    scheduleWixCmsReconciliation(tokenRecord.user.therapistProfile.id);
+  }
   logEmailVerificationDevEvent("verify-succeeded", {
     tokenId: tokenRecord.id,
     userId: tokenRecord.user.id,

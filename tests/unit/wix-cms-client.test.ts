@@ -50,6 +50,13 @@ beforeEach(() => {
 });
 
 describe("Wix CMS client", () => {
+  it("retains collection plugins for fail-closed workflow preflight", async () => {
+    const plugins = [{ type: "DRAFT_ITEMS" }];
+    mocks.request.mockResolvedValue({ collection: { id: "Therapists", fields: [], plugins } });
+    expect((await getWixCmsTherapistsCollection()).plugins).toEqual(plugins);
+    mocks.request.mockResolvedValue({ collection: { id: "Therapists", fields: [], plugins: "invalid" } });
+    await expect(getWixCmsTherapistsCollection()).rejects.toThrow("invalid collection plugins");
+  });
   it("reads the canonical collection schema without modifying it", async () => {
     mocks.request.mockResolvedValue({
       collection: {
@@ -72,7 +79,7 @@ describe("Wix CMS client", () => {
       "staging-site-id",
       "cms-token",
       "/wix-data/v2/collections/Therapists?consistentRead=true",
-      { method: "GET" },
+      { method: "GET", signal: expect.any(AbortSignal) },
     );
   });
 
@@ -123,7 +130,7 @@ describe("Wix CMS client", () => {
       "staging-site-id",
       "cms-token",
       "/wix-data/v2/indexes?dataCollectionId=Therapists&paging.limit=100",
-      { method: "GET" },
+      { method: "GET", signal: expect.any(AbortSignal) },
     );
   });
 

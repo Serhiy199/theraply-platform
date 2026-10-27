@@ -8,6 +8,7 @@
   UserRole,
   WixSyncStatus,
 } from "@prisma/client";
+import { scheduleWixCmsReconciliation } from "@/server/services/wix-cms-automation.service";
 import {
   adminBookingRowSelect,
   bookingDetailsSelect,
@@ -410,6 +411,7 @@ export async function approveTherapistReview(
     return updatedProfile;
   });
 
+  scheduleWixCmsReconciliation(updatedProfile.id);
   await sendTherapistOnboardingApprovedEmail({
     userId: updatedProfile.userId,
     email: updatedProfile.user.email,
@@ -499,6 +501,7 @@ export async function rejectTherapistReview(
     return updatedProfile;
   });
 
+  scheduleWixCmsReconciliation(updatedProfile.id);
   await sendTherapistOnboardingRejectedEmail({
     userId: updatedProfile.userId,
     email: updatedProfile.user.email,
@@ -579,6 +582,7 @@ export async function requestTherapistReviewChanges(
     return updatedProfile;
   });
 
+  scheduleWixCmsReconciliation(updatedProfile.id);
   await sendTherapistOnboardingChangesRequestedEmail({
     userId: updatedProfile.userId,
     email: updatedProfile.user.email,
