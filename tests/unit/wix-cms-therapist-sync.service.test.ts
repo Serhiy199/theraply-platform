@@ -319,6 +319,31 @@ describe("targeted Wix soft depublication", () => {
     mocks.findItems.mockResolvedValue([{ id: "wix-item-id", revision: "7", data: existingData }]);
   });
 
+  it("canonical depublish-only call rejects readiness recovery before any write", async () => {
+    mocks.profileFindUnique.mockResolvedValue(buildProfile());
+    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "wix-item-id" })).rejects.toThrow();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("canonical depublish-only call rejects a foreign item even for an unready profile", async () => {
+    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "foreign-item" })).rejects.toThrow();
+    expect(mocks.createItem).not.toHaveBeenCalled();
+    expect(mocks.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("canonical depublish-only call preserves custom fields and writes only once across replay", async () => {
+    const data = { ...existingData, customField: { preserved: true } };
+    mocks.findItems.mockResolvedValue([{ id: "wix-item-id", revision: "7", data }]);
+    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "wix-item-id" })).resolves.toMatchObject({ status: "HIDDEN" });
+    const hidden = { ...data, isPublished: false, isBookable: false };
+    expect(mocks.updateItem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "wix-item-id" }), hidden);
+    mocks.findItems.mockResolvedValue([{ id: "wix-item-id", revision: "8", data: hidden }]);
+    await expect(reconcileTherapistPublicProfile("profile-id", { expectedWixItemId: "wix-item-id" })).resolves.toMatchObject({ status: "NO_CHANGE" });
+    expect(mocks.updateItem).toHaveBeenCalledTimes(1);
+    expect(mocks.createItem).not.toHaveBeenCalled();
+  });
+
   it("defaults to dry run without any mutations", async () => {
     const parsed = parseTargetedDepublishArgs(["--profile-id=profile-id", "--expected-wix-item-id=wix-item-id", `--confirm-production=${TARGETED_DEPUBLISH_CONFIRMATION}`]);
     expect(parsed.write).toBe(false);
