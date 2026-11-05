@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { TherapistApprovalStatus, UserRole } from "@prisma/client";
+import { EmailStatus, TherapistApprovalStatus, UserRole } from "@prisma/client";
 import {
   AUTH_MESSAGES,
   AUTH_ROUTES,
@@ -25,6 +25,7 @@ export type EmailVerificationCreationResult = {
 
 export type EmailVerificationDeliveryResult = EmailVerificationCreationResult & {
   emailLogId: string;
+  status: EmailStatus;
 };
 
 export type EmailVerificationResult = {
@@ -244,6 +245,7 @@ export async function sendEmailVerification(
   return {
     ...verification,
     emailLogId: delivery.emailLogId,
+    status: delivery.status,
   };
 }
 
@@ -301,7 +303,7 @@ export async function resendEmailVerification(
 
   return {
     delivery,
-    emailSent: true,
+    emailSent: delivery.status === EmailStatus.SENT,
     alreadyVerified: false,
   };
 }

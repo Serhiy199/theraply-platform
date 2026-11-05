@@ -82,7 +82,12 @@ export const AUTH_MESSAGES = {
   emailVerificationUsedToken: "This email verification link has already been used.",
   emailVerificationSuccess: "Email verified successfully.",
   emailVerificationResendSuccess:
-    "If your account still needs verification, we sent a new verification email.",
+    "If your account needs verification, we will attempt to send a verification email.",
+  emailVerificationResendSubmitted:
+    "Your verification email has been submitted. Please check your inbox and spam folder.",
+  emailVerificationAlreadyVerified: "Your email address is already verified.",
+  emailVerificationResendPending:
+    "Your verification email request is still pending. Please wait before trying again.",
   emailVerificationResendGenericError: "Unable to resend verification email right now.",
   emailVerificationGenericError: "Unable to verify your email right now.",
   forgotPasswordSuccess:

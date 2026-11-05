@@ -1,5 +1,6 @@
 "use server";
 
+import { EmailStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AUTH_MESSAGES } from "@/lib/constants/auth";
 import { RATE_LIMIT_PRESETS } from "@/lib/constants/rate-limit";
@@ -65,11 +66,21 @@ export async function resendEmailVerificationAction(
 
 async function resendForUserId(userId: string): Promise<ResendEmailVerificationActionState> {
   try {
-    await resendEmailVerification({ userId });
+    const result = await resendEmailVerification({ userId });
+
+    if (result.alreadyVerified) {
+      return { status: "success", message: AUTH_MESSAGES.emailVerificationAlreadyVerified };
+    }
+
+    if (result.delivery?.status === EmailStatus.SENT) {
+      return { status: "success", message: AUTH_MESSAGES.emailVerificationResendSubmitted };
+    }
 
     return {
-      status: "success",
-      message: AUTH_MESSAGES.emailVerificationResendSuccess,
+      status: "error",
+      message: result.delivery?.status === EmailStatus.PENDING
+        ? AUTH_MESSAGES.emailVerificationResendPending
+        : AUTH_MESSAGES.emailVerificationResendGenericError,
     };
   } catch (error) {
     if (error instanceof EmailVerificationServiceError) {
@@ -95,9 +106,10 @@ async function resendForEmail(email: string): Promise<ResendEmailVerificationAct
       message: AUTH_MESSAGES.emailVerificationResendSuccess,
     };
   } catch {
+    // Public-by-email responses must not disclose account eligibility or delivery failure.
     return {
-      status: "error",
-      message: AUTH_MESSAGES.emailVerificationResendGenericError,
+      status: "success",
+      message: AUTH_MESSAGES.emailVerificationResendSuccess,
     };
   }
 }
