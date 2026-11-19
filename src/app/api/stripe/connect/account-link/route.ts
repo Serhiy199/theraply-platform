@@ -1,5 +1,7 @@
 import { UserRole } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { integrationStartMethodNotAllowed, validateIntegrationStartRequest } from "@/lib/integrations/explicit-start-request";
+import { claimIntegrationStart } from "@/server/services/integration-start-claim.service";
 import { getCurrentUser } from "@/lib/auth/session";
 import { THERAPIST_ONBOARDING_ROUTE } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES, AUTH_ROUTES } from "@/lib/constants/auth";
@@ -26,14 +28,20 @@ function buildStripeRedirect(status: "success" | "error", message: string) {
 }
 
 export async function GET() {
+  return integrationStartMethodNotAllowed();
+}
+
+export async function POST(request: NextRequest) {
+  const validation = await validateIntegrationStartRequest(request, "stripe-connect");
+  if (validation instanceof NextResponse) return validation;
   const user = await getCurrentUser();
 
   if (!user) {
-    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login));
+    return NextResponse.redirect(buildCanonicalAppUrl(AUTH_ROUTES.login), 303);
   }
 
   if (!hasRole(user.role, [UserRole.THERAPIST])) {
-    return NextResponse.redirect(buildCanonicalAppUrl("/403"));
+    return NextResponse.redirect(buildCanonicalAppUrl("/403"), 303);
   }
 
   let activeTherapist: Awaited<ReturnType<typeof requireActionActiveTherapistFeatures>>;
@@ -42,7 +50,7 @@ export async function GET() {
     activeTherapist = await requireActionActiveTherapistFeatures(user);
   } catch (error) {
     if (error instanceof ActionPermissionError) {
-      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE));
+      return NextResponse.redirect(buildCanonicalAppUrl(THERAPIST_ONBOARDING_ROUTE), 303);
     }
 
     throw error;
@@ -54,12 +62,15 @@ export async function GET() {
   );
 
   if (!rateLimit.allowed) {
-    return NextResponse.redirect(buildStripeRedirect("error", AUTH_MESSAGES.rateLimited));
+    return NextResponse.redirect(buildStripeRedirect("error", AUTH_MESSAGES.rateLimited), 303);
   }
 
   try {
+    if (!await claimIntegrationStart(activeTherapist.id, "stripe-connect", validation.requestId)) {
+      return NextResponse.redirect(buildStripeRedirect("error", "This connection request was already started. Reload settings before trying again."), 303);
+    }
     const accountLink = await createTherapistStripeAccountLink(activeTherapist.id);
-    return NextResponse.redirect(accountLink.url);
+    return NextResponse.redirect(accountLink.url, 303);
   } catch (error) {
     await createAuditLogEntryBestEffort({
       actorUserId: activeTherapist.id,
@@ -80,6 +91,6 @@ export async function GET() {
         ? "Stripe Connect is not configured yet."
         : "Something went wrong while starting Stripe onboarding.";
 
-    return NextResponse.redirect(buildStripeRedirect("error", message));
+    return NextResponse.redirect(buildStripeRedirect("error", message), 303);
   }
 }

@@ -11,11 +11,13 @@ import {
 } from "@/app/therapist/payout-details/actions";
 import type { TherapistPayoutDetailsView } from "@/server/services/therapist-bookings.service";
 import type { TherapistGoogleCalendarOption } from "@/server/services/google-calendar.service";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { IntegrationStartForm } from "@/components/dashboard/therapist/integration-start-form";
 import { Badge } from "@/components/ui/badge";
 import { SectionEyebrow, SurfaceCard } from "@/components/ui/card";
 
 type TherapistPayoutFormProps = {
+  connectionRequestIds: { stripe: string; google: string };
   data: TherapistPayoutDetailsView;
   googleCalendars: TherapistGoogleCalendarOption[];
   googleCalendarFlash?: {
@@ -66,6 +68,7 @@ function formatStripeStatus(status: string) {
 }
 
 export function TherapistPayoutForm({
+  connectionRequestIds,
   data,
   googleCalendars,
   googleCalendarFlash,
@@ -141,13 +144,9 @@ export function TherapistPayoutForm({
         </div>
 
         <div className="mt-5">
-          <ButtonLink
-            href="/api/stripe/connect/account-link"
-            fullWidth
-            className="border border-slate-900 !bg-slate-900 !text-white shadow-sm shadow-slate-950/10"
-          >
+          <IntegrationStartForm action="/api/stripe/connect/account-link" intent="stripe-connect" requestId={connectionRequestIds.stripe}>
             {data.profile.stripeAccountId ? "Continue Stripe onboarding" : "Connect Stripe account"}
-          </ButtonLink>
+          </IntegrationStartForm>
         </div>
 
         <form action={formAction} className="mt-8 grid gap-4">
@@ -224,13 +223,9 @@ export function TherapistPayoutForm({
                 Connect Google Calendar before confirmed sessions can create Meet links.
               </DashboardStatusAlert>
               <div className="mt-4">
-                <ButtonLink
-                  href="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details"
-                  fullWidth
-                  className="border border-slate-900 !bg-slate-900 !text-white shadow-sm shadow-slate-950/10"
-                >
+                <IntegrationStartForm action="/api/integrations/google/connect?returnTo=%2Ftherapist%2Fpayout-details" intent="google-connect" requestId={connectionRequestIds.google}>
                   Connect Google Calendar
-                </ButtonLink>
+                </IntegrationStartForm>
               </div>
             </div>
           ) : null}

@@ -2,12 +2,13 @@ import { UserRole } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET } from "@/app/api/integrations/google/connect/route";
+import { POST } from "@/app/api/integrations/google/connect/route";
 
 const getCurrentUserMock = vi.hoisted(() => vi.fn());
 const requireActionActiveTherapistFeaturesMock = vi.hoisted(() => vi.fn());
 const buildConnectUrlMock = vi.hoisted(() => vi.fn());
 const checkRateLimitPresetMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/services/integration-start-claim.service", () => ({ claimIntegrationStart: vi.fn(async () => true) }));
 
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: getCurrentUserMock }));
 vi.mock("@/lib/permissions", async (importOriginal) => {
@@ -50,11 +51,17 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("GET /api/integrations/google/connect", () => {
+function connectRequest() {
+  return new NextRequest("https://staging-or-test.example/api/integrations/google/connect", {
+    method: "POST",
+    headers: { origin: "https://staging-or-test.example", cookie: "next-auth.session-token=test-session" },
+    body: new URLSearchParams({ intent: "google-connect", requestId: "11111111-1111-4111-8111-111111111111" }),
+  });
+}
+
+describe("POST /api/integrations/google/connect", () => {
   it("preserves the external Google consent URL", async () => {
-    const response = await GET(
-      new NextRequest("https://localhost:3000/api/integrations/google/connect", { headers: { cookie: "next-auth.session-token=test-session" } }),
-    );
+    const response = await POST(connectRequest());
 
     expect(response.headers.get("location")).toBe(
       "https://accounts.google.test/o/oauth2/v2/auth",
@@ -67,9 +74,7 @@ describe("GET /api/integrations/google/connect", () => {
   it("uses the canonical host for local error redirects", async () => {
     checkRateLimitPresetMock.mockResolvedValue({ allowed: false });
 
-    const response = await GET(
-      new NextRequest("https://localhost:3000/api/integrations/google/connect"),
-    );
+    const response = await POST(connectRequest());
     const location = new URL(response.headers.get("location")!);
 
     expect(location.origin).toBe("https://staging-or-test.example");

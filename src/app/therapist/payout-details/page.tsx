@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { TherapistPayoutForm } from "@/components/dashboard/therapist/therapist-payout-form";
 import { requireActiveTherapistFeatures } from "@/lib/permissions";
 import { getTherapistPayoutDetails } from "@/server/services/therapist-bookings.service";
@@ -48,6 +49,7 @@ export default async function TherapistPayoutDetailsPage({
 
   return (
     <TherapistPayoutForm
+      connectionRequestIds={{ stripe: randomUUID(), google: randomUUID() }}
       data={data}
       googleCalendars={googleCalendars}
       googleCalendarFlash={googleCalendarFlash}
